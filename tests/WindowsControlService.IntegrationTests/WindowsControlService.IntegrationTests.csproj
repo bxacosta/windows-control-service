@@ -10,6 +10,8 @@
 
   <ItemGroup>
     <Using Include="Xunit" />
+    <Using Include="Microsoft.Extensions.Configuration" />
+    <Using Include="Microsoft.Extensions.DependencyInjection" />
   </ItemGroup>
 
   <ItemGroup>

@@ -1,0 +1,6 @@
+-- Scripts run in embedded-resource name order, so the numeric prefix is what defines the
+-- order, not decoration. There are no down migrations: rollback on a single machine means
+-- restoring the previous executable, and the schema only ever grows.
+--
+-- The tables live in the phase that needs them. This script exists so the mechanism -- and
+-- the SchemaVersions journal -- is in place from the start.

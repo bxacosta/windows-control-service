@@ -10,6 +10,13 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- Embedded, not loose on disk, so PublishSingleFile keeps producing a single file.
+         DbUp orders scripts by embedded resource name. -->
+    <None Remove="Infrastructure\Database\Scripts\*.sql" />
+    <EmbeddedResource Include="Infrastructure\Database\Scripts\*.sql" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
     <PackageReference Include="Microsoft.Data.Sqlite" />
     <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" />
