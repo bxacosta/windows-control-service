@@ -9,7 +9,7 @@ var builder = WebApplication.CreateBuilder(args);
 var dataDirectory = builder.AddDataDirectory();
 builder.ConfigureLogging(dataDirectory);
 
-builder.Services.AddSingleton<ISequentialExecutor, SequentialExecutor>();
+builder.Services.AddServiceInfrastructure();
 builder.Services.AddDatabase(builder.Configuration);
 
 var app = builder.Build();
