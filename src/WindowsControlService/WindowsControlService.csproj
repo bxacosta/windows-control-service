@@ -23,6 +23,7 @@
     <PackageReference Include="Dapper" />
     <PackageReference Include="dbup-sqlite" />
     <PackageReference Include="Serilog.Extensions.Hosting" />
+    <PackageReference Include="Serilog.Sinks.EventLog" />
     <PackageReference Include="Serilog.Sinks.File" />
   </ItemGroup>
 

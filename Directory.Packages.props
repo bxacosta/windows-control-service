@@ -9,6 +9,7 @@
     <PackageVersion Include="Dapper" Version="2.1.79" />
     <PackageVersion Include="dbup-sqlite" Version="6.0.4" />
     <PackageVersion Include="Serilog.Extensions.Hosting" Version="10.0.0" />
+    <PackageVersion Include="Serilog.Sinks.EventLog" Version="4.0.0" />
     <PackageVersion Include="Serilog.Sinks.File" Version="7.0.0" />
     <!-- pruebas -->
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.9.0" />
