@@ -10,6 +10,12 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- The process filtering rules are internal so they can be tested against a fixed list
+         instead of whatever happens to be running on the machine. -->
+    <InternalsVisibleTo Include="WindowsControlService.UnitTests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <!-- Embedded, not loose on disk, so PublishSingleFile keeps producing a single file.
          DbUp orders scripts by embedded resource name. -->
     <None Remove="Infrastructure\Database\Scripts\*.sql" />
