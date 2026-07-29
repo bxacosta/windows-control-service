@@ -13,6 +13,7 @@
     <!-- The process filtering rules are internal so they can be tested against a fixed list
          instead of whatever happens to be running on the machine. -->
     <InternalsVisibleTo Include="WindowsControlService.UnitTests" />
+    <InternalsVisibleTo Include="WindowsControlService.IntegrationTests" />
   </ItemGroup>
 
   <ItemGroup>

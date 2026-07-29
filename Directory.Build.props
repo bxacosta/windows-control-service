@@ -11,8 +11,9 @@
     <!-- Needed by the OpenAPI source generator to pick up XML comments, and by IDE0005
          (unused usings), which the compiler only reports when docs are generated. -->
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
-    <!-- CS1591 would demand an XML comment on every public member. We document what feeds
-         OpenAPI and what is not obvious, not every DTO field. -->
-    <NoWarn>$(NoWarn);CS1591</NoWarn>
+    <!-- CS1591 would demand an XML comment on every public member, and CS1573 an entry for
+         every parameter as soon as one is documented. We document what feeds OpenAPI and what
+         carries a trap, such as "OccurredAt is always UTC", not every DTO field. -->
+    <NoWarn>$(NoWarn);CS1591;CS1573</NoWarn>
   </PropertyGroup>
 </Project>
