@@ -13,7 +13,7 @@ public enum ErrorCode
     /// <summary>The process lacks the privileges the operation needs.</summary>
     AccessDenied,
 
-    /// <summary>CiTool is missing, a registry key does not exist, an event log is unreadable.</summary>
+    /// <summary>Code integrity tooling is missing, a registry key does not exist, an event log is unreadable.</summary>
     PlatformUnavailable,
 
     /// <summary>The platform operation ran and failed. Nothing changed.</summary>
