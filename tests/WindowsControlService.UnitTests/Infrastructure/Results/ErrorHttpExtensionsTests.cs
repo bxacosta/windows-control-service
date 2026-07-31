@@ -9,6 +9,7 @@ public sealed class ErrorHttpExtensionsTests
         [ErrorCode.NotFound] = 404,
         [ErrorCode.Conflict] = 409,
         [ErrorCode.Invalid] = 400,
+        [ErrorCode.Unauthorized] = 401,
         [ErrorCode.AccessDenied] = 403,
         [ErrorCode.PlatformUnavailable] = 503,
         [ErrorCode.OperationFailed] = 500,

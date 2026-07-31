@@ -10,6 +10,12 @@ public enum ErrorCode
     Conflict,
     Invalid,
 
+    /// <summary>
+    /// The caller did not prove who it is. Distinct from <see cref="AccessDenied"/>, which is
+    /// about the service's own Windows privileges, not the caller's credentials.
+    /// </summary>
+    Unauthorized,
+
     /// <summary>The process lacks the privileges the operation needs.</summary>
     AccessDenied,
 

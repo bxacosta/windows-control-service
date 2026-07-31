@@ -21,6 +21,7 @@ public static class ErrorHttpExtensions
         ErrorCode.NotFound => StatusCodes.Status404NotFound,
         ErrorCode.Conflict => StatusCodes.Status409Conflict,
         ErrorCode.Invalid => StatusCodes.Status400BadRequest,
+        ErrorCode.Unauthorized => StatusCodes.Status401Unauthorized,
         ErrorCode.AccessDenied => StatusCodes.Status403Forbidden,
         ErrorCode.PlatformUnavailable => StatusCodes.Status503ServiceUnavailable,
         ErrorCode.OperationFailed => StatusCodes.Status500InternalServerError,
