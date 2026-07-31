@@ -22,6 +22,7 @@ public static class DatabaseModule
             .ValidateOnStart();
 
         services.AddSingleton<IDbConnectionFactory, SqliteConnectionFactory>();
+        services.AddSingleton<ISettingsRepository, SettingsRepository>();
 
         return services;
     }
