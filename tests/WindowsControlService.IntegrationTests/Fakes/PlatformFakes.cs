@@ -7,7 +7,7 @@ namespace WindowsControlService.IntegrationTests.Fakes;
 /// Hand-written doubles for the whole platform layer, not mocks from a framework: there are
 /// few of them, they are explicit, and when one fails the reason reads plainly.
 /// </summary>
-internal sealed class FakeCodeIntegrityTool : ICodeIntegrityTool
+public sealed class FakeCodeIntegrityTool : ICodeIntegrityTool
 {
     public PolicyState State { get; set; } = PolicyState.NotEnforced;
 
@@ -47,7 +47,7 @@ internal sealed class FakeCodeIntegrityTool : ICodeIntegrityTool
     }
 }
 
-internal sealed class FakeUsbStorageSwitch : IUsbStorageSwitch
+public sealed class FakeUsbStorageSwitch : IUsbStorageSwitch
 {
     public bool Blocked { get; set; }
 
@@ -73,14 +73,14 @@ internal sealed class FakeUsbStorageSwitch : IUsbStorageSwitch
     }
 }
 
-internal sealed class FakeProcessInventory : IProcessInventory
+public sealed class FakeProcessInventory : IProcessInventory
 {
     public List<RunningApplication> Applications { get; } = [];
 
     public IReadOnlyList<RunningApplication> GetRunningApplications() => Applications;
 }
 
-internal sealed class FakePortableExecutableReader : IPortableExecutableReader
+public sealed class FakePortableExecutableReader : IPortableExecutableReader
 {
     public Dictionary<string, string?> OriginalFileNames { get; } = new(StringComparer.OrdinalIgnoreCase);
 
@@ -94,7 +94,7 @@ internal sealed class FakePortableExecutableReader : IPortableExecutableReader
         DisplayInfo.TryGetValue(executablePath, out var info) ? info : (null, null);
 }
 
-internal sealed class FakeLogonEventSource : ILogonEventSource
+public sealed class FakeLogonEventSource : ILogonEventSource
 {
     public List<LogonEvent> Events { get; } = [];
 
