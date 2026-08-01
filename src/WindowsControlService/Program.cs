@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Hosting.WindowsServices;
+using WindowsControlService.Features.ApplicationBlocking;
 using WindowsControlService.Features.Authentication;
 using WindowsControlService.Features.Health;
 using WindowsControlService.Infrastructure.Database;
@@ -34,6 +35,7 @@ builder.Services.AddPlatform(builder.Configuration);
 
 // 6. Features.
 builder.Services.AddAuthenticationFeature(builder.Configuration);
+builder.Services.AddApplicationBlocking(builder.Configuration);
 
 var app = builder.Build();
 
@@ -54,6 +56,7 @@ app.MapOpenApi();
 app.MapOpenApi("/openapi/{documentName}.yaml");
 app.MapHealthEndpoints();
 app.MapAuthenticationFeature();
+app.MapApplicationBlocking();
 
 var logger = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger(ServiceConstants.Name);
 if (logger.IsEnabled(LogLevel.Information))
