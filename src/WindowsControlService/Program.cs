@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Hosting.WindowsServices;
+using WindowsControlService.Features.AccessHistory;
 using WindowsControlService.Features.ApplicationBlocking;
 using WindowsControlService.Features.Authentication;
 using WindowsControlService.Features.DeviceControl;
@@ -27,6 +28,11 @@ builder.WebHost.UseUrls(builder.Configuration["urls"] ?? ServiceConstants.Defaul
 builder.Services.Configure<HostOptions>(options => options.ShutdownTimeout = TimeSpan.FromSeconds(70));
 
 // 5. Cross-cutting.
+// The API contract spells out "kind": "Logon" and "origin": "Remote". Without this they go out
+// as the integers behind the enums, and a client would have to know the member order.
+builder.Services.ConfigureHttpJsonOptions(options =>
+    options.SerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter()));
+
 builder.Services.AddProblemDetails();
 builder.Services.AddValidation();
 builder.Services.AddOpenApi();
@@ -38,6 +44,7 @@ builder.Services.AddPlatform(builder.Configuration);
 builder.Services.AddAuthenticationFeature(builder.Configuration);
 builder.Services.AddApplicationBlocking(builder.Configuration);
 builder.Services.AddDeviceControl();
+builder.Services.AddAccessHistory(builder.Configuration);
 
 var app = builder.Build();
 
@@ -60,6 +67,7 @@ app.MapHealthEndpoints();
 app.MapAuthenticationFeature();
 app.MapApplicationBlocking();
 app.MapDeviceControl();
+app.MapAccessHistory();
 
 var logger = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger(ServiceConstants.Name);
 if (logger.IsEnabled(LogLevel.Information))

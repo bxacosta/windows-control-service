@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Http.HttpResults;
 using WindowsControlService.Infrastructure.Results;
+using WindowsControlService.Platform;
 
 namespace WindowsControlService.Features.ApplicationBlocking;
 
@@ -26,8 +27,18 @@ public static class ApplicationBlockingEndpoints
         group.MapPatch("/{id:long}", SetEnabledAsync).WithName("SetBlockedApplicationEnabled");
         group.MapDelete("/{id:long}", RemoveAsync).WithName("RemoveBlockedApplication");
 
+        // Outside the /api/applications group by route, inside this feature by purpose: the
+        // running process list exists only so a blocked application can be picked from a list
+        // instead of having its path typed by hand.
+        endpoints.MapGet("/api/processes", ListProcesses)
+            .RequireAuthorization()
+            .WithName("ListRunningApplications");
+
         return endpoints;
     }
+
+    private static Ok<IReadOnlyList<RunningApplication>> ListProcesses(IProcessInventory inventory) =>
+        TypedResults.Ok(inventory.GetRunningApplications());
 
     private static async Task<Ok<IReadOnlyList<BlockedApplication>>> ListAsync(
         HttpContext context,
