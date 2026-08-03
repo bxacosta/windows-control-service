@@ -56,8 +56,14 @@ app.Services.MigrateDatabase();
 // body, which a client cannot tell apart from the service being down.
 app.UseExceptionHandler();
 app.UseRateLimiter();
-app.UseDefaultFiles();
-app.UseStaticFiles();
+// Only wired up when a web root actually exists. The interface is deferred to phase 8, and
+// calling these unconditionally logs a Warning about the missing wwwroot on every single
+// start -- which lands in Event Viewer, where warnings are supposed to mean something.
+if (Directory.Exists(app.Environment.WebRootPath))
+{
+    app.UseDefaultFiles();
+    app.UseStaticFiles();
+}
 app.UseAuthentication();
 app.UseAuthorization();
 
