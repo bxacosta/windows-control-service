@@ -6,7 +6,19 @@
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <PublishSingleFile>true</PublishSingleFile>
     <!-- SelfContained is passed on the publish command line, not set here: a self-contained
-         project cannot be referenced by the test projects (NETSDK1150). See scripts/publish.ps1. -->
+         project cannot be referenced by the test projects (NETSDK1150). See scripts/build.ps1. -->
+
+    <!-- PublishTrimmed stays off, and this was measured rather than assumed. Publishing with
+         it on fails outright with IL2026 on ValidateDataAnnotations, MaxLength and MinLength:
+         DataAnnotations resolves members by reflection, so the trimmer cannot prove the
+         validation still works. Notably this is NOT the Microsoft.Data.Sqlite reflection the
+         plan expected to be the blocker.
+
+         Suppressing those warnings would ship a 100 MB binary down to maybe 60 MB in exchange
+         for options validation that might quietly stop validating, which is the exact
+         failure ValidateOnStart exists to prevent. Not worth it for a service installed on
+         one machine. -->
+    <PublishTrimmed>false</PublishTrimmed>
   </PropertyGroup>
 
   <ItemGroup>

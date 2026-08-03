@@ -1,0 +1,14 @@
+# Normalise line endings so the working tree stays CRLF on Windows without every commit
+# reporting a conversion.
+* text=auto
+
+*.ps1  text eol=crlf
+*.psm1 text eol=crlf
+*.cs   text eol=crlf
+*.csproj text eol=crlf
+*.props  text eol=crlf
+*.sln    text eol=crlf
+*.slnx   text eol=crlf
+*.sql  text eol=crlf
+*.json text eol=crlf
+*.md   text eol=lf
