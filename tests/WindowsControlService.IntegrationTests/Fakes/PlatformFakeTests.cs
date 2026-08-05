@@ -4,7 +4,7 @@ using WindowsControlService.Platform;
 namespace WindowsControlService.IntegrationTests.Fakes;
 
 /// <summary>
-/// The doubles are relied on from phase 3 onwards, so their own behaviour is pinned here. A
+/// Every HTTP test leans on the doubles, so their own behaviour is pinned here. A
 /// fake that silently succeeds when it was told to fail hides the bug it was meant to expose.
 /// </summary>
 public sealed class PlatformFakeTests

@@ -12,8 +12,8 @@ using WindowsControlService.Platform;
 namespace WindowsControlService.IntegrationTests.Features.ApplicationBlocking;
 
 /// <summary>
-/// The heart of phase 4. A programmable <see cref="FakeCodeIntegrityTool"/> and a real
-/// repository over a throwaway SQLite file: nothing here can reach WDAC.
+/// The heart of application blocking. A programmable <see cref="FakeCodeIntegrityTool"/> and
+/// a real repository over a throwaway SQLite file: nothing here can reach WDAC.
 /// </summary>
 public sealed class ApplicationBlockingServiceTests : IDisposable
 {

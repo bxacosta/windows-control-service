@@ -5,8 +5,8 @@ using System.Text.Json;
 namespace WindowsControlService.IntegrationTests.Features.Authentication;
 
 /// <summary>
-/// The HTTP contract, driven end to end against the real application. Every case in the phase 3
-/// table lives here.
+/// The HTTP contract, driven end to end against the real application. Every case in the agreed
+/// authentication contract lives here.
 /// </summary>
 public sealed class AuthenticationHttpTests : IDisposable
 {

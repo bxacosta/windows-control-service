@@ -13,8 +13,8 @@ public static class WdacPolicyDocument
     /// <summary>
     /// Identity of the policy this service deploys. Stable across deployments so
     /// <c>CiTool --update-policy</c> updates the same policy instead of installing another one
-    /// every time, and deliberately different from the A1B2C3D4-... residue phase 0 looks for,
-    /// so a leftover can never be mistaken for ours.
+    /// every time, and deliberately different from the A1B2C3D4-... policy an earlier
+    /// installation left on this machine, so a leftover can never be mistaken for ours.
     /// </summary>
     public const string PolicyId = "{9E9BB70B-2BD8-4EE9-9031-30476FCF1FF3}";
 

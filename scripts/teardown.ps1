@@ -33,8 +33,8 @@ $policyRemoved = Remove-WcsPolicy
 Set-ItemProperty $paths.UsbStorKey -Name Start -Value 3 -ErrorAction SilentlyContinue
 Remove-ItemProperty $paths.StoragePolicyKey -Name WriteProtect -ErrorAction SilentlyContinue
 
-# 4. Event log source, registered by the installer. Phase 0 did not know about this one: this
-#    machine still carried a source left behind by an earlier installation.
+# 4. Event log source, registered by the installer. Easy to miss when cleaning up by hand:
+#    this machine still carried a source left behind by an earlier installation.
 if ([System.Diagnostics.EventLog]::SourceExists($paths.ServiceName)) {
     [System.Diagnostics.EventLog]::DeleteEventSource($paths.ServiceName)
 }

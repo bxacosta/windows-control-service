@@ -8,8 +8,8 @@ namespace WindowsControlService.Platform;
 /// </summary>
 /// <remarks>
 /// Blocking stops new drives from mounting. It does not unmount drives that are already
-/// mounted -- see <c>docs/03-mecanismos-windows.md</c> section 3 for why ejecting them is not
-/// attempted from a service running in session 0.
+/// mounted: a service runs in session 0, where the shell APIs that eject a volume have no
+/// window station to act on, so ejecting is not attempted.
 /// </remarks>
 public interface IUsbStorageSwitch
 {

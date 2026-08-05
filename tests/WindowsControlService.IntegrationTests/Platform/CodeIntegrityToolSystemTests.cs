@@ -5,8 +5,8 @@ using WindowsControlService.Platform;
 namespace WindowsControlService.IntegrationTests.Platform;
 
 /// <summary>
-/// Runs CiTool for real. Read-only: only <c>--list-policies</c>. Applying and removing a
-/// policy is phase 4, behind the safeguards in <c>docs/05-seguridad-y-restauracion.md</c>.
+/// Runs CiTool for real. Read-only: only <c>--list-policies</c>. Applying or removing a policy
+/// changes machine state that outlives the test run, so nothing here does it.
 /// </summary>
 [Trait("Requires", "Admin")]
 public sealed class CodeIntegrityToolSystemTests

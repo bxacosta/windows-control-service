@@ -30,7 +30,8 @@ function Get-WcsPaths {
         LogPath      = Join-Path (Join-Path $env:ProgramData 'WindowsControlService') 'logs'
 
         # Must match WdacPolicyDocument.PolicyId. Deliberately different from the
-        # A1B2C3D4-... residue phase 0 looks for, so a leftover is never mistaken for ours.
+        # A1B2C3D4-... policy an earlier installation left on this machine, so a leftover is
+        # never mistaken for ours.
         PolicyId     = '9E9BB70B-2BD8-4EE9-9031-30476FCF1FF3'
 
         CiToolPath   = Join-Path $env:SystemRoot 'System32\CiTool.exe'

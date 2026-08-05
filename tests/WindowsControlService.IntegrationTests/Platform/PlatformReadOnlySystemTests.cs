@@ -5,8 +5,9 @@ using WindowsControlService.Platform;
 namespace WindowsControlService.IntegrationTests.Platform;
 
 /// <summary>
-/// Reads real machine state. Nothing here writes: blocking and unblocking USB storage is
-/// phase 5, with the capture-and-restore rules from <c>docs/05-seguridad-y-restauracion.md</c>.
+/// Reads real machine state. Nothing here writes; the tests that do live in
+/// <see cref="UsbStorageSwitchWriteTests"/>, which captures the original registry value and
+/// restores it in a finally block.
 /// </summary>
 [Trait("Requires", "Admin")]
 public sealed class PlatformReadOnlySystemTests
