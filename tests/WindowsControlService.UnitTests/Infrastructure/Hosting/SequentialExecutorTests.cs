@@ -66,6 +66,21 @@ public sealed class SequentialExecutorTests
     }
 
     [Fact]
+    public async Task NestingTwoExecutorsIsNotReentrancy()
+    {
+        using var outer = new SequentialExecutor();
+        using var inner = new SequentialExecutor();
+
+        // Two executors are two semaphores, so the inner call cannot block on a lock the outer
+        // one holds. Rejecting it would be a false positive.
+        var value = await outer.RunAsync(
+            async _ => await inner.RunAsync(_ => Task.FromResult(3), CancellationToken.None),
+            CancellationToken.None);
+
+        Assert.Equal(3, value);
+    }
+
+    [Fact]
     public async Task ReleasesTheGateWhenAnOperationThrows()
     {
         using var executor = new SequentialExecutor();
