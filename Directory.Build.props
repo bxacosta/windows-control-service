@@ -16,4 +16,12 @@
          carries a trap, such as "OccurredAt is always UTC", not every DTO field. -->
     <NoWarn>$(NoWarn);CS1591;CS1573</NoWarn>
   </PropertyGroup>
+
+  <!-- Every test run leaves a .trx behind. An intermittent failure is worthless if its message
+       is gone by the time anyone looks: console output scrolls, the trx keeps the assertion
+       text and which test produced it. -->
+  <PropertyGroup Condition="$(MSBuildProjectName.EndsWith('Tests'))">
+    <VSTestLogger>trx</VSTestLogger>
+    <VSTestResultsDirectory>$(MSBuildThisFileDirectory)TestResults</VSTestResultsDirectory>
+  </PropertyGroup>
 </Project>
