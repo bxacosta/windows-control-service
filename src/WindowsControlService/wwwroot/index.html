@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>Windows Control Service</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+  <!-- Notices live in a fixed container outside the flow: an error that pushes the page down
+       moves the control the user was about to click. -->
+  <div id="notices" class="notices" role="status" aria-live="polite"></div>
+
+  <header class="app-header">
+    <h1 class="app-title">Windows Control Service</h1>
+    <nav class="app-nav" aria-label="Sections">
+      <a href="#/applications" data-nav="applications">Applications</a>
+      <a href="#/devices" data-nav="devices">Devices</a>
+      <a href="#/history" data-nav="history">History</a>
+      <a href="#/settings" data-nav="settings">Settings</a>
+    </nav>
+  </header>
+
+  <main id="main" class="app-main">
+    <section id="section-applications" class="section" hidden aria-labelledby="h-applications">
+      <h2 id="h-applications">Applications</h2>
+      <p class="section-lead">Applications blocked by Windows itself, at kernel level.</p>
+      <div class="placeholder" aria-hidden="true"></div>
+    </section>
+
+    <section id="section-devices" class="section" hidden aria-labelledby="h-devices">
+      <h2 id="h-devices">Devices</h2>
+      <p class="section-lead">USB mass storage. The registry is the source of truth.</p>
+      <div class="placeholder" aria-hidden="true"></div>
+    </section>
+
+    <section id="section-history" class="section" hidden aria-labelledby="h-history">
+      <h2 id="h-history">History</h2>
+      <p class="section-lead">Local and Remote Desktop sign-ins recorded by Windows.</p>
+      <div class="placeholder" aria-hidden="true"></div>
+    </section>
+
+    <section id="section-settings" class="section" hidden aria-labelledby="h-settings">
+      <h2 id="h-settings">Settings</h2>
+      <p class="section-lead">Password and session.</p>
+      <div class="placeholder" aria-hidden="true"></div>
+    </section>
+  </main>
+
+  <footer class="app-footer">
+    <span id="service-status" class="status-slot">&nbsp;</span>
+  </footer>
+
+  <script type="module" src="/js/app.js"></script>
+</body>
+</html>

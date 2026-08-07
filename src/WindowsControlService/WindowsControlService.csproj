@@ -19,6 +19,11 @@
          failure ValidateOnStart exists to prevent. Not worth it for a service installed on
          one machine. -->
     <PublishTrimmed>false</PublishTrimmed>
+
+    <!-- The SDK precompresses static web assets into .br and .gz siblings, but UseStaticFiles
+         does no content negotiation: it would ship fifteen files that are never served, on a
+         loopback interface where compression buys nothing anyway. -->
+    <CompressionEnabled>false</CompressionEnabled>
   </PropertyGroup>
 
   <ItemGroup>

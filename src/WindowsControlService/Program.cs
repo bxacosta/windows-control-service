@@ -56,13 +56,28 @@ app.Services.MigrateDatabase();
 // body, which a client cannot tell apart from the service being down.
 app.UseExceptionHandler();
 app.UseRateLimiter();
-// Only wired up when a web root actually exists. No interface ships yet, and calling these
-// unconditionally logs a Warning about the missing wwwroot on every single start -- which
-// lands in Event Viewer, where warnings are supposed to mean something.
+// The shell is served before authentication on purpose: it carries no data, and every endpoint
+// behind it still demands a session.
+//
+// no-cache rather than a version marker in the URLs. It does not mean "do not cache", it means
+// "revalidate every time", and the middleware already sends an ETag: after update.ps1 replaces
+// a file the browser gets it on the next request. A version marker would have to be kept in
+// sync by hand and would go stale in exactly the update where it mattered.
 if (Directory.Exists(app.Environment.WebRootPath))
 {
     app.UseDefaultFiles();
-    app.UseStaticFiles();
+    app.UseStaticFiles(new StaticFileOptions
+    {
+        OnPrepareResponse = static context => context.Context.Response.Headers.CacheControl = "no-cache",
+    });
+}
+else if (app.Logger.IsEnabled(LogLevel.Warning))
+{
+    // Not a silent skip. A published service without its web root is a packaging fault, and the
+    // path is the only thing that tells that apart from "the interface was never built".
+    app.Logger.LogWarning(
+        "Web root not found at {WebRootPath}. The API is up but the interface will not be served.",
+        app.Environment.WebRootPath);
 }
 app.UseAuthentication();
 app.UseAuthorization();

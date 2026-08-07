@@ -1,0 +1,160 @@
+/*
+ * Hand written, no framework and no build step. The one rule that is not taste: nothing here
+ * may change the cursor while something is loading. A spinner already says "wait", so a busy
+ * cursor only repeats it, and a forbidden one says something different and false. A test
+ * enforces this, which is why the property names are not spelled out even in this comment.
+ */
+
+:root {
+  color-scheme: light dark;
+
+  --bg: #f6f7f9;
+  --surface: #ffffff;
+  --border: #d8dce3;
+  --text: #16191d;
+  --text-muted: #5b6472;
+  --accent: #1c5fd0;
+  --accent-text: #ffffff;
+  --danger: #b3261e;
+  --ok: #1e7a45;
+  --warn: #8a5a00;
+
+  --radius: 8px;
+  --gap: 1rem;
+  --page: 62rem;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #14171c;
+    --surface: #1c2027;
+    --border: #2e353f;
+    --text: #e8eaed;
+    --text-muted: #a2acbb;
+    --accent: #6ea8ff;
+    --accent-text: #0d1117;
+    --danger: #f2857c;
+    --ok: #6fd398;
+    --warn: #e0b25a;
+  }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 16px/1.5 "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+}
+
+/* Header ------------------------------------------------------------------ */
+
+.app-header {
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  padding: var(--gap);
+}
+
+.app-title {
+  margin: 0 auto;
+  max-width: var(--page);
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+
+.app-nav {
+  margin: 0.75rem auto 0;
+  max-width: var(--page);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+.app-nav a {
+  padding: 0.4rem 0.75rem;
+  border-radius: var(--radius);
+  color: var(--text-muted);
+  text-decoration: none;
+  /* Reserve the weight difference so the active state does not reflow the row. */
+  border: 1px solid transparent;
+}
+
+.app-nav a:hover { background: var(--bg); color: var(--text); }
+
+.app-nav a[aria-current="page"] {
+  background: var(--bg);
+  border-color: var(--border);
+  color: var(--text);
+}
+
+/* Main -------------------------------------------------------------------- */
+
+.app-main {
+  max-width: var(--page);
+  margin: 0 auto;
+  padding: calc(var(--gap) * 1.5) var(--gap);
+}
+
+.section h2 { margin: 0 0 0.25rem; font-size: 1.375rem; }
+
+.section-lead { margin: 0 0 var(--gap); color: var(--text-muted); }
+
+/* Height is reserved, so filling a section in later never shifts what is below it. */
+.placeholder {
+  min-height: 12rem;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+/* Notices ----------------------------------------------------------------- */
+
+.notices {
+  position: fixed;
+  top: var(--gap);
+  right: var(--gap);
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  max-width: min(26rem, calc(100vw - 2 * var(--gap)));
+}
+
+.notice {
+  border: 1px solid var(--border);
+  border-left-width: 4px;
+  border-radius: var(--radius);
+  background: var(--surface);
+  padding: 0.6rem 0.8rem;
+  box-shadow: 0 6px 18px rgb(0 0 0 / 12%);
+}
+
+.notice-error { border-left-color: var(--danger); }
+.notice-ok { border-left-color: var(--ok); }
+.notice-warn { border-left-color: var(--warn); }
+
+/* Footer ------------------------------------------------------------------ */
+
+.app-footer {
+  max-width: var(--page);
+  margin: 0 auto;
+  padding: var(--gap);
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
+/* The slot keeps its height while empty: the version arrives after the first paint. */
+.status-slot {
+  display: inline-block;
+  min-height: 1.25rem;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .notice { animation: notice-in 120ms ease-out; }
+
+  @keyframes notice-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+}
