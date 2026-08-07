@@ -213,6 +213,85 @@ button:disabled { opacity: 0.7; }
   }
 }
 
+.button-secondary { background: var(--bg); }
+
+.button-quiet {
+  padding: 0.3rem 0.6rem;
+  font-size: 0.875rem;
+}
+
+/* Rows and lists ---------------------------------------------------------- */
+
+/* The minimum height is what a list of one row occupies, so a section that is still loading is
+   the same size as one that has loaded. */
+.list { min-height: 4.5rem; }
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--gap);
+  padding: 0.7rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.row:last-child { border-bottom: none; }
+
+.row-main { min-width: 0; }
+
+.row-title { font-weight: 600; }
+
+.row-detail {
+  color: var(--text-muted);
+  font-size: 0.8125rem;
+  word-break: break-all;
+}
+
+.row-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-shrink: 0;
+}
+
+.empty { color: var(--text-muted); margin: 0.75rem 0; }
+
+/* The picker lists every running process, which on a real machine is sixty of them. Its own
+   scroll is what keeps the card a card instead of a six thousand pixel page. */
+.list-scroll {
+  max-height: 22rem;
+  overflow-y: auto;
+}
+
+.picker { margin-top: var(--gap); }
+
+.picker summary {
+  cursor: pointer;
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+}
+
+/* State line -------------------------------------------------------------- */
+
+/* Reserved height, and three visibly different states. Unknown is not a shade of "off": it
+   means the service could not ask, which the colour has to say as loudly as the text. */
+.state-line {
+  margin: 0;
+  min-height: 3rem;
+  padding-left: 0.75rem;
+  border-left: 4px solid var(--border);
+}
+
+.state-line[data-state="enforced"] { border-left-color: var(--ok); }
+.state-line[data-state="notenforced"] { border-left-color: var(--text-muted); }
+.state-line[data-state="unknown"] { border-left-color: var(--warn); }
+
+input[type="checkbox"][role="switch"] {
+  width: 2.6rem;
+  height: 1.5rem;
+  accent-color: var(--accent);
+}
+
 /* Notices ----------------------------------------------------------------- */
 
 .notices {

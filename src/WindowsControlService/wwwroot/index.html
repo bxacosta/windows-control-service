@@ -65,7 +65,47 @@
     <section id="section-applications" class="section" hidden aria-labelledby="h-applications">
       <h2 id="h-applications">Applications</h2>
       <p class="section-lead">Applications blocked by Windows itself, at kernel level.</p>
-      <div class="placeholder" aria-hidden="true"></div>
+
+      <div class="card">
+        <h3>Policy</h3>
+        <!-- Height reserved: the state arrives after the first paint and must not push the
+             cards below it down when it does. -->
+        <p id="policy-state-line" class="state-line" data-state="unknown">Checking…</p>
+      </div>
+
+      <div class="card">
+        <h3>Block an application</h3>
+        <form id="add-application-form" autocomplete="off">
+          <label for="application-path">Executable path</label>
+          <input id="application-path" type="text" required placeholder="C:\Program Files\Example\example.exe">
+          <p class="field-hint">
+            A browser never reveals the real path of a file chosen from disk, so this is typed
+            or taken from the running processes below. Blocking matches the OriginalFilename in
+            the executable itself, not the path: renaming the file does not get around it.
+          </p>
+
+          <label for="application-name">Name (optional)</label>
+          <input id="application-name" type="text" placeholder="Taken from the executable if left empty">
+
+          <p id="add-application-error" class="field-error" role="alert"></p>
+          <button id="add-application-submit" type="submit" class="button-primary">
+            <span class="spinner" aria-hidden="true"></span>Block it
+          </button>
+        </form>
+
+        <details id="process-picker" class="picker">
+          <summary>Pick from running processes</summary>
+          <button id="load-processes" type="button" class="button-secondary">
+            <span class="spinner" aria-hidden="true"></span>List running processes
+          </button>
+          <div id="process-list" class="list list-scroll"></div>
+        </details>
+      </div>
+
+      <div class="card">
+        <h3>Blocked applications</h3>
+        <div id="application-list" class="list"></div>
+      </div>
     </section>
 
     <section id="section-devices" class="section" hidden aria-labelledby="h-devices">
