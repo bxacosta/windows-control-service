@@ -41,6 +41,11 @@
 
 * { box-sizing: border-box; }
 
+/* The hidden attribute has to beat every display rule below it. A flex or grid container with
+   its own display value ignores [hidden] otherwise, which is exactly how the navigation stayed
+   on screen on the sign-in page. */
+[hidden] { display: none !important; }
+
 body {
   margin: 0;
   background: var(--bg);
@@ -106,6 +111,106 @@ body {
   border: 1px dashed var(--border);
   border-radius: var(--radius);
   background: var(--surface);
+}
+
+/* Gate and cards ---------------------------------------------------------- */
+
+.gate {
+  max-width: 26rem;
+  margin: 3rem auto;
+  padding: 0 var(--gap);
+}
+
+.card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  padding: 1.25rem;
+  margin-bottom: var(--gap);
+}
+
+.card h2, .card h3 { margin: 0 0 0.5rem; font-size: 1.125rem; }
+
+.card-lead { margin: 0 0 var(--gap); color: var(--text-muted); font-size: 0.9375rem; }
+
+label {
+  display: block;
+  margin-bottom: 0.25rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+input[type="password"], input[type="text"], select {
+  display: block;
+  width: 100%;
+  margin-bottom: 0.75rem;
+  padding: 0.5rem 0.625rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+}
+
+input:focus-visible, select:focus-visible, button:focus-visible, a:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.field-hint { margin: 0 0 0.75rem; color: var(--text-muted); font-size: 0.8125rem; }
+
+/* The slot is in the layout whether or not it has text: a message appearing must not push the
+   button it belongs to further down the page. */
+.field-error {
+  margin: 0 0 0.75rem;
+  min-height: 1.25rem;
+  color: var(--danger);
+  font-size: 0.875rem;
+}
+
+/* Buttons and the pending state ------------------------------------------- */
+
+button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.9rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  /* No cursor change of any kind while busy: the spinner already carries that information. */
+  cursor: pointer;
+}
+
+button:disabled { opacity: 0.7; }
+
+.button-primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-text);
+}
+
+/* The spinner always occupies its space and only becomes visible, so a control that starts
+   working does not change width and shift everything beside it. */
+.spinner {
+  width: 0.85rem;
+  height: 0.85rem;
+  border: 2px solid currentcolor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  visibility: hidden;
+}
+
+[data-busy] .spinner { visibility: visible; }
+
+@media (prefers-reduced-motion: no-preference) {
+  [data-busy] .spinner { animation: spin 700ms linear infinite; }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
 }
 
 /* Notices ----------------------------------------------------------------- */

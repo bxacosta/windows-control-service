@@ -53,6 +53,29 @@ public sealed class InterfaceAssetTests
         Assert.DoesNotContain("https://", content, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Fact]
+    public async Task OnlyOneModuleTalksToTheService()
+    {
+        var offenders = new List<string>();
+
+        foreach (var file in Directory.EnumerateFiles(Path.Combine(WebRoot(), "js"), "*.js"))
+        {
+            if (Path.GetFileName(file) is "api.js")
+            {
+                continue;
+            }
+
+            if ((await File.ReadAllTextAsync(file)).Contains("fetch(", StringComparison.Ordinal))
+            {
+                offenders.Add(Path.GetFileName(file));
+            }
+        }
+
+        // One door for every request is what makes "a 401 anywhere lands on login, once" a code
+        // path rather than a convention each section has to remember.
+        Assert.Empty(offenders);
+    }
+
     private static string WebRoot()
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);
