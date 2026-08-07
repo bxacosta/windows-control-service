@@ -1,5 +1,6 @@
 using System.Globalization;
 using WindowsControlService.Infrastructure.Database;
+using WindowsControlService.Infrastructure.Events;
 using WindowsControlService.Infrastructure.Hosting;
 using WindowsControlService.Infrastructure.Results;
 using WindowsControlService.Platform;
@@ -26,6 +27,7 @@ public interface IDeviceControlService
 public sealed class DeviceControlService(
     IUsbStorageSwitch usbStorage,
     ISettingsRepository settings,
+    IServiceEventBroadcaster events,
     ISequentialExecutor executor,
     TimeProvider timeProvider,
     ILogger<DeviceControlService> logger) : IDeviceControlService
@@ -71,10 +73,15 @@ public sealed class DeviceControlService(
 
         // Only after the registry write succeeded. The other order would record a change that
         // never happened.
+        var changedAt = timeProvider.GetUtcNow().UtcDateTime;
         await settings.SetAsync(
             LastModifiedKey,
-            timeProvider.GetUtcNow().UtcDateTime.ToString("O", CultureInfo.InvariantCulture),
+            changedAt.ToString("O", CultureInfo.InvariantCulture),
             cancellationToken);
+
+        // Published from what was just written rather than by reading it back: the value is
+        // known here, and a second registry read would only be another chance to disagree.
+        events.Publish(new ServiceEvent(UsbStatusSnapshot.EventName, new UsbBlockStatus(blocked, changedAt)));
 
         logger.LogWarning("USB mass storage is now {State}.", blocked ? "blocked" : "unblocked");
 

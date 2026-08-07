@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Http.HttpResults;
+using WindowsControlService.Infrastructure.Events;
 using WindowsControlService.Infrastructure.Results;
 
 namespace WindowsControlService.Features.DeviceControl;
@@ -11,6 +12,7 @@ public static class DeviceControlModule
 
         // No options: the registry key and its values are genuine constants, not settings.
         services.AddSingleton<IDeviceControlService, DeviceControlService>();
+        services.AddSingleton<IServiceEventSnapshot, UsbStatusSnapshot>();
 
         return services;
     }

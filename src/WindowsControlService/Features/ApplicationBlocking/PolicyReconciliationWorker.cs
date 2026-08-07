@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Options;
+using WindowsControlService.Infrastructure.Events;
 
 namespace WindowsControlService.Features.ApplicationBlocking;
 
@@ -15,6 +16,7 @@ public sealed class ApplicationBlockingOptions
 
 public sealed class PolicyReconciliationWorker(
     IApplicationBlockingService blocking,
+    IServiceEventBroadcaster events,
     IOptions<ApplicationBlockingOptions> options,
     ILogger<PolicyReconciliationWorker> logger) : BackgroundService
 {
@@ -34,6 +36,17 @@ public sealed class PolicyReconciliationWorker(
                     if (result.IsFailure)
                     {
                         logger.LogError("Reconciliation reported {Code}: {Message}", result.Error.Code, result.Error.Message);
+                    }
+
+                    // Only with a listener. Reading the state costs a CiTool process, and with
+                    // no interface open nobody would read the answer.
+                    if (events.HasSubscribers)
+                    {
+                        var snapshot = await PolicyStateSnapshot.CaptureAsync(blocking, stoppingToken);
+                        if (snapshot is not null)
+                        {
+                            events.Publish(snapshot);
+                        }
                     }
                 }
                 catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)

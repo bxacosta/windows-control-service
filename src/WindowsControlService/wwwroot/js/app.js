@@ -4,6 +4,7 @@
  */
 
 import * as api from './api.js';
+import * as events from './events.js';
 import * as router from './router.js';
 import * as session from './session.js';
 import * as settings from './settings.js';
@@ -15,8 +16,12 @@ for (const name of ['applications', 'devices', 'history', 'settings']) {
 
 settings.connect();
 
-// Every 401 in the application ends here, and so does an event stream that died with one.
-api.whenSessionLost(session.onSessionLost);
+// Every 401 in the application ends here, and so does an event stream that died with one. The
+// stream is torn down first: reconnecting it while signed out would only earn another 401.
+api.whenSessionLost(() => {
+  events.stop();
+  session.onSessionLost();
+});
 
 /**
  * GET /api/health is public and always answers, so it doubles as the proof that this page is
@@ -36,5 +41,8 @@ async function showServiceStatus() {
   }
 }
 
-void session.bootstrap(() => router.start());
+void session.bootstrap(() => {
+  router.start();
+  events.start();
+});
 void showServiceStatus();

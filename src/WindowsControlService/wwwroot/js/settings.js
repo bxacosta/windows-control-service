@@ -4,6 +4,7 @@
  */
 
 import * as api from './api.js';
+import * as events from './events.js';
 import * as session from './session.js';
 import { withPending } from './pending.js';
 import { notify } from './notices.js';
@@ -39,6 +40,7 @@ async function handleChangePassword(submitEvent) {
     }
 
     notify('Password changed. Every open session was signed out, including this one.', 'ok');
+    events.stop();
     session.returnToSignIn();
   });
 }
@@ -46,6 +48,7 @@ async function handleChangePassword(submitEvent) {
 export function connect() {
   element('change-password-form').addEventListener('submit', handleChangePassword);
   element('sign-out').addEventListener('click', (clickEvent) => {
+    events.stop();
     void session.signOut(clickEvent.currentTarget);
   });
 }

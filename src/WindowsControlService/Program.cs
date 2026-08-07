@@ -3,8 +3,10 @@ using WindowsControlService.Features.AccessHistory;
 using WindowsControlService.Features.ApplicationBlocking;
 using WindowsControlService.Features.Authentication;
 using WindowsControlService.Features.DeviceControl;
+using WindowsControlService.Features.Events;
 using WindowsControlService.Features.Health;
 using WindowsControlService.Infrastructure.Database;
+using WindowsControlService.Infrastructure.Events;
 using WindowsControlService.Infrastructure.Hosting;
 using WindowsControlService.Platform;
 
@@ -37,6 +39,7 @@ builder.Services.AddProblemDetails();
 builder.Services.AddValidation();
 builder.Services.AddOpenApi();
 builder.Services.AddServiceInfrastructure();
+builder.Services.AddServiceEvents(builder.Configuration);
 builder.Services.AddDatabase(builder.Configuration);
 builder.Services.AddPlatform(builder.Configuration);
 
@@ -88,6 +91,7 @@ app.MapHealthEndpoints();
 app.MapAuthenticationFeature();
 app.MapApplicationBlocking();
 app.MapDeviceControl();
+app.MapEventStream();
 app.MapAccessHistory();
 
 var logger = app.Services.GetRequiredService<ILoggerFactory>().CreateLogger(ServiceConstants.Name);

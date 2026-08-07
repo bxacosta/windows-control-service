@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using WindowsControlService.Features.ApplicationBlocking;
+using WindowsControlService.Infrastructure.Events;
 using WindowsControlService.Infrastructure.Results;
 
 namespace WindowsControlService.IntegrationTests.Features.ApplicationBlocking;
@@ -58,8 +59,20 @@ public sealed class PolicyReconciliationWorkerTests
     private static PolicyReconciliationWorker BuildWorker(IApplicationBlockingService blocking, TimeSpan interval) =>
         new(
             blocking,
+            new SilentEventBroadcaster(),
             Options.Create(new ApplicationBlockingOptions { ReconciliationInterval = interval }),
             NullLogger<PolicyReconciliationWorker>.Instance);
+
+    /// <summary>Reports no listeners, so the worker skips the publishing branch entirely.</summary>
+    private sealed class SilentEventBroadcaster : IServiceEventBroadcaster
+    {
+        public bool HasSubscribers => false;
+
+        public void Publish(ServiceEvent serviceEvent) =>
+            throw new InvalidOperationException("Nothing should be published with no subscribers.");
+
+        public IServiceEventSubscription Subscribe() => throw new NotSupportedException();
+    }
 
     private sealed class CountingBlockingService : IApplicationBlockingService
     {

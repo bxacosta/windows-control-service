@@ -76,6 +76,29 @@ public sealed class InterfaceAssetTests
         Assert.Empty(offenders);
     }
 
+    [Fact]
+    public async Task OnlyOneModuleOpensAStream()
+    {
+        var offenders = new List<string>();
+
+        foreach (var file in Directory.EnumerateFiles(Path.Combine(WebRoot(), "js"), "*.js"))
+        {
+            if (Path.GetFileName(file) is "events.js")
+            {
+                continue;
+            }
+
+            if ((await File.ReadAllTextAsync(file)).Contains("new EventSource", StringComparison.Ordinal))
+            {
+                offenders.Add(Path.GetFileName(file));
+            }
+        }
+
+        // Six connections per origin on plain HTTP/1.1, and a stream holds one for as long as it
+        // is open. One per section would spend the budget and requests would hang with no error.
+        Assert.Empty(offenders);
+    }
+
     private static string WebRoot()
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);

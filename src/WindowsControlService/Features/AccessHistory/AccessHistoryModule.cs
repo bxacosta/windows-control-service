@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.Extensions.Options;
+using WindowsControlService.Infrastructure.Events;
 using WindowsControlService.Infrastructure.Results;
 using WindowsControlService.Platform;
 
@@ -15,6 +16,7 @@ namespace WindowsControlService.Features.AccessHistory;
 /// </remarks>
 public sealed class AccessHistoryIngestionWorker(
     IAccessHistoryService history,
+    IServiceEventBroadcaster events,
     IOptions<AccessHistoryOptions> options,
     ILogger<AccessHistoryIngestionWorker> logger) : BackgroundService
 {
@@ -33,6 +35,14 @@ public sealed class AccessHistoryIngestionWorker(
                     if (inserted > 0 && logger.IsEnabled(LogLevel.Information))
                     {
                         logger.LogInformation("Ingested {Count} new logon event(s).", inserted);
+                    }
+
+                    // Nothing new means nothing to say, and with no listener the count query
+                    // would be work done for an empty room.
+                    if (inserted > 0 && events.HasSubscribers)
+                    {
+                        var page = await history.GetTimelineAsync(limit: 1, offset: 0, origin: null, stoppingToken);
+                        events.Publish(new ServiceEvent(AccessHistorySnapshot.EventName, new AccessHistoryTotal(page.Total)));
                     }
                 }
                 catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
@@ -81,6 +91,7 @@ public static class AccessHistoryModule
 
         services.AddSingleton<ILogonEventRepository, LogonEventRepository>();
         services.AddSingleton<IAccessHistoryService, AccessHistoryService>();
+        services.AddSingleton<IServiceEventSnapshot, AccessHistorySnapshot>();
 
         // No ISequentialExecutor here: this worker touches no machine state, only its own table,
         // and INSERT OR IGNORE inside a transaction is already safe on its own.

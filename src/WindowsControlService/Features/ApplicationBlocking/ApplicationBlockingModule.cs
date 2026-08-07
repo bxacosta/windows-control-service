@@ -1,3 +1,5 @@
+using WindowsControlService.Infrastructure.Events;
+
 namespace WindowsControlService.Features.ApplicationBlocking;
 
 public static class ApplicationBlockingModule
@@ -19,6 +21,7 @@ public static class ApplicationBlockingModule
 
         services.AddSingleton<IBlockedApplicationRepository, BlockedApplicationRepository>();
         services.AddSingleton<IApplicationBlockingService, ApplicationBlockingService>();
+        services.AddSingleton<IServiceEventSnapshot, PolicyStateSnapshot>();
         services.AddHostedService<PolicyReconciliationWorker>();
 
         return services;
