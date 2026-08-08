@@ -38,8 +38,8 @@ public sealed class WdacPolicyConversionTests : IDisposable
     {
         var applications = new List<BlockedApplication>
         {
-            new() { Id = 1, Name = "Test target", OriginalFileName = "wcs-test-target.dll" },
-            new() { Id = 2, Name = "Awkward & name", OriginalFileName = "other.exe" },
+            new() { Id = 1, Name = "Test target", MatchValue = "wcs-test-target.dll", MatchAttribute = "FileName" },
+            new() { Id = 2, Name = "Awkward & name", MatchValue = "other.exe", MatchAttribute = "FileName" },
         };
 
         var (exitCode, standardError, binaryPath) = await ConvertAsync(WdacPolicyDocument.Build(applications));

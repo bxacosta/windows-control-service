@@ -24,18 +24,18 @@ public sealed class PortableExecutableReader(ILogger<PortableExecutableReader> l
 {
     private const uint FileVerGetNeutral = 0x02;
 
-    public string? ReadOriginalFileName(string executablePath)
+    public PeVersionFields ReadVersionFields(string executablePath)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(executablePath);
 
         try
         {
-            return ReadNeutralOriginalFileName(executablePath);
+            return ReadNeutralVersionFields(executablePath);
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {
             logger.LogWarning(exception, "Could not read version information from {Path}.", executablePath);
-            return null;
+            return PeVersionFields.None;
         }
     }
 
@@ -56,13 +56,14 @@ public sealed class PortableExecutableReader(ILogger<PortableExecutableReader> l
         }
     }
 
-    private static string? ReadNeutralOriginalFileName(string executablePath)
+    private static PeVersionFields ReadNeutralVersionFields(string executablePath)
     {
         var size = GetFileVersionInfoSizeEx(FileVerGetNeutral, executablePath, out _);
         if (size == 0)
         {
-            // No version resource at all, or the file does not exist. Both mean "no name here".
-            return null;
+            // No version resource at all, or the file does not exist. Both mean there is nothing
+            // here to build a rule from, which is a refusal rather than a value to invent.
+            return PeVersionFields.None;
         }
 
         var block = Marshal.AllocHGlobal((int)size);
@@ -70,43 +71,54 @@ public sealed class PortableExecutableReader(ILogger<PortableExecutableReader> l
         {
             if (!GetFileVersionInfoEx(FileVerGetNeutral, executablePath, 0, size, block))
             {
-                return null;
+                return PeVersionFields.None;
             }
 
             if (!VerQueryValue(block, @"\VarFileInfo\Translation", out var translations, out var translationBytes))
             {
-                return null;
+                return PeVersionFields.None;
             }
 
-            // Four bytes per entry: two of language, two of code page. The first translation
-            // that answers wins; binaries do not disagree with themselves about their own name.
+            // Four bytes per entry: two of language, two of code page. The first translation that
+            // answers wins; binaries do not disagree with themselves about their own name. All
+            // three fields come out of the same block, because reopening it per field would be
+            // three times the work for the same answer.
             for (var offset = 0; offset + 4 <= translationBytes; offset += 4)
             {
                 var language = (ushort)Marshal.ReadInt16(translations, offset);
                 var codePage = (ushort)Marshal.ReadInt16(translations, offset + 2);
 
-                var subBlock = string.Create(
-                    CultureInfo.InvariantCulture,
-                    $@"\StringFileInfo\{language:X4}{codePage:X4}\OriginalFilename");
+                var fields = new PeVersionFields(
+                    ReadField(block, language, codePage, "OriginalFilename"),
+                    ReadField(block, language, codePage, "InternalName"),
+                    ReadField(block, language, codePage, "ProductName"));
 
-                if (!VerQueryValue(block, subBlock, out var value, out var valueLength) || valueLength == 0)
+                if (!fields.IsEmpty)
                 {
-                    continue;
-                }
-
-                var name = Marshal.PtrToStringUni(value, (int)valueLength)?.TrimEnd('\0');
-                if (!string.IsNullOrWhiteSpace(name))
-                {
-                    return name;
+                    return fields;
                 }
             }
 
-            return null;
+            return PeVersionFields.None;
         }
         finally
         {
             Marshal.FreeHGlobal(block);
         }
+    }
+
+    private static string? ReadField(IntPtr block, ushort language, ushort codePage, string field)
+    {
+        var subBlock = string.Create(
+            CultureInfo.InvariantCulture,
+            $@"\StringFileInfo\{language:X4}{codePage:X4}\{field}");
+
+        if (!VerQueryValue(block, subBlock, out var value, out var valueLength) || valueLength == 0)
+        {
+            return null;
+        }
+
+        return NullIfBlank(Marshal.PtrToStringUni(value, (int)valueLength)?.TrimEnd('\0'));
     }
 
     private static string? NullIfBlank(string? value) => string.IsNullOrWhiteSpace(value) ? null : value;

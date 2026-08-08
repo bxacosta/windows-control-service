@@ -24,6 +24,10 @@
          does no content negotiation: it would ship fifteen files that are never served, on a
          loopback interface where compression buys nothing anyway. -->
     <CompressionEnabled>false</CompressionEnabled>
+
+    <!-- web.config only means something to IIS, and this is a Windows service hosting Kestrel
+         directly. Publishing one invites the idea that IIS is involved somewhere. -->
+    <IsTransformWebConfigDisabled>true</IsTransformWebConfigDisabled>
   </PropertyGroup>
 
   <ItemGroup>

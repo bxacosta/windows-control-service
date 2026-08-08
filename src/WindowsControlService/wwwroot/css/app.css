@@ -105,14 +105,6 @@ body {
 
 .section-lead { margin: 0 0 var(--gap); color: var(--text-muted); }
 
-/* Height is reserved, so filling a section in later never shifts what is below it. */
-.placeholder {
-  min-height: 12rem;
-  border: 1px dashed var(--border);
-  border-radius: var(--radius);
-  background: var(--surface);
-}
-
 /* Gate and cards ---------------------------------------------------------- */
 
 .gate {

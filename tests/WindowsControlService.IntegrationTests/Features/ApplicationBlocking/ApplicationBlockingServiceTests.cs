@@ -87,23 +87,47 @@ public sealed class ApplicationBlockingServiceTests : IDisposable
     public async Task AddingUsesTheOriginalFileNameFromThePeHeader()
     {
         var path = CreateExecutable("renamed.exe");
-        _executableReader.OriginalFileNames[path] = "the-real-name.exe";
+        _executableReader.WithOriginalFileName(path, "the-real-name.exe");
 
         var result = await _service.AddAsync(path, "Target", CancellationToken.None);
 
         var stored = await _repository.GetByIdAsync(result.Value, CancellationToken.None);
-        Assert.Equal("the-real-name.exe", stored!.OriginalFileName);
+        Assert.Equal("the-real-name.exe", stored!.MatchValue);
     }
 
     [Fact]
-    public async Task AddingFallsBackToTheFileNameWhenThereIsNoVersionResource()
+    public async Task AddingRefusesABinaryWithNoVersionResource()
     {
-        var path = CreateExecutable("plain.exe");
+        var path = CreateBareFile("plain.exe");
 
         var result = await _service.AddAsync(path, "Target", CancellationToken.None);
 
-        Assert.Equal("plain.exe", (await _repository.GetByIdAsync(result.Value, CancellationToken.None))!.OriginalFileName);
+        // The bug this replaces: it used to fall back to the file name on disk and report
+        // success. WDAC never compares against the name on disk, so the policy deployed, the
+        // state read Enforced, and the application kept running.
+        Assert.True(result.IsFailure);
+        Assert.Equal(ErrorCode.Invalid, result.Error.Code);
+        Assert.Empty(await _repository.GetAllAsync(CancellationToken.None));
+        Assert.Empty(_codeIntegrity.AppliedDocuments);
     }
+
+    [Theory]
+    [InlineData("app.exe", "app_internal", "App Suite", "FileName", "app.exe")]
+    [InlineData(null, "app_internal", "App Suite", "InternalName", "app_internal")]
+    [InlineData(null, null, "App Suite", "ProductName", "App Suite")]
+    public void TheMatchAttributeFollowsWhatTheBinaryActuallyCarries(
+        string? original, string? internalName, string? product, string expectedAttribute, string expectedValue)
+    {
+        var match = ApplicationBlockingService.ResolveMatch(new PeVersionFields(original, internalName, product));
+
+        Assert.NotNull(match);
+        Assert.Equal(expectedAttribute, match.Value.Attribute);
+        Assert.Equal(expectedValue, match.Value.Value);
+    }
+
+    [Fact]
+    public void NoVersionFieldsAtAllMeansNoRuleIsPossible() =>
+        Assert.Null(ApplicationBlockingService.ResolveMatch(PeVersionFields.None));
 
     [Fact]
     public async Task AddingRollsBackTheRowWhenThePolicyCannotBeApplied()
@@ -345,7 +369,20 @@ public sealed class ApplicationBlockingServiceTests : IDisposable
         return result.Value;
     }
 
+    /// <summary>
+    /// A file on disk that also carries an OriginalFilename, which is what the service now
+    /// requires. Tests about something else should not have to think about it; the one test that
+    /// is about a binary with no version resource creates its file without calling this.
+    /// </summary>
     private string CreateExecutable(string fileName)
+    {
+        var path = CreateBareFile(fileName);
+        _executableReader.WithOriginalFileName(path, fileName);
+
+        return path;
+    }
+
+    private string CreateBareFile(string fileName)
     {
         var path = Path.Combine(_workDirectory, fileName);
         if (!File.Exists(path))

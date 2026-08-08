@@ -13,8 +13,6 @@ import { notify, notifyError } from './notices.js';
 
 const element = (id) => document.getElementById(id);
 
-/** What was typed lives here, not only in the DOM, or a background refresh would wipe it. */
-const draft = { path: '', name: '' };
 let loaded = false;
 
 function renderPolicyState(state) {
@@ -95,9 +93,10 @@ function applicationRow(application, onChanged) {
     el('div', { class: 'row-main' }, [
       el('div', { class: 'row-title', text: application.name }),
       el('div', { class: 'row-detail', text: application.executablePath }),
-      // The field WDAC actually matches. Shown because it explains why renaming the file does
-      // not get around the block.
-      el('div', { class: 'row-detail', text: `OriginalFilename: ${application.originalFileName}` }),
+      // Which attribute is doing the blocking, not a fixed label: a binary with no
+      // OriginalFilename is matched by InternalName or ProductName, and saying otherwise would
+      // be the same guess that made the block silently do nothing.
+      el('div', { class: 'row-detail', text: `${application.matchAttribute}: ${application.matchValue}` }),
     ]),
     el('div', { class: 'row-actions' }, [toggle, remove]),
   ]);
@@ -156,10 +155,8 @@ async function loadProcesses(control) {
       pick.addEventListener('click', () => {
         // The only two ways to name an executable: this list, or typing the path. A browser
         // never reveals the real path of a file chosen with a file picker.
-        draft.path = process.executablePath;
-        draft.name = process.name;
-        element('application-path').value = draft.path;
-        element('application-name').value = draft.name;
+        element('application-path').value = process.executablePath;
+        element('application-name').value = process.name;
         element('application-path').focus();
       });
 
@@ -189,8 +186,6 @@ async function handleAdd(submitEvent) {
       return;
     }
 
-    draft.path = '';
-    draft.name = '';
     element('application-path').value = '';
     element('application-name').value = '';
     notify('Windows will refuse to run it from now on.', 'ok');
@@ -216,11 +211,9 @@ export function connect() {
     void loadProcesses(clickEvent.currentTarget);
   });
 
-  for (const [id, field] of [['application-path', 'path'], ['application-name', 'name']]) {
-    element(id).addEventListener('input', (inputEvent) => {
-      draft[field] = inputEvent.currentTarget.value;
-    });
-  }
+  // Nothing here rebuilds the form, which is what keeps a half-typed path alive across a
+  // background refresh. Mirroring the fields into module state as well would be two copies of
+  // the same truth and no extra protection.
 
   // Pushed, not polled: the reconciliation worker can put a removed policy back while nobody is
   // touching the browser, and thirty seconds of showing the old answer is thirty seconds of

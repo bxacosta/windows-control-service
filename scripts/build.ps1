@@ -53,6 +53,19 @@ if (-not (Test-Path $exe)) {
     throw "Publish finished but $exe is missing."
 }
 
+# The interface is part of the artefact, not an extra. Checking only for the .exe is how a
+# publish that silently dropped wwwroot would reach install.ps1 and become a service that
+# answers the API and serves nothing.
+$shell = Join-Path $Output (Join-Path 'wwwroot' 'index.html')
+if (-not (Test-Path $shell)) {
+    throw "Publish finished but $shell is missing: the service would start with no interface."
+}
+
+# UseStaticFiles does no content negotiation and reads no manifest, so the endpoints file the
+# SDK emits is fifteen kilobytes that nothing ever opens. Same reasoning as CompressionEnabled
+# in the .csproj: what ships is what runs.
+Get-ChildItem $Output -Filter '*.staticwebassets.endpoints.json' | Remove-Item -Force
+
 $sizeMb = [Math]::Round((Get-Item $exe).Length / 1MB, 1)
 $totalMb = [Math]::Round(((Get-ChildItem $Output -Recurse -File | Measure-Object Length -Sum).Sum) / 1MB, 1)
 

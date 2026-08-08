@@ -25,7 +25,7 @@ public sealed class BlockedApplicationRepository(IDbConnectionFactory connection
     : IBlockedApplicationRepository
 {
     private const string SelectColumns =
-        "SELECT Id, Name, ExecutablePath, OriginalFileName, ProductName, IsEnabled, CreatedAt FROM BlockedApplications";
+        "SELECT Id, Name, ExecutablePath, MatchAttribute, MatchValue, ProductName, IsEnabled, CreatedAt FROM BlockedApplications";
 
     public async Task<IReadOnlyList<BlockedApplication>> GetAllAsync(CancellationToken cancellationToken) =>
         await QueryAsync($"{SelectColumns} ORDER BY Id;", parameters: null, cancellationToken);
@@ -67,16 +67,17 @@ public sealed class BlockedApplicationRepository(IDbConnectionFactory connection
             new CommandDefinition(
                 """
                 INSERT INTO BlockedApplications
-                    (Name, ExecutablePath, OriginalFileName, ProductName, IsEnabled, CreatedAt)
+                    (Name, ExecutablePath, MatchAttribute, MatchValue, ProductName, IsEnabled, CreatedAt)
                 VALUES
-                    (@Name, @ExecutablePath, @OriginalFileName, @ProductName, @IsEnabled, @CreatedAt);
+                    (@Name, @ExecutablePath, @MatchAttribute, @MatchValue, @ProductName, @IsEnabled, @CreatedAt);
                 SELECT last_insert_rowid();
                 """,
                 new
                 {
                     application.Name,
                     application.ExecutablePath,
-                    application.OriginalFileName,
+                    application.MatchAttribute,
+                    application.MatchValue,
                     application.ProductName,
                     IsEnabled = application.IsEnabled ? 1 : 0,
                     CreatedAt = application.CreatedAt.ToString("O", CultureInfo.InvariantCulture),
@@ -133,7 +134,8 @@ public sealed class BlockedApplicationRepository(IDbConnectionFactory connection
         long Id,
         string Name,
         string ExecutablePath,
-        string OriginalFileName,
+        string MatchAttribute,
+        string MatchValue,
         string? ProductName,
         long IsEnabled,
         string CreatedAt)
@@ -143,7 +145,8 @@ public sealed class BlockedApplicationRepository(IDbConnectionFactory connection
             Id = Id,
             Name = Name,
             ExecutablePath = ExecutablePath,
-            OriginalFileName = OriginalFileName,
+            MatchAttribute = MatchAttribute,
+            MatchValue = MatchValue,
             ProductName = ProductName,
             IsEnabled = IsEnabled != 0,
             CreatedAt = DateTime.Parse(CreatedAt, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind),

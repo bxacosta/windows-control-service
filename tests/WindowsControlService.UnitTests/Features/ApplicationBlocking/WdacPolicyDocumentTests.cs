@@ -159,7 +159,7 @@ public sealed class WdacPolicyDocumentTests
         {
             Id = 7,
             Name = "Ampersand & <script>\"quoted\"</script>",
-            OriginalFileName = "evil.exe",
+            MatchValue = "evil.exe",
         };
 
         var bytes = WdacPolicyDocument.Build([application]);
@@ -178,7 +178,7 @@ public sealed class WdacPolicyDocumentTests
         var schemas = new XmlSchemaSet();
         schemas.Add(Namespace, SchemaPath);
 
-        var document = Parse([new BlockedApplication { Id = 1, Name = "A & B", OriginalFileName = "a.exe" }]);
+        var document = Parse([new BlockedApplication { Id = 1, Name = "A & B", MatchValue = "a.exe" }]);
 
         var problems = new List<string>();
         document.Validate(schemas, (_, args) => problems.Add(args.Message));
@@ -199,8 +199,8 @@ public sealed class WdacPolicyDocumentTests
 
     private static List<BlockedApplication> SampleApplications() =>
     [
-        new() { Id = 1, Name = "Test target", OriginalFileName = "wcs-test-target.exe" },
-        new() { Id = 2, Name = "Another", OriginalFileName = "another.exe" },
-        new() { Id = 42, Name = "Third", OriginalFileName = "third.exe" },
+        new() { Id = 1, Name = "Test target", MatchValue = "wcs-test-target.exe" },
+        new() { Id = 2, Name = "Another", MatchValue = "another.exe" },
+        new() { Id = 42, Name = "Third", MatchValue = "third.exe" },
     ];
 }

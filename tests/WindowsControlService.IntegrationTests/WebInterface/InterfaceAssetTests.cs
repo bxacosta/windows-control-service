@@ -1,3 +1,5 @@
+using System.Text;
+
 namespace WindowsControlService.IntegrationTests.WebInterface;
 
 /// <summary>
@@ -51,6 +53,23 @@ public sealed class InterfaceAssetTests
         // step. One CDN link would quietly undo both.
         Assert.DoesNotContain("http://", content, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("https://", content, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Theory]
+    [MemberData(nameof(AssetFiles))]
+    public void EveryAssetIsCleanUtf8(string relativePath)
+    {
+        var bytes = File.ReadAllBytes(Path.Combine(WebRoot(), relativePath));
+        var strict = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: true);
+
+        var text = strict.GetString(bytes);
+
+        // Not just "decodes": text that was encoded twice decodes perfectly and renders as
+        // "Checkingâ€¦" on screen. These two sequences are what double encoding always leaves
+        // behind, and one of them shipped in index.html unnoticed because no test looked.
+        Assert.DoesNotContain("Ã¢", text, StringComparison.Ordinal);
+        Assert.DoesNotContain("â€", text, StringComparison.Ordinal);
+        Assert.DoesNotContain("Â ", text, StringComparison.Ordinal);
     }
 
     [Fact]

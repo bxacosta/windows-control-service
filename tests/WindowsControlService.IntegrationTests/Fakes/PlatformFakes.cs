@@ -82,13 +82,17 @@ public sealed class FakeProcessInventory : IProcessInventory
 
 public sealed class FakePortableExecutableReader : IPortableExecutableReader
 {
-    public Dictionary<string, string?> OriginalFileNames { get; } = new(StringComparer.OrdinalIgnoreCase);
+    public Dictionary<string, PeVersionFields> VersionFields { get; } = new(StringComparer.OrdinalIgnoreCase);
 
     public Dictionary<string, (string? FileDescription, string? ProductName)> DisplayInfo { get; } =
         new(StringComparer.OrdinalIgnoreCase);
 
-    public string? ReadOriginalFileName(string executablePath) =>
-        OriginalFileNames.TryGetValue(executablePath, out var name) ? name : null;
+    /// <summary>A binary that carries an OriginalFilename and nothing else, the common case.</summary>
+    public void WithOriginalFileName(string executablePath, string originalFileName) =>
+        VersionFields[executablePath] = new PeVersionFields(originalFileName, null, null);
+
+    public PeVersionFields ReadVersionFields(string executablePath) =>
+        VersionFields.TryGetValue(executablePath, out var fields) ? fields : PeVersionFields.None;
 
     public (string? FileDescription, string? ProductName) ReadDisplayInfo(string executablePath) =>
         DisplayInfo.TryGetValue(executablePath, out var info) ? info : (null, null);

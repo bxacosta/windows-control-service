@@ -133,7 +133,9 @@ public static class WdacPolicyDocument
 
             // No MinimumFileVersion. Omitting it makes the rule cover every version of the file,
             // which is what is wanted, and matches what New-CIPolicyRule -Deny produces.
-            writer.WriteAttributeString("FileName", application.OriginalFileName);
+            // Whichever attribute the row recorded. FileName is the common case but not the only
+            // one: a binary with no OriginalFilename is matched by InternalName or ProductName.
+            writer.WriteAttributeString(application.MatchAttribute, application.MatchValue);
             writer.WriteEndElement();
         }
 

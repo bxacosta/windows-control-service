@@ -63,19 +63,22 @@ public sealed class ApplicationBlockingHttpTests : IDisposable
     }
 
     [Fact]
-    public async Task TheListExposesTheOriginalFileName()
+    public async Task TheListSaysWhichAttributeTheRuleMatchesOn()
     {
         using var client = await SignedInClientAsync();
         var path = CreateExecutable("renamed.exe");
-        _factory.ExecutableReader.OriginalFileNames[path] = "the-real-name.exe";
+        _factory.ExecutableReader.WithOriginalFileName(path, "the-real-name.exe");
 
         await client.PostAsJsonAsync("/api/applications", new { executablePath = path, name = "Target" }, CancellationToken.None);
 
         var list = await client.GetFromJsonAsync<JsonElement>("/api/applications", CancellationToken.None);
         var entry = list.EnumerateArray().Single();
 
-        // Exposed because it explains to the user why renaming the executable changes nothing.
-        Assert.Equal("the-real-name.exe", entry.GetProperty("originalFileName").GetString());
+        // Both halves are exposed: the value explains why renaming the executable changes
+        // nothing, and the attribute keeps the interface from claiming every rule matches on
+        // OriginalFilename when plenty of binaries do not carry one.
+        Assert.Equal("FileName", entry.GetProperty("matchAttribute").GetString());
+        Assert.Equal("the-real-name.exe", entry.GetProperty("matchValue").GetString());
         Assert.True(entry.GetProperty("isEnabled").GetBoolean());
         Assert.EndsWith("Z", entry.GetProperty("createdAt").GetString()!, StringComparison.Ordinal);
     }
@@ -238,6 +241,10 @@ public sealed class ApplicationBlockingHttpTests : IDisposable
         return body.GetProperty("id").GetInt64();
     }
 
+    /// <summary>
+    /// A file on disk carrying an OriginalFilename, because a binary without one is refused now:
+    /// a rule built from the name on disk is one WDAC never matches.
+    /// </summary>
     private string CreateExecutable(string fileName)
     {
         var path = Path.Combine(_workDirectory, fileName);
@@ -245,6 +252,8 @@ public sealed class ApplicationBlockingHttpTests : IDisposable
         {
             File.WriteAllText(path, "not a real executable, but it exists on disk");
         }
+
+        _factory.ExecutableReader.WithOriginalFileName(path, fileName);
 
         return path;
     }

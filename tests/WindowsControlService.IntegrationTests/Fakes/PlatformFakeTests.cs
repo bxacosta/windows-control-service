@@ -75,9 +75,9 @@ public sealed class PlatformFakeTests
     public void TheExecutableReaderAnswersRegardlessOfPathCasing()
     {
         var reader = new FakePortableExecutableReader();
-        reader.OriginalFileNames[@"C:\Apps\Editor.exe"] = "editor.exe";
+        reader.WithOriginalFileName(@"C:\Apps\Editor.exe", "editor.exe");
 
-        Assert.Equal("editor.exe", reader.ReadOriginalFileName(@"c:\apps\editor.EXE"));
-        Assert.Null(reader.ReadOriginalFileName(@"C:\Apps\other.exe"));
+        Assert.Equal("editor.exe", reader.ReadVersionFields(@"c:\apps\editor.EXE").OriginalFileName);
+        Assert.Null(reader.ReadVersionFields(@"C:\Apps\other.exe").OriginalFileName);
     }
 }

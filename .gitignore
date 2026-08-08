@@ -3,3 +3,10 @@
 publish/
 *.user
 TestResults/
+
+# What a Development run leaves in the project directory: the service creates its data
+# directory beside the binary when no --data-dir is given.
+logs/
+windows-control-service.db
+windows-control-service.db-shm
+windows-control-service.db-wal

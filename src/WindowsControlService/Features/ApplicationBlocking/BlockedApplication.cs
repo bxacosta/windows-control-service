@@ -11,11 +11,18 @@ public sealed class BlockedApplication
     public string ExecutablePath { get; set; } = string.Empty;
 
     /// <summary>
-    /// The PE header field WDAC actually matches on. Stored rather than read on demand so the
+    /// The WDAC attribute the deny rule matches on: <c>FileName</c>, <c>InternalName</c> or
+    /// <c>ProductName</c>. Not always the first one, because not every binary carries an
+    /// OriginalFilename.
+    /// </summary>
+    public string MatchAttribute { get; set; } = "FileName";
+
+    /// <summary>
+    /// The value read out of the PE version resource. Stored rather than read on demand so the
     /// policy can be rebuilt without touching the disk, and exposed by the API because it
     /// explains why renaming the executable does not defeat the block.
     /// </summary>
-    public string OriginalFileName { get; set; } = string.Empty;
+    public string MatchValue { get; set; } = string.Empty;
 
     public string? ProductName { get; set; }
 

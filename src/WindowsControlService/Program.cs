@@ -5,6 +5,7 @@ using WindowsControlService.Features.Authentication;
 using WindowsControlService.Features.DeviceControl;
 using WindowsControlService.Features.Events;
 using WindowsControlService.Features.Health;
+using Microsoft.Extensions.Options;
 using WindowsControlService.Infrastructure.Database;
 using WindowsControlService.Infrastructure.Events;
 using WindowsControlService.Infrastructure.Hosting;
@@ -43,6 +44,17 @@ builder.Services.AddServiceEvents(builder.Configuration);
 builder.Services.AddDatabase(builder.Configuration);
 builder.Services.AddPlatform(builder.Configuration);
 
+// The one constraint that spans two modules, so it belongs here and nowhere else: the event
+// stream is what renews the sliding session cookie, and it can only do that by ending before
+// the session does. A literal in the events module would keep approving this after someone
+// lowered the session timeout.
+builder.Services.AddOptions<ServiceEventOptions>()
+    .Validate<IOptions<AuthenticationOptions>>(
+        (events, authentication) => events.StreamLifetime < authentication.Value.SessionTimeout,
+        "Events:StreamLifetime must be shorter than Authentication:SessionTimeout, or an open "
+        + "stream outlives the session it exists to renew.")
+    .ValidateOnStart();
+
 // 6. Features.
 builder.Services.AddAuthenticationFeature(builder.Configuration);
 builder.Services.AddApplicationBlocking(builder.Configuration);
@@ -78,9 +90,11 @@ else if (app.Logger.IsEnabled(LogLevel.Warning))
 {
     // Not a silent skip. A published service without its web root is a packaging fault, and the
     // path is the only thing that tells that apart from "the interface was never built".
+    // ContentRootPath and not WebRootPath: the latter is null in exactly the case this warning
+    // exists to describe, and "not found at null" tells nobody anything.
     app.Logger.LogWarning(
-        "Web root not found at {WebRootPath}. The API is up but the interface will not be served.",
-        app.Environment.WebRootPath);
+        "No wwwroot under {ContentRootPath}. The API is up but the interface will not be served.",
+        app.Environment.ContentRootPath);
 }
 app.UseAuthentication();
 app.UseAuthorization();

@@ -8,6 +8,7 @@ import { reportSessionLost } from './api.js';
 /** @type {Map<string, (payload: unknown) => void>} */
 const handlers = new Map();
 let source = null;
+let wanted = false;
 
 /** Registered before start(), and re-attached every time the stream is reopened. */
 export function on(name, handler) {
@@ -37,20 +38,27 @@ function open() {
 }
 
 export function stop() {
+  wanted = false;
   source?.close();
   source = null;
 }
 
 export function start() {
+  wanted = true;
   open();
-
-  // A hidden tab holds a connection and a subscriber for nothing. Six of them and an ordinary
-  // request never completes, with no error anywhere.
-  document.addEventListener('visibilitychange', () => {
-    if (document.hidden) {
-      stop();
-    } else {
-      open();
-    }
-  });
 }
+
+// Registered once, at module load, and not inside start(): signing in again would otherwise add
+// a second listener, and a third. It reopens only while a stream is wanted, so coming back to a
+// tab that is sitting on the sign-in screen does not open /api/events just to be told 401.
+//
+// A hidden tab holds one of the browser's six connections for nothing. Six of those and an
+// ordinary request never completes, with no error anywhere.
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) {
+    source?.close();
+    source = null;
+  } else if (wanted) {
+    open();
+  }
+});

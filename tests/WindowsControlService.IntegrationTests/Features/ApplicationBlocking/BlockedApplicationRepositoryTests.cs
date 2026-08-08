@@ -47,7 +47,7 @@ public sealed class BlockedApplicationRepositoryTests : IDisposable
         Assert.NotNull(stored);
         Assert.Equal("Editor", stored.Name);
         Assert.Equal(@"C:\Apps\editor.exe", stored.ExecutablePath);
-        Assert.Equal("editor.exe", stored.OriginalFileName);
+        Assert.Equal("editor.exe", stored.MatchValue);
         Assert.Equal("Editor Suite", stored.ProductName);
         Assert.True(stored.IsEnabled);
     }
@@ -142,7 +142,7 @@ public sealed class BlockedApplicationRepositoryTests : IDisposable
             {
                 Name = name,
                 ExecutablePath = path,
-                OriginalFileName = originalFileName,
+                MatchValue = originalFileName,
                 ProductName = productName,
                 IsEnabled = true,
                 CreatedAt = Created,

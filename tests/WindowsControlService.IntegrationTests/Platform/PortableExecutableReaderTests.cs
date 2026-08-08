@@ -32,7 +32,7 @@ public sealed class PortableExecutableReaderTests : IDisposable
     {
         var notepad = Path.Combine(SystemDirectory, "notepad.exe");
 
-        var name = _reader.ReadOriginalFileName(notepad);
+        var name = _reader.ReadVersionFields(notepad).OriginalFileName;
 
         Assert.Equal("NOTEPAD.EXE", name, ignoreCase: true);
 
@@ -52,7 +52,7 @@ public sealed class PortableExecutableReaderTests : IDisposable
         var viaFileVersionInfo = System.Diagnostics.FileVersionInfo.GetVersionInfo(notepad).OriginalFilename;
 
         Assert.EndsWith(".MUI", viaFileVersionInfo!, StringComparison.OrdinalIgnoreCase);
-        Assert.NotEqual(viaFileVersionInfo, _reader.ReadOriginalFileName(notepad), StringComparer.OrdinalIgnoreCase);
+        Assert.NotEqual(viaFileVersionInfo, _reader.ReadVersionFields(notepad).OriginalFileName, StringComparer.OrdinalIgnoreCase);
     }
 
     [Theory]
@@ -60,7 +60,7 @@ public sealed class PortableExecutableReaderTests : IDisposable
     [InlineData("ping.exe", "ping.exe")]
     public void ReadOriginalFileNameMatchesTheNeutralResourceOfSystemBinaries(string fileName, string expected)
     {
-        var name = _reader.ReadOriginalFileName(Path.Combine(SystemDirectory, fileName));
+        var name = _reader.ReadVersionFields(Path.Combine(SystemDirectory, fileName)).OriginalFileName;
 
         Assert.Equal(expected, name, ignoreCase: true);
         Assert.DoesNotContain(".MUI", name!, StringComparison.OrdinalIgnoreCase);
@@ -71,7 +71,7 @@ public sealed class PortableExecutableReaderTests : IDisposable
     {
         var missing = Path.Combine(_workDirectory, "no-such-binary.exe");
 
-        Assert.Null(_reader.ReadOriginalFileName(missing));
+        Assert.Null(_reader.ReadVersionFields(missing).OriginalFileName);
     }
 
     [Fact]
@@ -80,7 +80,7 @@ public sealed class PortableExecutableReaderTests : IDisposable
         var file = Path.Combine(_workDirectory, "not-really-a-binary.exe");
         await File.WriteAllTextAsync(file, "this is not a portable executable");
 
-        Assert.Null(_reader.ReadOriginalFileName(file));
+        Assert.Null(_reader.ReadVersionFields(file).OriginalFileName);
     }
 
     [Fact]

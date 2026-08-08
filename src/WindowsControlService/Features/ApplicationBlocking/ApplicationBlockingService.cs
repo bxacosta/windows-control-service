@@ -63,6 +63,29 @@ public sealed class ApplicationBlockingService(
     public Task<Result> ReconcileAsync(CancellationToken cancellationToken) =>
         executor.RunAsync(ReconcileCoreAsync, cancellationToken);
 
+    /// <summary>
+    /// Which WDAC attribute can carry this executable's deny rule, and its value.
+    /// </summary>
+    /// <remarks>
+    /// The order is not arbitrary. <c>FileName</c> compares against the OriginalFilename inside
+    /// the binary, which is the most specific of the three; <c>InternalName</c> is nearly as
+    /// specific; <c>ProductName</c> is the widest and can cover a whole suite, which is why it
+    /// is last. Returns null when the binary carries none of them, and then it cannot be blocked
+    /// by name at all.
+    /// </remarks>
+    internal static (string Attribute, string Value)? ResolveMatch(PeVersionFields fields)
+    {
+        ArgumentNullException.ThrowIfNull(fields);
+
+        return fields switch
+        {
+            { OriginalFileName: { } original } => ("FileName", original),
+            { InternalName: { } internalName } => ("InternalName", internalName),
+            { ProductName: { } product } => ("ProductName", product),
+            _ => null,
+        };
+    }
+
     public async Task<Result<PolicyStateResponse>> GetPolicyStateAsync(CancellationToken cancellationToken)
     {
         var state = await codeIntegrity.GetPolicyStateAsync(WdacPolicyDocument.PolicyId, cancellationToken);
@@ -104,16 +127,33 @@ public sealed class ApplicationBlockingService(
             return Result<long>.Failure(ErrorCode.Conflict, "An entry for this executable already exists.");
         }
 
-        // The field WDAC really matches on. Falling back to the file name is right here: a binary
-        // with no version resource still has to be blockable.
-        var originalFileName = executableReader.ReadOriginalFileName(fullPath) ?? Path.GetFileName(fullPath);
+        var match = ResolveMatch(executableReader.ReadVersionFields(fullPath));
+        if (match is null)
+        {
+            // No guessing. A deny rule built from the name on disk is a rule WDAC never compares
+            // anything against: the policy deploys, the state reads Enforced, and the executable
+            // keeps running. Refusing is the only honest answer.
+            return Result<long>.Failure(
+                ErrorCode.Invalid,
+                "That executable carries no version information, so a rule has nothing to match "
+                + "against. Blocking it would report protection that does not exist.");
+        }
+
+        var (attribute, value) = match.Value;
         var (_, productName) = executableReader.ReadDisplayInfo(fullPath);
+
+        if (logger.IsEnabled(LogLevel.Information))
+        {
+            logger.LogInformation(
+                "Blocking {ExecutablePath} on {MatchAttribute}={MatchValue}.", fullPath, attribute, value);
+        }
 
         var application = new BlockedApplication
         {
             Name = name,
             ExecutablePath = fullPath,
-            OriginalFileName = originalFileName,
+            MatchAttribute = attribute,
+            MatchValue = value,
             ProductName = productName,
             IsEnabled = true,
             CreatedAt = timeProvider.GetUtcNow().UtcDateTime,
