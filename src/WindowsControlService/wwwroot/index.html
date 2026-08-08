@@ -134,7 +134,48 @@
     <section id="section-history" class="section" hidden aria-labelledby="h-history">
       <h2 id="h-history">History</h2>
       <p class="section-lead">Local and Remote Desktop sign-ins recorded by Windows.</p>
-      <div class="placeholder" aria-hidden="true"></div>
+
+      <div class="card">
+        <div class="toolbar">
+          <div>
+            <label for="history-origin">Origin</label>
+            <select id="history-origin">
+              <option value="all">All</option>
+              <option value="local">Local</option>
+              <option value="remote">Remote</option>
+            </select>
+          </div>
+          <p id="history-summary" class="summary">&nbsp;</p>
+        </div>
+
+        <div class="table-scroll">
+          <table class="table">
+            <thead>
+              <tr>
+                <th scope="col">When</th>
+                <th scope="col">Event</th>
+                <th scope="col">Origin</th>
+                <th scope="col">Address</th>
+                <th scope="col">User</th>
+                <th scope="col">Session</th>
+                <th scope="col">Duration</th>
+              </tr>
+            </thead>
+            <tbody id="history-rows"></tbody>
+          </table>
+        </div>
+
+        <p id="history-empty" class="empty" hidden>Nothing recorded for this filter.</p>
+
+        <div class="pager">
+          <button id="history-previous" type="button" class="button-secondary" disabled>
+            <span class="spinner" aria-hidden="true"></span>Newer
+          </button>
+          <button id="history-next" type="button" class="button-secondary" disabled>
+            <span class="spinner" aria-hidden="true"></span>Older
+          </button>
+        </div>
+      </div>
     </section>
 
     <section id="section-settings" class="section" hidden aria-labelledby="h-settings">
