@@ -70,7 +70,7 @@
         <h3>Policy</h3>
         <!-- Height reserved: the state arrives after the first paint and must not push the
              cards below it down when it does. -->
-        <p id="policy-state-line" class="state-line" data-state="unknown">Checking…</p>
+        <p id="policy-state-line" class="state-line" data-state="unknown">Checkingâ¦</p>
       </div>
 
       <div class="card">
@@ -111,7 +111,24 @@
     <section id="section-devices" class="section" hidden aria-labelledby="h-devices">
       <h2 id="h-devices">Devices</h2>
       <p class="section-lead">USB mass storage. The registry is the source of truth.</p>
-      <div class="placeholder" aria-hidden="true"></div>
+
+      <div class="card">
+        <h3>USB mass storage</h3>
+        <p class="card-lead">
+          Blocking stops new drives from mounting. A drive that is already mounted keeps working
+          until it is unplugged or the machine restarts.
+        </p>
+
+        <div class="row">
+          <div class="row-main">
+            <div class="row-title" id="usb-state-title">Checking…</div>
+            <div class="row-detail" id="usb-last-modified">&nbsp;</div>
+          </div>
+          <div class="row-actions">
+            <input id="usb-switch" type="checkbox" role="switch" aria-label="Block USB mass storage">
+          </div>
+        </div>
+      </div>
     </section>
 
     <section id="section-history" class="section" hidden aria-labelledby="h-history">

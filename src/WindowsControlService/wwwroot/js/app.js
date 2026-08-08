@@ -5,6 +5,7 @@
 
 import * as api from './api.js';
 import * as applications from './applications.js';
+import * as devices from './devices.js';
 import * as events from './events.js';
 import * as router from './router.js';
 import * as session from './session.js';
@@ -12,11 +13,12 @@ import * as settings from './settings.js';
 import { notifyError } from './notices.js';
 
 router.register('applications', { enter: applications.enter });
-router.register('devices');
+router.register('devices', { enter: devices.enter });
 router.register('history');
 router.register('settings');
 
 applications.connect();
+devices.connect();
 settings.connect();
 
 // Every 401 in the application ends here, and so does an event stream that died with one. The

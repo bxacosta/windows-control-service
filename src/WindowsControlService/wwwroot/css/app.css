@@ -286,10 +286,46 @@ button:disabled { opacity: 0.7; }
 .state-line[data-state="notenforced"] { border-left-color: var(--text-muted); }
 .state-line[data-state="unknown"] { border-left-color: var(--warn); }
 
+/* A real switch rather than a checkbox: this control is the whole section, and "on or off"
+   has to be readable across the room. */
 input[type="checkbox"][role="switch"] {
-  width: 2.6rem;
+  appearance: none;
+  position: relative;
+  width: 2.75rem;
   height: 1.5rem;
-  accent-color: var(--accent);
+  margin: 0;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg);
+  cursor: pointer;
+}
+
+input[type="checkbox"][role="switch"]::after {
+  content: "";
+  position: absolute;
+  top: 0.125rem;
+  left: 0.125rem;
+  width: 1.125rem;
+  height: 1.125rem;
+  border-radius: 50%;
+  background: var(--text-muted);
+}
+
+input[type="checkbox"][role="switch"]:checked {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+input[type="checkbox"][role="switch"]:checked::after {
+  transform: translateX(1.2rem);
+  background: var(--accent-text);
+}
+
+ (prefers-reduced-motion: no-preference) {
+  input[type="checkbox"][role="switch"],
+  input[type="checkbox"][role="switch"]::after {
+    transition: background-color 120ms ease, transform 120ms ease;
+  }
 }
 
 /* Notices ----------------------------------------------------------------- */
