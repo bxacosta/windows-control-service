@@ -1,446 +1,953 @@
 /*
- * Hand written, no framework and no build step. The one rule that is not taste: nothing here
- * may change the cursor while something is loading. A spinner already says "wait", so a busy
- * cursor only repeats it, and a forbidden one says something different and false. A test
- * enforces this, which is why the property names are not spelled out even in this comment.
+ * Hand written, no framework and no build step.
+ *
+ * Every colour, radius and text size below comes from a token declared in :root, and those
+ * tokens are transcribed from DESIGN.md. Nothing is picked here. If a value is needed and the
+ * design system does not have it, the design system is what gets edited.
+ *
+ * The one rule that is not taste: nothing here may change the cursor while something is loading.
+ * A spinner already says "wait", so a busy cursor only repeats it, and a forbidden one says
+ * something different and false. A test enforces this, which is why the property names are not
+ * spelled out even in this comment.
  */
 
 :root {
-  color-scheme: light dark;
+  color-scheme: dark;
 
-  --bg: #f6f7f9;
-  --surface: #ffffff;
-  --border: #d8dce3;
-  --text: #16191d;
-  --text-muted: #5b6472;
-  --accent: #1c5fd0;
-  --accent-text: #ffffff;
-  --danger: #b3261e;
-  --ok: #1e7a45;
-  --warn: #8a5a00;
+  /* --- colors ----------------------------------------------------------- */
+  --ground: #030303;
+  --inset: #070707;
+  --surface: #0F0F0F;
+  --raised: #161616;
+  --overlay: #1F1F1F;
+  --line: #272727;
+  --line-soft: #1A1A1A;
 
-  --radius: 8px;
-  --gap: 1rem;
-  --page: 62rem;
+  --text: #EDEDED;
+  --text-secondary: #A6A6A6;
+  --text-muted: #858585;
+
+  --primary: #E5E5E5;
+  --primary-hover: #FAFAFA;
+  --primary-press: #C9C9C9;
+  --on-primary: #0A0A0A;
+  --on-denied: #1A0406;
+
+  --signal: #4A9EEB;
+  --enforced: #3ECF8E;
+  --waiting: #E3A93C;
+  --denied: #F0555B;
+  --remote: #9B87F5;
+
+  --signal-wash: #182632;
+  --enforced-wash: #15281F;
+  --waiting-wash: #2B2315;
+  --denied-wash: #2C1819;
+  --remote-wash: #23202F;
+
+  --shadow: #000000;
+
+  /* --- typography ------------------------------------------------------- */
+  --font-display: "Segoe UI Variable Display", "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  --font-text: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "Cascadia Mono", "Cascadia Code", Consolas, ui-monospace, monospace;
+
+  --size-display: 20px;
+  --size-title: 13.5px;
+  --size-body: 13.5px;
+  --size-meta: 12px;
+  --size-label: 11px;
+  --size-mono: 12px;
+
+  --weight-display: 600;
+  --weight-title: 600;
+  --weight-body: 400;
+  --weight-label: 600;
+
+  --tracking-display: -0.015em;
+  --tracking-title: -0.005em;
+  --tracking-label: 0.01em;
+  --tracking-mono: -0.01em;
+
+  --leading-body: 1.45;
+
+  /* --- rounded ---------------------------------------------------------- */
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-full: 999px;
+
+  /* --- spacing ---------------------------------------------------------- */
+  --space-1: 4px;
+  --space-2: 6px;
+  --space-3: 8px;
+  --space-4: 12px;
+  --space-5: 14px;
+  --space-6: 16px;
+  --space-7: 20px;
+
+  /* --- component measurements ------------------------------------------ */
+  --page-width: 900px;
+  --page-pad: var(--space-7);
+  --top-bar-height: 56px;
+  --tab-height: 44px;
+  --tab-underline: 2px;
+  --card-header-height: 48px;
+  --strip-height: 40px;
+  --control-height: 32px;
+  --field-height: 34px;
+  --field-compact-width: 190px;
+  --form-label-width: 172px;
+  --switch-width: 38px;
+  --switch-height: 22px;
+  --switch-thumb: 16px;
+  --switch-thumb-on: 17px;
+  --pill-height: 20px;
+  --chip-height: 19px;
+  --badge-height: 18px;
+  --modal-width: 540px;
+  --modal-list-height: 330px;
+  --gate-width: 380px;
+  --toast-width: 320px;
+  --icon-size: 16px;
+  --icon-stroke: 1.7;
+
+  /* --- elevation -------------------------------------------------------- */
+  --shadow-card:
+    0 1px 2px color-mix(in srgb, var(--shadow) 50%, transparent),
+    0 8px 24px color-mix(in srgb, var(--shadow) 35%, transparent);
+  --shadow-modal: 0 24px 64px color-mix(in srgb, var(--shadow) 65%, transparent);
+  --shadow-toast: 0 8px 24px color-mix(in srgb, var(--shadow) 50%, transparent);
+  --shadow-recess: inset 0 1px 2px color-mix(in srgb, var(--shadow) 60%, transparent);
+  --shadow-segment: 0 1px 2px color-mix(in srgb, var(--shadow) 45%, transparent);
+  --scrim: color-mix(in srgb, var(--shadow) 60%, transparent);
+
+  /* --- motion ----------------------------------------------------------- */
+  --fast: 120ms;
+  --enter: 160ms;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #14171c;
-    --surface: #1c2027;
-    --border: #2e353f;
-    --text: #e8eaed;
-    --text-muted: #a2acbb;
-    --accent: #6ea8ff;
-    --accent-text: #0d1117;
-    --danger: #f2857c;
-    --ok: #6fd398;
-    --warn: #e0b25a;
-  }
-}
+/* ---------------------------------------------------------------- base -- */
 
-* { box-sizing: border-box; }
+*,
+*::before,
+*::after { box-sizing: border-box; }
 
-/* The hidden attribute has to beat every display rule below it. A flex or grid container with
-   its own display value ignores [hidden] otherwise, which is exactly how the navigation stayed
-   on screen on the sign-in page. */
-[hidden] { display: none !important; }
+html { height: 100%; }
 
 body {
   margin: 0;
-  background: var(--bg);
+  min-height: 100%;
+  background: var(--ground);
   color: var(--text);
-  font: 16px/1.5 "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  font-family: var(--font-text);
+  font-size: var(--size-body);
+  font-weight: var(--weight-body);
+  line-height: var(--leading-body);
+  -webkit-font-smoothing: antialiased;
 }
 
-/* Header ------------------------------------------------------------------ */
+.sprite { display: none; }
 
-.app-header {
-  border-bottom: 1px solid var(--border);
-  background: var(--surface);
-  padding: var(--gap);
-}
+[hidden] { display: none !important; }
 
-.app-title {
-  margin: 0 auto;
-  max-width: var(--page);
-  font-size: 1.125rem;
-  font-weight: 600;
-}
+h1, h2, p { margin: 0; }
 
-.app-nav {
-  margin: 0.75rem auto 0;
-  max-width: var(--page);
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.25rem;
-}
-
-.app-nav a {
-  padding: 0.4rem 0.75rem;
-  border-radius: var(--radius);
-  color: var(--text-muted);
-  text-decoration: none;
-  /* Reserve the weight difference so the active state does not reflow the row. */
-  border: 1px solid transparent;
-}
-
-.app-nav a:hover { background: var(--bg); color: var(--text); }
-
-.app-nav a[aria-current="page"] {
-  background: var(--bg);
-  border-color: var(--border);
-  color: var(--text);
-}
-
-/* Main -------------------------------------------------------------------- */
-
-.app-main {
-  max-width: var(--page);
-  margin: 0 auto;
-  padding: calc(var(--gap) * 1.5) var(--gap);
-}
-
-.section h2 { margin: 0 0 0.25rem; font-size: 1.375rem; }
-
-.section-lead { margin: 0 0 var(--gap); color: var(--text-muted); }
-
-/* Gate and cards ---------------------------------------------------------- */
-
-.gate {
-  max-width: 26rem;
-  margin: 3rem auto;
-  padding: 0 var(--gap);
-}
-
-.card {
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--surface);
-  padding: 1.25rem;
-  margin-bottom: var(--gap);
-}
-
-.card h2, .card h3 { margin: 0 0 0.5rem; font-size: 1.125rem; }
-
-.card-lead { margin: 0 0 var(--gap); color: var(--text-muted); font-size: 0.9375rem; }
-
-label {
-  display: block;
-  margin-bottom: 0.25rem;
-  font-size: 0.875rem;
-  font-weight: 600;
-}
-
-input[type="password"], input[type="text"], select {
-  display: block;
-  width: 100%;
-  margin-bottom: 0.75rem;
-  padding: 0.5rem 0.625rem;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  background: var(--bg);
-  color: var(--text);
-  font: inherit;
-}
-
-input:focus-visible, select:focus-visible, button:focus-visible, a:focus-visible {
-  outline: 2px solid var(--accent);
+:focus-visible {
+  outline: 2px solid var(--primary);
   outline-offset: 2px;
+  border-radius: var(--radius-sm);
 }
 
-.field-hint { margin: 0 0 0.75rem; color: var(--text-muted); font-size: 0.8125rem; }
-
-/* The slot is in the layout whether or not it has text: a message appearing must not push the
-   button it belongs to further down the page. */
-.field-error {
-  margin: 0 0 0.75rem;
-  min-height: 1.25rem;
-  color: var(--danger);
-  font-size: 0.875rem;
+.icon {
+  width: var(--icon-size);
+  height: var(--icon-size);
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: var(--icon-stroke);
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
-/* Buttons and the pending state ------------------------------------------- */
+/* Numbers that sit in a column must not shift as they change. */
+.tabular { font-variant-numeric: tabular-nums; }
 
-button {
+/* ------------------------------------------------------------- top bar -- */
+
+.top-bar {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  height: var(--top-bar-height);
+  background: var(--ground);
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.top-bar-inner,
+.tabs-inner,
+.page {
+  max-width: var(--page-width);
+  margin: 0 auto;
+  padding-inline: var(--page-pad);
+}
+
+.top-bar-inner {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.wordmark {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-family: var(--font-display);
+  font-size: var(--size-display);
+  font-weight: var(--weight-display);
+  letter-spacing: var(--tracking-display);
+}
+
+.wordmark-icon { color: var(--text-secondary); }
+
+.top-bar-right {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.health {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--text-muted);
+  font-size: var(--size-meta);
+  font-variant-numeric: tabular-nums;
+}
+
+.health-dot {
+  width: var(--space-3);
+  height: var(--space-3);
+  border-radius: var(--radius-full);
+  background: var(--text-muted);
+}
+
+.health-dot[data-health="healthy"] { background: var(--enforced); }
+.health-dot[data-health="unreachable"] { background: var(--denied); }
+
+/* ---------------------------------------------------------------- tabs -- */
+
+.tabs { border-bottom: 1px solid var(--line-soft); }
+
+.tabs-inner {
+  display: flex;
+  gap: var(--space-6);
+}
+
+.tab {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: var(--tab-height);
+  color: var(--text-muted);
+  font-size: var(--size-meta);
+  text-decoration: none;
+  transition: color var(--fast) ease;
+}
+
+.tab:hover { color: var(--text-secondary); }
+
+.tab[aria-current="page"] { color: var(--text); }
+
+/* The underline is reserved on every tab so becoming the active one does not reflow the row. */
+.tab::after {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0;
+  height: var(--tab-underline);
+  background: transparent;
+}
+
+.tab[aria-current="page"]::after { background: var(--primary); }
+
+.tab-badge {
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem 0.9rem;
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
+  justify-content: center;
+  min-width: var(--badge-height);
+  height: var(--badge-height);
+  padding-inline: var(--space-1);
+  border-radius: var(--radius-sm);
+  background: var(--overlay);
+  color: var(--text-secondary);
+  font-size: var(--size-label);
+  font-weight: var(--weight-label);
+  letter-spacing: var(--tracking-label);
+  font-variant-numeric: tabular-nums;
+}
+
+/* A dot with a halo: the halo is what makes it read as live rather than as decoration. */
+.tab-signal {
+  width: var(--space-2);
+  height: var(--space-2);
+  border-radius: var(--radius-full);
+  background: var(--signal);
+  box-shadow: 0 0 0 var(--space-1) color-mix(in srgb, var(--signal) 22%, transparent);
+}
+
+/* --------------------------------------------------------------- pages -- */
+
+.page {
+  padding-block: var(--space-7) calc(var(--space-7) * 2);
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+/* --------------------------------------------------------------- cards -- */
+
+.card {
   background: var(--surface);
-  color: var(--text);
-  font: inherit;
-  /* No cursor change of any kind while busy: the spinner already carries that information. */
-  cursor: pointer;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
 }
 
-button:disabled { opacity: 0.7; }
-
-.button-primary {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--accent-text);
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  min-height: var(--card-header-height);
+  padding: var(--space-3) var(--space-6);
+  border-bottom: 1px solid var(--line-soft);
 }
 
-/* The spinner always occupies its space and only becomes visible, so a control that starts
-   working does not change width and shift everything beside it. */
-.spinner {
-  width: 0.85rem;
-  height: 0.85rem;
-  border: 2px solid currentcolor;
-  border-right-color: transparent;
-  border-radius: 50%;
-  visibility: hidden;
+.card-title {
+  font-family: var(--font-display);
+  font-size: var(--size-title);
+  font-weight: var(--weight-title);
+  letter-spacing: var(--tracking-title);
 }
 
-[data-busy] .spinner { visibility: visible; }
-
-@media (prefers-reduced-motion: no-preference) {
-  [data-busy] .spinner { animation: spin 700ms linear infinite; }
-
-  @keyframes spin {
-    to { transform: rotate(360deg); }
-  }
+.card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: 10px var(--space-6);
+  background: var(--inset);
+  border-top: 1px solid var(--line-soft);
 }
 
-.button-secondary { background: var(--bg); }
-
-.button-quiet {
-  padding: 0.3rem 0.6rem;
-  font-size: 0.875rem;
+.footer-note {
+  color: var(--text-muted);
+  font-size: var(--size-meta);
+  font-variant-numeric: tabular-nums;
 }
 
-/* Rows and lists ---------------------------------------------------------- */
+/* The one place a section identifies itself by hue. The tint fades out by 48% of the width, so
+   it reads as a wash on the card rather than as a coloured band. */
+.strip {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  height: var(--strip-height);
+  padding-inline: var(--space-6);
+  border-bottom: 1px solid var(--line-soft);
+}
 
-/* The minimum height is what a list of one row occupies, so a section that is still loading is
-   the same size as one that has loaded. */
-.list { min-height: 4.5rem; }
+.strip[data-tint="enforced"] { background: linear-gradient(to right, color-mix(in srgb, var(--enforced) 10%, transparent), transparent 48%); }
+.strip[data-tint="signal"] { background: linear-gradient(to right, color-mix(in srgb, var(--signal) 10%, transparent), transparent 48%); }
+.strip[data-tint="remote"] { background: linear-gradient(to right, color-mix(in srgb, var(--remote) 10%, transparent), transparent 48%); }
+.strip[data-tint="waiting"] { background: linear-gradient(to right, color-mix(in srgb, var(--waiting) 10%, transparent), transparent 48%); }
+
+.strip-text {
+  font-family: var(--font-display);
+  font-size: var(--size-title);
+  font-weight: var(--weight-title);
+  letter-spacing: var(--tracking-title);
+}
+
+.strip-meta {
+  margin-left: auto;
+  color: var(--text-muted);
+  font-size: var(--size-meta);
+  font-variant-numeric: tabular-nums;
+}
+
+.strip-icon { color: var(--text-secondary); }
+.strip[data-tint="enforced"] .strip-icon { color: var(--enforced); }
+.strip[data-tint="signal"] .strip-icon { color: var(--signal); }
+.strip[data-tint="remote"] .strip-icon { color: var(--remote); }
+.strip[data-tint="waiting"] .strip-icon { color: var(--waiting); }
+
+/* The policy strip is the one strip whose colour is a claim about the machine, so its icon and
+   tint follow the state rather than the section. */
+.strip-text[data-state="notenforced"] ~ .strip-meta,
+.strip-text[data-state="unknown"] ~ .strip-meta { color: var(--text-muted); }
+
+/* ---------------------------------------------------------------- rows -- */
+
+.list { display: flex; flex-direction: column; }
 
 .row {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: var(--gap);
-  padding: 0.7rem 0;
-  border-bottom: 1px solid var(--border);
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-6);
+  border-bottom: 1px solid var(--line-soft);
+  transition: background var(--fast) ease;
 }
 
 .row:last-child { border-bottom: none; }
+.row:hover { background: var(--raised); }
 
-.row-main { min-width: 0; }
+.row-icon { color: var(--text-muted); }
 
-.row-title { font-weight: 600; }
+.row-main {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.row-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.row-title > span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 
 .row-detail {
   color: var(--text-muted);
-  font-size: 0.8125rem;
-  word-break: break-all;
+  font-family: var(--font-mono);
+  font-size: var(--size-mono);
+  letter-spacing: var(--tracking-mono);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.row-meta {
+  color: var(--text-muted);
+  font-size: var(--size-meta);
+  font-variant-numeric: tabular-nums;
 }
 
 .row-actions {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  flex-shrink: 0;
+  gap: var(--space-3);
+  flex: none;
 }
 
-.empty { color: var(--text-muted); margin: 0.75rem 0; }
-
-/* The picker lists every running process, which on a real machine is sixty of them. Its own
-   scroll is what keeps the card a card instead of a six thousand pixel page. */
-.list-scroll {
-  max-height: 22rem;
-  overflow-y: auto;
-}
-
-.picker { margin-top: var(--gap); }
-
-.picker summary {
-  cursor: pointer;
-  font-weight: 600;
-  margin-bottom: 0.75rem;
-}
-
-/* Table, toolbar and pager ------------------------------------------------ */
-
-.toolbar {
-  display: flex;
-  align-items: end;
-  justify-content: space-between;
-  gap: var(--gap);
-  flex-wrap: wrap;
-  margin-bottom: var(--gap);
-}
-
-.toolbar select { margin-bottom: 0; }
-
-/* Reserved: the count arrives with the first page and must not move the table when it does. */
-.summary {
-  margin: 0;
-  min-height: 1.5rem;
+.empty {
+  padding: var(--space-6);
   color: var(--text-muted);
-  font-size: 0.875rem;
+  font-size: var(--size-meta);
 }
 
-/* Seven columns do not fit a narrow window. The table scrolls inside its card rather than
-   making the whole page scroll sideways. */
-.table-scroll {
-  overflow-x: auto;
-  /* Ten rows plus the header: paging never changes the height of the card. */
-  min-height: 24rem;
-}
+/* --------------------------------------------------------------- chips -- */
 
-.table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.9375rem;
+.chip {
+  display: inline-flex;
+  align-items: center;
+  height: var(--chip-height);
+  padding-inline: var(--space-2);
+  border-radius: var(--radius-sm);
+  background: var(--overlay);
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--size-mono);
+  letter-spacing: var(--tracking-mono);
   white-space: nowrap;
 }
 
-.table th, .table td {
-  text-align: left;
-  padding: 0.45rem 0.75rem 0.45rem 0;
-  border-bottom: 1px solid var(--border);
+/* Pills carry no leading dot: the colour already says what the dot would. */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  height: var(--pill-height);
+  padding-inline: var(--space-3);
+  border-radius: var(--radius-full);
+  font-size: var(--size-label);
+  font-weight: var(--weight-label);
+  letter-spacing: var(--tracking-label);
+  white-space: nowrap;
 }
 
-.table th {
-  color: var(--text-muted);
-  font-size: 0.8125rem;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
+.pill-signal { background: var(--signal-wash); color: var(--signal); }
+.pill-enforced { background: var(--enforced-wash); color: var(--enforced); }
+.pill-waiting { background: var(--waiting-wash); color: var(--waiting); }
+.pill-denied { background: var(--denied-wash); color: var(--denied); }
+.pill-remote { background: var(--remote-wash); color: var(--remote); }
+.pill-muted { background: var(--overlay); color: var(--text-secondary); }
+
+/* ------------------------------------------------------------- buttons -- */
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  height: var(--control-height);
+  padding-inline: var(--space-4);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  font-family: inherit;
+  font-size: var(--size-body);
+  line-height: 1;
+  transition: background var(--fast) ease, color var(--fast) ease, border-color var(--fast) ease;
 }
+
+.button:disabled { opacity: 0.4; pointer-events: none; }
+
+.button-primary { background: var(--primary); color: var(--on-primary); }
+.button-primary:hover { background: var(--primary-hover); }
+.button-primary:active { background: var(--primary-press); }
+
+.button-secondary { background: var(--raised); color: var(--text); border-color: var(--line); }
+.button-secondary:hover { background: var(--overlay); }
+
+.button-ghost { background: transparent; color: var(--text-secondary); }
+.button-ghost:hover { background: var(--raised); color: var(--text); }
+
+.button-danger { background: var(--denied); color: var(--on-denied); }
+.button-danger:hover { background: color-mix(in srgb, var(--denied) 88%, var(--primary-hover)); }
+
+.button-icon { padding-inline: var(--space-2); }
+
+/* -------------------------------------------------------------- fields -- */
+
+.field-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+}
+
+.field {
+  width: 100%;
+  height: var(--field-height);
+  padding-inline: 11px;
+  background: var(--raised);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  color: var(--text);
+  font-family: inherit;
+  font-size: var(--size-body);
+  transition: border-color var(--fast) ease;
+}
+
+.field::placeholder { color: var(--text-muted); }
+.field:hover { border-color: var(--text-muted); }
+
+.field-compact { flex: none; width: var(--field-compact-width); }
+
+/* What a field says about itself, at its own trailing edge. */
+.field-note {
+  position: absolute;
+  right: 11px;
+  color: var(--text-muted);
+  font-size: var(--size-label);
+  font-weight: var(--weight-label);
+  letter-spacing: var(--tracking-label);
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+
+.field-note[data-state="ok"] { color: var(--enforced); }
+.field-note[data-state="bad"] { color: var(--denied); }
+
+.field-error {
+  padding: 0 var(--space-6) var(--space-4);
+  color: var(--denied);
+  font-size: var(--size-meta);
+}
+
+.field-error:empty { display: none; }
+
+/* A form is rows: a label on the left, the field taking whatever is left. */
+.form-rows { display: flex; flex-direction: column; }
+
+.form-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-6);
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.form-row:last-child { border-bottom: none; }
+
+.form-label {
+  width: var(--form-label-width);
+  flex: none;
+  color: var(--text-secondary);
+}
+
+/* The block form: path takes what is left, name is fixed, button is last. */
+.block-form {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-6);
+  border-top: 1px solid var(--line-soft);
+}
+
+/* ------------------------------------------------------------- switches -- */
+
+.switch {
+  appearance: none;
+  position: relative;
+  width: var(--switch-width);
+  height: var(--switch-height);
+  margin: 0;
+  border-radius: var(--radius-full);
+  background: var(--inset);
+  box-shadow: var(--shadow-recess);
+  transition: background var(--fast) ease;
+}
+
+.switch::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 3px;
+  width: var(--switch-thumb);
+  height: var(--switch-thumb);
+  border-radius: var(--radius-full);
+  background: var(--text-secondary);
+  transform: translateY(-50%);
+  transition: transform var(--fast) ease, width var(--fast) ease, height var(--fast) ease;
+}
+
+/* On is a primary track with a dark thumb, and the two ends of the neutral ramp are the widest
+   gap this palette has. The thumb grows by one point on the way: both are geometrically 16, but
+   a dark shape on a light field reads smaller than a light shape on a dark one. This is an
+   optical correction. It must not be "fixed" by making the numbers equal. */
+.switch:checked {
+  background: var(--primary);
+  box-shadow: none;
+}
+
+.switch:checked::after {
+  width: var(--switch-thumb-on);
+  height: var(--switch-thumb-on);
+  background: var(--on-primary);
+  transform: translate(calc(var(--switch-width) - var(--switch-thumb-on) - 6px), -50%);
+}
+
+/* ----------------------------------------------------------- segmented -- */
+
+.segmented {
+  display: flex;
+  gap: var(--space-1);
+  padding: 3px;
+  border-radius: var(--radius-md);
+  background: var(--inset);
+  box-shadow: var(--shadow-recess);
+}
+
+.segment {
+  height: 24px;
+  padding-inline: var(--space-4);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  font-family: inherit;
+  font-size: var(--size-meta);
+  transition: color var(--fast) ease, background var(--fast) ease;
+}
+
+.segment:hover { color: var(--text-secondary); }
+
+.segment[aria-pressed="true"] {
+  background: var(--overlay);
+  border-color: var(--line);
+  box-shadow: var(--shadow-segment);
+  color: var(--text);
+}
+
+/* -------------------------------------------------------------- events -- */
+
+/* Solid triangles rather than arrows: this is a direction, and a direction reads better as a
+   shape. Right and green for a connection, left and muted for a disconnection. */
+.event-mark {
+  width: 0;
+  height: 0;
+  flex: none;
+  border-block: 5px solid transparent;
+}
+
+.event-mark[data-direction="in"] {
+  border-left: 8px solid var(--enforced);
+}
+
+.event-mark[data-direction="out"] {
+  border-right: 8px solid var(--text-muted);
+}
+
+.event-when {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--space-1);
+  font-variant-numeric: tabular-nums;
+}
+
+.event-ago { color: var(--text-secondary); font-size: var(--size-meta); }
+.event-duration { color: var(--text-muted); font-size: var(--size-label); }
+
+/* --------------------------------------------------------------- pager -- */
 
 .pager {
   display: flex;
-  gap: 0.5rem;
-  margin-top: var(--gap);
+  align-items: center;
+  gap: var(--space-1);
 }
 
-/* State line -------------------------------------------------------------- */
-
-/* Reserved height, and three visibly different states. Unknown is not a shade of "off": it
-   means the service could not ask, which the colour has to say as loudly as the text. */
-.state-line {
-  margin: 0;
-  min-height: 3rem;
-  padding-left: 0.75rem;
-  border-left: 4px solid var(--border);
+.pager-pages {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-variant-numeric: tabular-nums;
 }
 
-.state-line[data-state="enforced"] { border-left-color: var(--ok); }
-.state-line[data-state="notenforced"] { border-left-color: var(--text-muted); }
-.state-line[data-state="unknown"] { border-left-color: var(--warn); }
-
-/* A real switch rather than a checkbox: this control is the whole section, and "on or off"
-   has to be readable across the room. */
-input[type="checkbox"][role="switch"] {
-  appearance: none;
-  position: relative;
-  width: 2.75rem;
-  height: 1.5rem;
-  margin: 0;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  background: var(--bg);
-  cursor: pointer;
+.pager-page {
+  min-width: 24px;
+  height: 24px;
+  padding-inline: var(--space-2);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  font-family: inherit;
+  font-size: var(--size-meta);
+  font-variant-numeric: tabular-nums;
+  transition: color var(--fast) ease, background var(--fast) ease;
 }
 
-input[type="checkbox"][role="switch"]::after {
-  content: "";
-  position: absolute;
-  top: 0.125rem;
-  left: 0.125rem;
-  width: 1.125rem;
-  height: 1.125rem;
-  border-radius: 50%;
-  background: var(--text-muted);
+.pager-page:hover { color: var(--text); background: var(--raised); }
+
+.pager-page[aria-current="page"] {
+  background: var(--overlay);
+  border-color: var(--line);
+  color: var(--text);
 }
 
-input[type="checkbox"][role="switch"]:checked {
-  background: var(--accent);
-  border-color: var(--accent);
+.pager-gap { color: var(--text-muted); font-size: var(--size-meta); padding-inline: var(--space-1); }
+
+/* ------------------------------------------------------- confirmation -- */
+
+/* Destructive actions confirm in the row that owns them. The name of what is about to change
+   stays exactly where it already was, which no dialog can manage. */
+.row[data-confirming] { background: var(--denied-wash); }
+.row[data-confirming]:hover { background: var(--denied-wash); }
+
+.row-confirm {
+  color: var(--denied);
+  font-size: var(--size-meta);
 }
 
-input[type="checkbox"][role="switch"]:checked::after {
-  transform: translateX(1.2rem);
-  background: var(--accent-text);
-}
+/* --------------------------------------------------------------- modal -- */
 
- (prefers-reduced-motion: no-preference) {
-  input[type="checkbox"][role="switch"],
-  input[type="checkbox"][role="switch"]::after {
-    transition: background-color 120ms ease, transform 120ms ease;
-  }
-}
-
-/* Notices ----------------------------------------------------------------- */
-
-.notices {
+.scrim {
   position: fixed;
-  top: var(--gap);
-  right: var(--gap);
-  z-index: 10;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-7);
+  background: var(--scrim);
+  backdrop-filter: blur(2px);
+}
+
+.modal {
+  width: 100%;
+  max-width: var(--modal-width);
+  max-height: 100%;
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
-  max-width: min(26rem, calc(100vw - 2 * var(--gap)));
-}
-
-.notice {
-  border: 1px solid var(--border);
-  border-left-width: 4px;
-  border-radius: var(--radius);
   background: var(--surface);
-  padding: 0.6rem 0.8rem;
-  box-shadow: 0 6px 18px rgb(0 0 0 / 12%);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-modal);
+  overflow: hidden;
+  animation: rise var(--enter) ease-out;
 }
 
-.notice-error { border-left-color: var(--danger); }
-.notice-ok { border-left-color: var(--ok); }
-.notice-warn { border-left-color: var(--warn); }
+@keyframes rise {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: none; }
+}
 
-/* Footer ------------------------------------------------------------------ */
+.search {
+  position: relative;
+  display: flex;
+  align-items: center;
+  padding: var(--space-4) var(--space-6);
+  border-bottom: 1px solid var(--line-soft);
+}
 
-.app-footer {
-  max-width: var(--page);
-  margin: 0 auto;
-  padding: var(--gap);
+.search-icon {
+  position: absolute;
+  left: calc(var(--space-6) + 10px);
   color: var(--text-muted);
-  font-size: 0.875rem;
 }
 
-/* The slot keeps its height while empty: the version arrives after the first paint. */
-.status-slot {
-  display: inline-block;
-  min-height: 1.25rem;
+.search-field { padding-left: calc(var(--space-6) + 14px); }
+
+.modal-list {
+  max-height: var(--modal-list-height);
+  overflow-y: auto;
+}
+
+/* -------------------------------------------------------------- toasts -- */
+
+.toasts {
+  position: fixed;
+  right: var(--space-7);
+  bottom: var(--space-7);
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--space-3);
+  pointer-events: none;
+}
+
+.toast {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  width: var(--toast-width);
+  padding: 10px var(--space-4);
+  background: var(--raised);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-toast);
+  color: var(--text);
+  pointer-events: auto;
+  animation: rise var(--enter) ease-out;
+}
+
+.toast-text { flex: 1; min-width: 0; }
+
+.toast-ok .toast-icon { color: var(--enforced); }
+.toast-warn .toast-icon { color: var(--waiting); }
+.toast-error .toast-icon { color: var(--denied); }
+
+.toast-dismiss {
+  flex: none;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
+  transition: color var(--fast) ease;
+}
+
+.toast-dismiss:hover { color: var(--text); }
+
+/* ---------------------------------------------------------------- gate -- */
+
+.gate {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--page-pad);
+}
+
+.gate-card { width: 100%; max-width: var(--gate-width); }
+
+.gate-card .form-label { width: auto; }
+
+/* ------------------------------------------------------------- spinner -- */
+
+.spinner {
+  width: var(--space-4);
+  height: var(--space-4);
+  flex: none;
+  border-radius: var(--radius-full);
+  border: 2px solid color-mix(in srgb, currentColor 30%, transparent);
+  border-top-color: currentColor;
+  visibility: hidden;
+  margin-inline-start: calc(var(--space-4) * -1);
+}
+
+[data-busy] .spinner {
+  visibility: visible;
+  margin-inline-start: 0;
 }
 
 @media (prefers-reduced-motion: no-preference) {
-  .notice { animation: notice-in 120ms ease-out; }
-
-  @keyframes notice-in {
-    from { opacity: 0; }
-    to { opacity: 1; }
-  }
+  [data-busy] .spinner { animation: spin 700ms linear infinite; }
 }
+
+@keyframes spin { to { transform: rotate(1turn); } }
+
+/* -------------------------------------------------------- boot failure -- */
 
 /*
  * The last-resort panel. Painted by boot.js when a module throws while being evaluated, which
  * is the one failure that leaves nothing else on screen to attach a message to.
  */
 .boot-error {
-  max-width: var(--page);
-  margin: 2rem auto;
-  padding: 1rem;
-  border: 1px solid var(--danger);
-  border-radius: var(--radius);
+  max-width: var(--page-width);
+  margin: var(--space-7) auto;
+  padding: var(--space-6);
   background: var(--surface);
+  border: 1px solid var(--denied);
+  border-radius: var(--radius-lg);
   color: var(--text);
 }
 
 .boot-error p {
-  margin: 0.5rem 0 0;
+  margin-top: var(--space-3);
   color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--size-mono);
+}
+
+/* ---------------------------------------------------------- responsive -- */
+
+@media (max-width: 720px) {
+  .block-form { flex-wrap: wrap; }
+  .block-form .field-compact { width: 100%; }
+  .block-form .button { width: 100%; }
+
+  .form-row { align-items: stretch; flex-direction: column; gap: var(--space-2); }
+  .form-label { width: auto; }
+
+  .toasts { left: var(--space-7); }
+  .toast { width: auto; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 1ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 1ms !important;
+  }
 }

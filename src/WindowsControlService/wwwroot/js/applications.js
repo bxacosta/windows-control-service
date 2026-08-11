@@ -10,28 +10,49 @@
 
 import * as api from './api.js';
 import * as events from './events.js';
-import { el, replace } from './dom.js';
-import { attributes, css, elementsOf } from './markup.js';
-import { describePolicyState, describeRemoval, describeToggle } from './rules.js';
+import * as shell from './shell.js';
+import { el, icon, replace, setIcon } from './dom.js';
+import { attributes, css, elementsOf, icons } from './markup.js';
+import {
+  describeMatch,
+  describePolicyState,
+  describeProcessCount,
+  describeProcessEmptiness,
+  describeRemoval,
+  describeToggle,
+  filterProcesses,
+} from './rules.js';
 import { optimistic, withPending } from './pending.js';
 import { notify, notifyError } from './notices.js';
 
 const ui = elementsOf('applications');
+const picker = elementsOf('processes');
 
 let loaded = false;
+let processes = [];
+
+/** Opening one confirmation closes any other: two rows asking at once is two questions. */
+let confirming = null;
 
 // --- Renderers: given a value, paint it ------------------------------------
 
 function renderPolicyState(state) {
   const described = describePolicyState(state);
 
+  // The one strip whose tint is a claim about the machine rather than a section's identity:
+  // green while the policy is in force, amber the rest of the time, including "nobody knows".
+  ui.strip.setAttribute(attributes.tint, described.tone === 'enforced' ? 'enforced' : 'waiting');
+  setIcon(ui.policyIcon, described.icon === 'ok' ? icons.shieldCheck : icons.shieldAlert);
+
   ui.policyState.setAttribute(attributes.policyState, described.tone);
   ui.policyState.textContent = described.text;
+  ui.policyChecked.textContent = described.checked;
 }
 
 function applicationRow(application, onChanged) {
   const toggle = el('input', {
     type: 'checkbox',
+    class: 'switch',
     role: 'switch',
     'aria-label': `Blocking enabled for ${application.name}`,
   });
@@ -41,49 +62,97 @@ function applicationRow(application, onChanged) {
     void setEnabled(application, changeEvent.currentTarget, onChanged);
   });
 
-  const remove = el('button', { type: 'button', class: css.quietButton }, [
+  const remove = el('button', {
+    type: 'button',
+    class: css.iconButton,
+    'aria-label': `Stop blocking ${application.name}`,
+  }, [icon(icons.trash)]);
+
+  const cancel = el('button', { type: 'button', class: css.ghostButton }, ['Cancel']);
+  const confirm = el('button', { type: 'button', class: css.dangerButton }, [
     el('span', { class: css.spinner, 'aria-hidden': 'true' }),
-    `Remove`,
+    'Remove',
   ]);
 
-  remove.addEventListener('click', (clickEvent) => {
+  // Which attribute is doing the blocking, not a fixed label: a binary with no
+  // OriginalFilename is matched by InternalName or ProductName, and saying otherwise would
+  // be the same guess that made the block silently do nothing.
+  const detail = el('div', { class: css.rowDetail, text: application.executablePath });
+  const chip = el('span', { class: css.chip, text: describeMatch(application) });
+  const question = el('div', { class: css.rowConfirm, text: 'Stop blocking this application?', hidden: true });
+
+  const actions = el('div', { class: css.rowActions }, [toggle, remove]);
+  const confirmActions = el('div', { class: css.rowActions, hidden: true }, [cancel, confirm]);
+
+  const row = el('div', { class: css.row }, [
+    el('div', { class: css.rowMain }, [
+      el('div', { class: css.rowTitle }, [el('span', { text: application.name }), chip]),
+      detail,
+      question,
+    ]),
+    actions,
+    confirmActions,
+  ]);
+
+  const ask = (asking) => {
+    row.toggleAttribute(attributes.confirming, asking);
+    detail.hidden = asking;
+    question.hidden = !asking;
+    actions.hidden = asking;
+    confirmActions.hidden = !asking;
+  };
+
+  remove.addEventListener('click', () => {
+    confirming?.();
+    confirming = () => { ask(false); confirming = null; };
+    ask(true);
+    // The question is the dangerous button, so that is where the keyboard lands.
+    confirm.focus();
+  });
+
+  cancel.addEventListener('click', () => {
+    confirming = null;
+    ask(false);
+    remove.focus();
+  });
+
+  confirm.addEventListener('click', (clickEvent) => {
+    confirming = null;
     void removeApplication(application, clickEvent.currentTarget, onChanged);
   });
 
-  return el('div', { class: css.row }, [
-    el('div', { class: css.rowMain }, [
-      el('div', { class: css.rowTitle, text: application.name }),
-      el('div', { class: css.rowDetail, text: application.executablePath }),
-      // Which attribute is doing the blocking, not a fixed label: a binary with no
-      // OriginalFilename is matched by InternalName or ProductName, and saying otherwise would
-      // be the same guess that made the block silently do nothing.
-      el('div', { class: css.rowDetail, text: `${application.matchAttribute}: ${application.matchValue}` }),
-    ]),
-    el('div', { class: css.rowActions }, [toggle, remove]),
-  ]);
+  return row;
 }
 
 function processRow(process) {
-  const pick = el('button', { type: 'button', class: css.quietButton }, [
-    el('span', { class: css.spinner, 'aria-hidden': 'true' }),
-    'Use',
-  ]);
+  const pick = el('button', { type: 'button', class: css.secondaryButton }, ['Use']);
 
   pick.addEventListener('click', () => {
     // The only two ways to name an executable: this list, or typing the path. A browser
     // never reveals the real path of a file chosen with a file picker.
     ui.path.value = process.executablePath;
     ui.name.value = process.name;
+    closePicker();
     ui.path.focus();
   });
 
   return el('div', { class: css.row }, [
     el('div', { class: css.rowMain }, [
-      el('div', { class: css.rowTitle, text: process.name }),
+      el('div', { class: css.rowTitle }, [el('span', { text: process.name })]),
       el('div', { class: css.rowDetail, text: process.executablePath }),
     ]),
     el('div', { class: css.rowActions }, [pick]),
   ]);
+}
+
+function renderProcesses() {
+  const shown = filterProcesses(processes, picker.search.value);
+
+  picker.count.textContent = describeProcessCount(shown.length, processes.length);
+
+  replace(picker.list, shown.length === 0
+    ? [el('p', { class: css.empty, text: describeProcessEmptiness(picker.search.value, processes.length) })]
+    : shown.map(processRow));
 }
 
 // --- Handlers: what happens, and in what order -----------------------------
@@ -102,10 +171,6 @@ async function setEnabled(application, control, onChanged) {
 }
 
 async function removeApplication(application, control, onChanged) {
-  if (!window.confirm(`Stop blocking ${application.name}?`)) {
-    return;
-  }
-
   await withPending(control, async () => {
     let failure = null;
     try {
@@ -146,6 +211,27 @@ async function handleAdd(submitEvent) {
   });
 }
 
+function closePicker() {
+  picker.root.hidden = true;
+  document.removeEventListener('keydown', handlePickerKey);
+}
+
+function handlePickerKey(keyEvent) {
+  if (keyEvent.key === 'Escape') {
+    closePicker();
+    ui.openProcesses.focus();
+  }
+}
+
+async function openPicker(control) {
+  picker.root.hidden = false;
+  document.addEventListener('keydown', handlePickerKey);
+  // The search is the point of the dialog, so it is where the caret goes.
+  picker.search.focus();
+
+  await loadProcesses(control);
+}
+
 // --- Loading ---------------------------------------------------------------
 
 async function loadList() {
@@ -157,8 +243,11 @@ async function loadList() {
     return;
   }
 
+  confirming = null;
+  shell.showApplicationCount(applications.length);
+
   if (applications.length === 0) {
-    replace(ui.list, [el('p', { class: css.empty, text: 'Nothing is blocked yet.' })]);
+    replace(ui.list, [el('p', { class: css.empty, text: 'No applications are blocked.' })]);
     return;
   }
 
@@ -176,7 +265,6 @@ async function loadPolicyState() {
 
 async function loadProcesses(control) {
   await withPending(control, async () => {
-    let processes;
     try {
       processes = await api.getProcesses();
     } catch (error) {
@@ -184,12 +272,7 @@ async function loadProcesses(control) {
       return;
     }
 
-    if (processes.length === 0) {
-      replace(ui.processList, [el('p', { class: css.empty, text: 'No candidate processes are running.' })]);
-      return;
-    }
-
-    replace(ui.processList, processes.map(processRow));
+    renderProcesses();
   });
 }
 
@@ -206,8 +289,26 @@ export async function enter() {
 
 export function connect() {
   ui.form.addEventListener('submit', handleAdd);
-  ui.loadProcesses.addEventListener('click', (clickEvent) => {
+  ui.openProcesses.addEventListener('click', (clickEvent) => {
+    void openPicker(clickEvent.currentTarget);
+  });
+
+  picker.close.addEventListener('click', () => {
+    closePicker();
+    ui.openProcesses.focus();
+  });
+
+  picker.refresh.addEventListener('click', (clickEvent) => {
     void loadProcesses(clickEvent.currentTarget);
+  });
+
+  picker.search.addEventListener('input', renderProcesses);
+
+  // Clicking the scrim, but not the dialog on it, is the other way out of a modal.
+  picker.root.addEventListener('click', (clickEvent) => {
+    if (clickEvent.target === picker.root) {
+      closePicker();
+    }
   });
 
   // Nothing here rebuilds the form, which is what keeps a half-typed path alive across a

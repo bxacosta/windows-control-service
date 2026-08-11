@@ -11,20 +11,24 @@ import * as history from './history.js';
 import * as router from './router.js';
 import * as session from './session.js';
 import * as settings from './settings.js';
-import { elementsOf } from './markup.js';
+import * as shell from './shell.js';
 import { notifyError } from './notices.js';
-
-const shell = elementsOf('shell');
 
 router.register('applications', { enter: applications.enter });
 router.register('devices', { enter: devices.enter });
 router.register('history', { enter: history.enter });
-router.register('settings');
+router.register('settings', { enter: settings.renderSession });
 
 applications.connect();
 devices.connect();
 history.connect();
 settings.connect();
+
+// Two ways out, one path: the top bar and the Settings card both end here.
+shell.connect((control) => {
+  events.stop();
+  void session.signOut(control);
+});
 
 // Every 401 in the application ends here, and so does an event stream that died with one. The
 // stream is torn down first: reconnecting it while signed out would only earn another 401.
@@ -39,13 +43,9 @@ api.whenSessionLost(() => {
  */
 async function showServiceStatus() {
   try {
-    const health = await api.getHealth();
-    // The informational version carries the commit after a plus sign. The footer is not the
-    // place for a forty character hash.
-    const version = String(health.version).split('+')[0];
-    shell.serviceStatus.textContent = `${health.status} · version ${version}`;
+    shell.showHealth(await api.getHealth());
   } catch (error) {
-    shell.serviceStatus.textContent = 'service unreachable';
+    shell.showUnreachable();
     notifyError(error.message);
   }
 }

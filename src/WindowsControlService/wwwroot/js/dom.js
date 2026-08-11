@@ -4,6 +4,8 @@
  * into being markup.
  */
 
+const SVG = 'http://www.w3.org/2000/svg';
+
 /**
  * @param {string} tag
  * @param {Record<string, string | boolean>} attributes `text` sets textContent.
@@ -27,6 +29,30 @@ export function el(tag, attributes = {}, children = []) {
   node.append(...children);
 
   return node;
+}
+
+/**
+ * One icon from the sprite inlined in index.html. Built rather than written as markup for the
+ * same reason as everything else here, and namespaced explicitly because createElement would
+ * make an HTML element called "svg", which renders as nothing at all.
+ *
+ * @param {string} name The symbol id, from markup.js.
+ */
+export function icon(name, extraClass = '') {
+  const svg = document.createElementNS(SVG, 'svg');
+  svg.setAttribute('class', extraClass ? `icon ${extraClass}` : 'icon');
+  svg.setAttribute('aria-hidden', 'true');
+
+  const use = document.createElementNS(SVG, 'use');
+  use.setAttribute('href', `#${name}`);
+  svg.append(use);
+
+  return svg;
+}
+
+/** Points an existing icon at a different symbol, so the element itself survives a re-render. */
+export function setIcon(svg, name) {
+  svg.firstElementChild?.setAttribute('href', `#${name}`);
 }
 
 /** Replaces the children of a container in one go, so the page never shows a half-built list. */

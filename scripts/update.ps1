@@ -42,7 +42,28 @@ Write-WcsStep 'Replacing the binaries'
 
 # Only the install directory is touched. The data directory holds the password and the access
 # history, and an update must never be the thing that loses them.
-Get-ChildItem $paths.InstallPath -Force -ErrorAction SilentlyContinue | Remove-Item -Recurse -Force
+#
+# Retried, because the Service Control Manager reports Stopped before the process has finished
+# exiting, and a native library it loaded stays locked for a moment after. Measured here: the
+# delete of e_sqlite3.dll failed with "Access to the path is denied" and succeeded a second
+# later, leaving the install half replaced and the service down. A retry rather than a fixed
+# sleep, so a handle that is genuinely stuck still fails, and says which file.
+$deadline = (Get-Date).AddSeconds(30)
+while ($true) {
+    try {
+        Get-ChildItem $paths.InstallPath -Force -ErrorAction SilentlyContinue |
+            Remove-Item -Recurse -Force -ErrorAction Stop
+        break
+    }
+    catch {
+        if ((Get-Date) -ge $deadline) {
+            throw "Could not replace the installed files after 30 seconds: $($_.Exception.Message)"
+        }
+
+        Start-Sleep -Milliseconds 500
+    }
+}
+
 Copy-Item (Join-Path $From '*') $paths.InstallPath -Recurse -Force
 Write-WcsStep "data left untouched at $($paths.DataPath)" -Level Ok
 

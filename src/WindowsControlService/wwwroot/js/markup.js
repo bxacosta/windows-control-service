@@ -11,16 +11,23 @@
  */
 export const ids = Object.freeze({
   shell: Object.freeze({
+    topBar: 'top-bar',
     nav: 'app-nav',
     main: 'main',
     notices: 'notices',
     serviceStatus: 'service-status',
+    healthDot: 'health-dot',
+    signOut: 'top-sign-out',
+    applicationCount: 'tab-count-applications',
+    deviceSignal: 'tab-signal-devices',
   }),
   gate: Object.freeze({
     root: 'gate',
     setupForm: 'setup-form',
     setupPassword: 'setup-password',
+    setupCount: 'setup-count',
     setupConfirm: 'setup-confirm',
+    setupMatch: 'setup-match',
     setupError: 'setup-error',
     setupSubmit: 'setup-submit',
     loginForm: 'login-form',
@@ -29,18 +36,29 @@ export const ids = Object.freeze({
     loginSubmit: 'login-submit',
   }),
   applications: Object.freeze({
+    strip: 'policy-strip',
+    policyIcon: 'policy-icon',
     policyState: 'policy-state-line',
+    policyChecked: 'policy-checked',
+    list: 'application-list',
     form: 'add-application-form',
     path: 'application-path',
     name: 'application-name',
     formError: 'add-application-error',
     submit: 'add-application-submit',
-    loadProcesses: 'load-processes',
-    processList: 'process-list',
-    list: 'application-list',
+    openProcesses: 'load-processes',
+  }),
+  processes: Object.freeze({
+    root: 'process-modal',
+    search: 'process-search',
+    list: 'process-list',
+    count: 'process-count',
+    refresh: 'process-refresh',
+    close: 'process-close',
   }),
   devices: Object.freeze({
     usbSwitch: 'usb-switch',
+    usbPill: 'usb-state-pill',
     usbTitle: 'usb-state-title',
     usbLastModified: 'usb-last-modified',
   }),
@@ -51,15 +69,20 @@ export const ids = Object.freeze({
     empty: 'history-empty',
     previous: 'history-previous',
     next: 'history-next',
+    pages: 'history-pages',
   }),
   settings: Object.freeze({
     form: 'change-password-form',
     current: 'current-password',
     replacement: 'new-password',
+    replacementCount: 'new-password-count',
     confirm: 'confirm-password',
+    confirmMatch: 'confirm-password-match',
     error: 'change-password-error',
     submit: 'change-password-submit',
     signOut: 'sign-out',
+    sessionPill: 'session-pill',
+    sessionExpiry: 'session-expiry',
   }),
 });
 
@@ -68,6 +91,19 @@ export const ids = Object.freeze({
  * name. Kept here anyway so the rule is visible next to the ids it generates.
  */
 export const sectionId = (route) => `section-${route}`;
+
+/** Icons are one inlined sprite, referenced by id. Named here so a rename is one edit. */
+export const icons = Object.freeze({
+  shield: 'i-shield',
+  shieldCheck: 'i-shield-check',
+  shieldAlert: 'i-shield-alert',
+  trash: 'i-trash',
+  refresh: 'i-refresh',
+  ok: 'i-check-circle',
+  warn: 'i-alert-triangle',
+  error: 'i-x-circle',
+  close: 'i-x',
+});
 
 /**
  * Class names the modules write by hand. They are vocabulary defined in app.css, so a rename
@@ -78,12 +114,29 @@ export const css = Object.freeze({
   rowMain: 'row-main',
   rowTitle: 'row-title',
   rowDetail: 'row-detail',
+  rowMeta: 'row-meta',
   rowActions: 'row-actions',
+  rowConfirm: 'row-confirm',
+  chip: 'chip',
   spinner: 'spinner',
   empty: 'empty',
-  quietButton: 'button-quiet',
+  primaryButton: 'button button-primary',
+  secondaryButton: 'button button-secondary',
+  ghostButton: 'button button-ghost',
+  dangerButton: 'button button-danger',
+  iconButton: 'button button-ghost button-icon',
+  eventMark: 'event-mark',
+  eventWhen: 'event-when',
+  eventAgo: 'event-ago',
+  eventDuration: 'event-duration',
+  pagerPage: 'pager-page',
+  pagerGap: 'pager-gap',
+  toastText: 'toast-text',
+  toastDismiss: 'toast-dismiss',
   /** @param {'ok' | 'warn' | 'error'} kind */
-  notice: (kind) => `notice notice-${kind}`,
+  toastOf: (kind) => `toast toast-${kind}`,
+  /** @param {'signal' | 'enforced' | 'waiting' | 'denied' | 'remote' | 'muted'} tone */
+  pill: (tone) => `pill pill-${tone}`,
 });
 
 /**
@@ -91,14 +144,28 @@ export const css = Object.freeze({
  * belong to this file rather than to the module that happens to set them.
  */
 export const attributes = Object.freeze({
-  /** On the policy line. app.css takes the colour of its left border from this. */
+  /** On the policy line. app.css takes the tint and the icon colour from this. */
   policyState: 'data-state',
+  /** On the policy strip, so the whole band follows the state rather than the section. */
+  tint: 'data-tint',
   /** Set by withPending. app.css shows the spinner inside anything carrying it. */
   busy: 'data-busy',
   /** On the navigation links, matched against the route name. */
   navTarget: 'data-nav',
-  /** The only navigation state. Its border is reserved so switching sections does not reflow. */
+  /** The only navigation state, and what marks the current page in the pager. */
   currentNav: 'aria-current',
+  /** On a row that is asking whether to go through with a removal. */
+  confirming: 'data-confirming',
+  /** Which way an access event points: into the machine, or out of it. */
+  direction: 'data-direction',
+  /** On the health dot in the top bar. */
+  health: 'data-health',
+  /** On a field's own note: neutral, satisfied, or not. */
+  noteState: 'data-state',
+  /** On a segment of the segmented control. */
+  origin: 'data-origin',
+  /** The pressed state of a segment. */
+  pressed: 'aria-pressed',
 });
 
 /**

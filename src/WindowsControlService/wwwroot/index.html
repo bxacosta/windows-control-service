@@ -3,220 +3,350 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="color-scheme" content="light dark">
+  <meta name="color-scheme" content="dark">
   <title>Windows Control Service</title>
   <link rel="icon" href="data:,">
   <link rel="stylesheet" href="/css/app.css">
 </head>
 <body>
-  <!-- Notices live in a fixed container outside the flow: an error that pushes the page down
-       moves the control the user was about to click. -->
-  <div id="notices" class="notices" role="status" aria-live="polite"></div>
+  <!-- Lucide, inlined as one sprite. Nothing is fetched at run time: there is no build step here
+       and a test forbids reaching outside the machine, so an icon font or a CDN is not an option.
+       Every symbol is 24x24 with a 1.7 stroke applied by the .icon class. -->
+  <svg class="sprite" aria-hidden="true" focusable="false">
+    <symbol id="i-shield" viewBox="0 0 24 24">
+      <path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/>
+    </symbol>
+    <symbol id="i-shield-check" viewBox="0 0 24 24">
+      <path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/>
+      <path d="m9 12 2 2 4-4"/>
+    </symbol>
+    <symbol id="i-shield-alert" viewBox="0 0 24 24">
+      <path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/>
+      <path d="M12 8v4"/><path d="M12 16h.01"/>
+    </symbol>
+    <symbol id="i-app-window" viewBox="0 0 24 24">
+      <rect x="2" y="4" width="20" height="16" rx="2"/><path d="M10 4v4"/><path d="M2 8h20"/><path d="M6 4v4"/>
+    </symbol>
+    <symbol id="i-hard-drive" viewBox="0 0 24 24">
+      <path d="M22 12H2"/>
+      <path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/>
+      <path d="M6 16h.01"/><path d="M10 16h.01"/>
+    </symbol>
+    <symbol id="i-activity" viewBox="0 0 24 24">
+      <path d="M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.49 12H2"/>
+    </symbol>
+    <symbol id="i-settings" viewBox="0 0 24 24">
+      <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/>
+      <circle cx="12" cy="12" r="3"/>
+    </symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24">
+      <path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/>
+      <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M10 11v6"/><path d="M14 11v6"/>
+    </symbol>
+    <symbol id="i-search" viewBox="0 0 24 24">
+      <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
+    </symbol>
+    <symbol id="i-x" viewBox="0 0 24 24">
+      <path d="M18 6 6 18"/><path d="m6 6 12 12"/>
+    </symbol>
+    <symbol id="i-refresh" viewBox="0 0 24 24">
+      <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/>
+      <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/>
+    </symbol>
+    <symbol id="i-chevron-left" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></symbol>
+    <symbol id="i-chevron-right" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol>
+    <symbol id="i-monitor" viewBox="0 0 24 24">
+      <rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/>
+    </symbol>
+    <symbol id="i-lock" viewBox="0 0 24 24">
+      <rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+    </symbol>
+    <symbol id="i-check-circle" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/>
+    </symbol>
+    <symbol id="i-alert-triangle" viewBox="0 0 24 24">
+      <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/>
+      <path d="M12 9v4"/><path d="M12 17h.01"/>
+    </symbol>
+    <symbol id="i-x-circle" viewBox="0 0 24 24">
+      <circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/>
+    </symbol>
+  </svg>
 
-  <header class="app-header">
-    <h1 class="app-title">Windows Control Service</h1>
-    <nav id="app-nav" class="app-nav" aria-label="Sections" hidden>
-      <a href="#/applications" data-nav="applications">Applications</a>
-      <a href="#/devices" data-nav="devices">Devices</a>
-      <a href="#/history" data-nav="history">History</a>
-      <a href="#/settings" data-nav="settings">Settings</a>
-    </nav>
+  <!-- Toasts stack outside the flow: a notice that pushes the page down moves the control the
+       user was about to click. -->
+  <div id="notices" class="toasts" role="status" aria-live="polite"></div>
+
+  <header id="top-bar" class="top-bar" hidden>
+    <div class="top-bar-inner">
+      <div class="wordmark">
+        <svg class="icon wordmark-icon" aria-hidden="true"><use href="#i-shield"/></svg>
+        <span>Windows Control Service</span>
+      </div>
+      <div class="top-bar-right">
+        <span class="health">
+          <span id="health-dot" class="health-dot" data-health="unknown"></span>
+          <span id="service-status" class="health-text">&nbsp;</span>
+        </span>
+        <button id="top-sign-out" type="button" class="button button-ghost">
+          <span class="spinner" aria-hidden="true"></span>Sign out
+        </button>
+      </div>
+    </div>
   </header>
 
-  <!-- The gate. Which of the two forms is shown depends on GET /api/auth/session, and until
-       that answers neither is: guessing would flash the wrong one. -->
+  <nav id="app-nav" class="tabs" aria-label="Sections" hidden>
+    <div class="tabs-inner">
+      <a class="tab" href="#/applications" data-nav="applications">
+        <svg class="icon" aria-hidden="true"><use href="#i-app-window"/></svg>
+        <span>Applications</span>
+        <span id="tab-count-applications" class="tab-badge" hidden></span>
+      </a>
+      <a class="tab" href="#/devices" data-nav="devices">
+        <svg class="icon" aria-hidden="true"><use href="#i-hard-drive"/></svg>
+        <span>Devices</span>
+        <span id="tab-signal-devices" class="tab-signal" hidden></span>
+      </a>
+      <a class="tab" href="#/history" data-nav="history">
+        <svg class="icon" aria-hidden="true"><use href="#i-activity"/></svg>
+        <span>Activity</span>
+      </a>
+      <a class="tab" href="#/settings" data-nav="settings">
+        <svg class="icon" aria-hidden="true"><use href="#i-settings"/></svg>
+        <span>Settings</span>
+      </a>
+    </div>
+  </nav>
+
   <div id="gate" class="gate" hidden>
-    <form id="setup-form" class="card" hidden autocomplete="off">
-      <h2>Set a password</h2>
-      <p class="card-lead">
-        No password is configured, so this endpoint is open to anyone on this machine. Setting
-        one is the first thing to do.
-      </p>
-
-      <label for="setup-password">Password</label>
-      <input id="setup-password" type="password" required autocomplete="new-password">
-
-      <label for="setup-confirm">Repeat the password</label>
-      <input id="setup-confirm" type="password" required autocomplete="new-password">
-      <p class="field-hint">
-        There is no recovery: forgetting it means deleting the service database. The minimum
-        length is enforced by the service.
-      </p>
-
+    <form id="setup-form" class="card gate-card" hidden autocomplete="off">
+      <div class="card-header"><h1 class="card-title">Set a password</h1></div>
+      <div class="form-rows">
+        <div class="form-row">
+          <label class="form-label" for="setup-password">Password</label>
+          <div class="field-wrap">
+            <input id="setup-password" class="field" type="password" required autocomplete="new-password">
+            <span id="setup-count" class="field-note"></span>
+          </div>
+        </div>
+        <div class="form-row">
+          <label class="form-label" for="setup-confirm">Repeat</label>
+          <div class="field-wrap">
+            <input id="setup-confirm" class="field" type="password" required autocomplete="new-password">
+            <span id="setup-match" class="field-note"></span>
+          </div>
+        </div>
+      </div>
       <p id="setup-error" class="field-error" role="alert"></p>
-      <button id="setup-submit" type="submit" class="button-primary">
-        <span class="spinner" aria-hidden="true"></span>Set password
-      </button>
+      <div class="card-footer">
+        <span class="footer-note">No recovery. Forgetting it means deleting the database.</span>
+        <button id="setup-submit" type="submit" class="button button-primary">
+          <span class="spinner" aria-hidden="true"></span>Set password
+        </button>
+      </div>
     </form>
 
-    <form id="login-form" class="card" hidden>
-      <h2>Sign in</h2>
-      <label for="login-password">Password</label>
-      <input id="login-password" type="password" required autocomplete="current-password">
-
+    <form id="login-form" class="card gate-card" hidden>
+      <div class="card-header"><h1 class="card-title">Sign in</h1></div>
+      <div class="form-rows">
+        <div class="form-row">
+          <label class="form-label" for="login-password">Password</label>
+          <div class="field-wrap">
+            <input id="login-password" class="field" type="password" required autocomplete="current-password">
+          </div>
+        </div>
+      </div>
       <p id="login-error" class="field-error" role="alert"></p>
-      <button id="login-submit" type="submit" class="button-primary">
-        <span class="spinner" aria-hidden="true"></span>Sign in
-      </button>
+      <div class="card-footer">
+        <span class="footer-note"></span>
+        <button id="login-submit" type="submit" class="button button-primary">
+          <span class="spinner" aria-hidden="true"></span>Sign in
+        </button>
+      </div>
     </form>
   </div>
 
-  <main id="main" class="app-main" hidden>
-    <section id="section-applications" class="section" hidden aria-labelledby="h-applications">
-      <h2 id="h-applications">Applications</h2>
-      <p class="section-lead">Applications blocked by Windows itself, at kernel level.</p>
-
+  <main id="main" class="page" hidden>
+    <section id="section-applications" class="section" hidden aria-label="Applications">
       <div class="card">
-        <h3>Policy</h3>
-        <!-- Height reserved: the state arrives after the first paint and must not push the
-             cards below it down when it does. -->
-        <p id="policy-state-line" class="state-line" data-state="unknown">Checking...</p>
-      </div>
+        <div id="policy-strip" class="strip" data-tint="enforced">
+          <svg id="policy-icon" class="icon strip-icon" aria-hidden="true"><use href="#i-shield"/></svg>
+          <span id="policy-state-line" class="strip-text" data-state="unknown">Checking...</span>
+          <span id="policy-checked" class="strip-meta"></span>
+        </div>
 
-      <div class="card">
-        <h3>Block an application</h3>
-        <form id="add-application-form" autocomplete="off">
-          <label for="application-path">Executable path</label>
-          <input id="application-path" type="text" required placeholder="C:\Program Files\Example\example.exe">
-          <p class="field-hint">
-            A browser never reveals the real path of a file chosen from disk, so this is typed
-            or taken from the running processes below. Blocking matches the OriginalFilename in
-            the executable itself, not the path: renaming the file does not get around it.
-          </p>
+        <div class="card-header">
+          <h2 class="card-title">Blocked applications</h2>
+          <button id="load-processes" type="button" class="button button-secondary">
+            <span class="spinner" aria-hidden="true"></span>Running processes
+          </button>
+        </div>
 
-          <label for="application-name">Name (optional)</label>
-          <input id="application-name" type="text" placeholder="Taken from the executable if left empty">
+        <div id="application-list" class="list"></div>
 
-          <p id="add-application-error" class="field-error" role="alert"></p>
-          <button id="add-application-submit" type="submit" class="button-primary">
-            <span class="spinner" aria-hidden="true"></span>Block it
+        <form id="add-application-form" class="block-form" autocomplete="off">
+          <div class="field-wrap">
+            <input id="application-path" class="field" type="text" required
+                   placeholder="C:\Program Files\Example\example.exe" aria-label="Executable path">
+          </div>
+          <div class="field-wrap">
+            <input id="application-name" class="field field-compact" type="text"
+                   placeholder="Name (optional)" aria-label="Name">
+          </div>
+          <button id="add-application-submit" type="submit" class="button button-primary">
+            <span class="spinner" aria-hidden="true"></span>Block
           </button>
         </form>
-
-        <details id="process-picker" class="picker">
-          <summary>Pick from running processes</summary>
-          <button id="load-processes" type="button" class="button-secondary">
-            <span class="spinner" aria-hidden="true"></span>List running processes
-          </button>
-          <div id="process-list" class="list list-scroll"></div>
-        </details>
-      </div>
-
-      <div class="card">
-        <h3>Blocked applications</h3>
-        <div id="application-list" class="list"></div>
+        <p id="add-application-error" class="field-error" role="alert"></p>
       </div>
     </section>
 
-    <section id="section-devices" class="section" hidden aria-labelledby="h-devices">
-      <h2 id="h-devices">Devices</h2>
-      <p class="section-lead">USB mass storage. The registry is the source of truth.</p>
-
+    <section id="section-devices" class="section" hidden aria-label="Devices">
       <div class="card">
-        <h3>USB mass storage</h3>
-        <p class="card-lead">
-          Blocking stops new drives from mounting. A drive that is already mounted keeps working
-          until it is unplugged or the machine restarts.
-        </p>
-
-        <div class="row">
-          <div class="row-main">
-            <div class="row-title" id="usb-state-title">Checking...</div>
-            <div class="row-detail" id="usb-last-modified">&nbsp;</div>
-          </div>
-          <div class="row-actions">
-            <input id="usb-switch" type="checkbox" role="switch" aria-label="Block USB mass storage">
+        <div class="strip" data-tint="signal">
+          <svg class="icon strip-icon" aria-hidden="true"><use href="#i-hard-drive"/></svg>
+          <span class="strip-text">Removable storage</span>
+        </div>
+        <div class="list">
+          <div class="row">
+            <svg class="icon row-icon" aria-hidden="true"><use href="#i-hard-drive"/></svg>
+            <div class="row-main">
+              <div class="row-title">
+                <span>USB storage</span>
+                <span id="usb-state-pill" class="pill pill-muted">Checking</span>
+              </div>
+              <div class="row-meta" id="usb-state-title">&nbsp;</div>
+              <div class="row-meta" id="usb-last-modified">&nbsp;</div>
+            </div>
+            <div class="row-actions">
+              <input id="usb-switch" class="switch" type="checkbox" role="switch"
+                     aria-label="Block USB mass storage">
+            </div>
           </div>
         </div>
       </div>
     </section>
 
-    <section id="section-history" class="section" hidden aria-labelledby="h-history">
-      <h2 id="h-history">History</h2>
-      <p class="section-lead">Local and Remote Desktop sign-ins recorded by Windows.</p>
-
+    <section id="section-history" class="section" hidden aria-label="Activity">
       <div class="card">
-        <div class="toolbar">
-          <div>
-            <label for="history-origin">Origin</label>
-            <select id="history-origin">
-              <option value="all">All</option>
-              <option value="local">Local</option>
-              <option value="remote">Remote</option>
-            </select>
+        <div class="strip" data-tint="remote">
+          <svg class="icon strip-icon" aria-hidden="true"><use href="#i-activity"/></svg>
+          <span class="strip-text">Access history</span>
+        </div>
+        <div class="card-header">
+          <h2 class="card-title">Sessions</h2>
+          <div id="history-origin" class="segmented" role="group" aria-label="Origin">
+            <button type="button" class="segment" data-origin="all" aria-pressed="true">All</button>
+            <button type="button" class="segment" data-origin="local" aria-pressed="false">Local</button>
+            <button type="button" class="segment" data-origin="remote" aria-pressed="false">RDP</button>
           </div>
-          <p id="history-summary" class="summary">&nbsp;</p>
         </div>
 
-        <div class="table-scroll">
-          <table class="table">
-            <thead>
-              <tr>
-                <th scope="col">When</th>
-                <th scope="col">Event</th>
-                <th scope="col">Origin</th>
-                <th scope="col">Address</th>
-                <th scope="col">User</th>
-                <th scope="col">Session</th>
-                <th scope="col">Duration</th>
-              </tr>
-            </thead>
-            <tbody id="history-rows"></tbody>
-          </table>
-        </div>
-
+        <div id="history-rows" class="list"></div>
         <p id="history-empty" class="empty" hidden>Nothing recorded for this filter.</p>
 
-        <div class="pager">
-          <button id="history-previous" type="button" class="button-secondary" disabled>
-            <span class="spinner" aria-hidden="true"></span>Newer
-          </button>
-          <button id="history-next" type="button" class="button-secondary" disabled>
-            <span class="spinner" aria-hidden="true"></span>Older
-          </button>
+        <div class="card-footer">
+          <span id="history-summary" class="footer-note">&nbsp;</span>
+          <div class="pager">
+            <button id="history-previous" type="button" class="button button-ghost button-icon"
+                    aria-label="Newer" disabled>
+              <svg class="icon" aria-hidden="true"><use href="#i-chevron-left"/></svg>
+            </button>
+            <span id="history-pages" class="pager-pages"></span>
+            <button id="history-next" type="button" class="button button-ghost button-icon"
+                    aria-label="Older" disabled>
+              <svg class="icon" aria-hidden="true"><use href="#i-chevron-right"/></svg>
+            </button>
+          </div>
         </div>
       </div>
     </section>
 
-    <section id="section-settings" class="section" hidden aria-labelledby="h-settings">
-      <h2 id="h-settings">Settings</h2>
-      <p class="section-lead">Password and session.</p>
-
+    <section id="section-settings" class="section" hidden aria-label="Settings">
       <form id="change-password-form" class="card">
-        <h3>Change the password</h3>
-        <p class="card-lead">
-          The current password is required even though you are signed in: this machine is shared,
-          and an open browser must not be enough to take the service over.
-        </p>
-
-        <label for="current-password">Current password</label>
-        <input id="current-password" type="password" required autocomplete="current-password">
-
-        <label for="new-password">New password</label>
-        <input id="new-password" type="password" required autocomplete="new-password">
-
-        <label for="confirm-password">Repeat the new password</label>
-        <input id="confirm-password" type="password" required autocomplete="new-password">
-        <p class="field-hint">Every open session is signed out, including this one.</p>
-
+        <div class="strip" data-tint="waiting">
+          <svg class="icon strip-icon" aria-hidden="true"><use href="#i-lock"/></svg>
+          <span class="strip-text">Password</span>
+        </div>
+        <div class="form-rows">
+          <div class="form-row">
+            <label class="form-label" for="current-password">Current</label>
+            <div class="field-wrap">
+              <input id="current-password" class="field" type="password" required autocomplete="current-password">
+            </div>
+          </div>
+          <div class="form-row">
+            <label class="form-label" for="new-password">New</label>
+            <div class="field-wrap">
+              <input id="new-password" class="field" type="password" required autocomplete="new-password">
+              <span id="new-password-count" class="field-note"></span>
+            </div>
+          </div>
+          <div class="form-row">
+            <label class="form-label" for="confirm-password">Repeat</label>
+            <div class="field-wrap">
+              <input id="confirm-password" class="field" type="password" required autocomplete="new-password">
+              <span id="confirm-password-match" class="field-note"></span>
+            </div>
+          </div>
+        </div>
         <p id="change-password-error" class="field-error" role="alert"></p>
-        <button id="change-password-submit" type="submit" class="button-primary">
-          <span class="spinner" aria-hidden="true"></span>Change password
-        </button>
+        <div class="card-footer">
+          <span class="footer-note">No recovery, and every open session is signed out.</span>
+          <button id="change-password-submit" type="submit" class="button button-primary">
+            <span class="spinner" aria-hidden="true"></span>Change password
+          </button>
+        </div>
       </form>
 
       <div class="card">
-        <h3>Session</h3>
-        <button id="sign-out" type="button" class="button-secondary">
-          <span class="spinner" aria-hidden="true"></span>Sign out
-        </button>
+        <div class="card-header"><h2 class="card-title">Session</h2></div>
+        <div class="list">
+          <div class="row">
+            <svg class="icon row-icon" aria-hidden="true"><use href="#i-monitor"/></svg>
+            <div class="row-main">
+              <div class="row-title">
+                <span>This browser</span>
+                <span id="session-pill" class="pill pill-signal">Signed in</span>
+              </div>
+              <div class="row-meta" id="session-expiry">&nbsp;</div>
+            </div>
+            <div class="row-actions">
+              <button id="sign-out" type="button" class="button button-secondary">
+                <span class="spinner" aria-hidden="true"></span>Sign out
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
     </section>
   </main>
 
-  <footer class="app-footer">
-    <span id="service-status" class="status-slot">&nbsp;</span>
-  </footer>
+  <!-- The process picker. A dialog rather than a panel in the card: it is a search over
+       everything running, and it must not push the form it fills out of view. -->
+  <div id="process-modal" class="scrim" hidden>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="process-modal-title">
+      <div class="card-header">
+        <h2 class="card-title" id="process-modal-title">Running processes</h2>
+        <button id="process-close" type="button" class="button button-ghost button-icon" aria-label="Close">
+          <svg class="icon" aria-hidden="true"><use href="#i-x"/></svg>
+        </button>
+      </div>
+      <div class="search">
+        <svg class="icon search-icon" aria-hidden="true"><use href="#i-search"/></svg>
+        <input id="process-search" class="field search-field" type="search"
+               placeholder="Filter by name or path" aria-label="Filter processes">
+      </div>
+      <div id="process-list" class="list modal-list"></div>
+      <div class="card-footer">
+        <span id="process-count" class="footer-note">&nbsp;</span>
+        <button id="process-refresh" type="button" class="button button-ghost">
+          <span class="spinner" aria-hidden="true"></span>
+          <svg class="icon" aria-hidden="true"><use href="#i-refresh"/></svg>Refresh
+        </button>
+      </div>
+    </div>
+  </div>
 
   <!-- boot.js, not app.js: a static import that throws while being evaluated cannot be caught
        from inside the module that did the importing. -->

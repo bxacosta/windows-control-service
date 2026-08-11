@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Http.HttpResults;
+using Microsoft.Extensions.Options;
 using WindowsControlService.Infrastructure.Results;
 
 namespace WindowsControlService.Features.Authentication;
@@ -46,11 +47,21 @@ public static class AuthenticationEndpoints
         return endpoints;
     }
 
-    /// <summary>Merges what used to be two calls: is a password set, and is this caller signed in.</summary>
-    private static async Task<Ok<SessionResponse>> GetSessionAsync(HttpContext context, IPasswordService passwords) =>
+    /// <summary>
+    /// Merges what used to be two calls: is a password set, and is this caller signed in. It
+    /// also carries the two rules the interface has to obey while typing -- the minimum password
+    /// length and the session timeout -- because this call is already made on every load, and a
+    /// separate endpoint for two integers would be a second round trip for nothing.
+    /// </summary>
+    private static async Task<Ok<SessionResponse>> GetSessionAsync(
+        HttpContext context,
+        IPasswordService passwords,
+        IOptions<AuthenticationOptions> options) =>
         TypedResults.Ok(new SessionResponse(
             Initialized: await passwords.IsConfiguredAsync(context.RequestAborted),
-            Authenticated: context.User.Identity?.IsAuthenticated ?? false));
+            Authenticated: context.User.Identity?.IsAuthenticated ?? false,
+            MinimumPasswordLength: options.Value.MinimumPasswordLength,
+            SessionTimeoutMinutes: (int)options.Value.SessionTimeout.TotalMinutes));
 
     private static async Task<Results<Ok, ProblemHttpResult>> ConfigurePasswordAsync(
         ConfigurePasswordRequest request,

@@ -2,11 +2,11 @@
 // file, so a change meant to be cosmetic can be proved to be exactly that: capture, change,
 // capture again, compare. A difference is a regression.
 //
-// Nothing here touches the machine. The page is served by the running service, but fetch, the
-// event stream and the clock are all replaced inside the browser before the modules load, so no
-// policy is deployed, no registry value is written and no session is used. That is also what
-// makes the output comparable: a live capture would embed "checked 3 s ago" and never match
-// itself twice.
+// Nothing here touches the machine, and the service does not even have to be running: fetch,
+// the event stream and the clock are all replaced inside the browser before the modules load,
+// and wwwroot is served straight off disk. So no policy is deployed, no registry value is
+// written and no session is used. That is also what makes the output comparable -- a live
+// capture would embed "checked 3 s ago" and never match itself twice.
 //
 // Local development tooling. Node is not part of the build or the deployment of the service.
 //
@@ -15,6 +15,10 @@
 //   git diff --no-index before.txt after.txt
 
 import { spawn } from 'node:child_process';
+import { readFile } from 'node:fs/promises';
+import { createServer } from 'node:http';
+import { extname, join, normalize, sep } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { writeFileSync } from 'node:fs';
 import { setTimeout as delay } from 'node:timers/promises';
 
@@ -25,9 +29,51 @@ const args = Object.fromEntries(
   }),
 );
 
-const origin = args.origin ?? 'http://localhost:5150';
+// The whole service is simulated inside the browser, so nothing here needs the service to be
+// running: the page only has to be served over http for ES modules to load. Serving wwwroot
+// directly is also what makes this usable while editing -- no publish, no install, no restart.
+// Pass --origin to point at a running instance instead.
+// Normalised so the traversal guard below compares separators of the same kind: a path given
+// on the command line arrives with forward slashes even on Windows.
+const webRoot = normalize(args.serve ?? fileURLToPath(new URL('../src/WindowsControlService/wwwroot', import.meta.url)));
 const outputPath = args.out ?? 'interface-dom.txt';
 const port = Number(args.port ?? 9334);
+
+const CONTENT_TYPES = {
+  '.html': 'text/html; charset=utf-8',
+  '.js': 'text/javascript; charset=utf-8',
+  '.mjs': 'text/javascript; charset=utf-8',
+  '.css': 'text/css; charset=utf-8',
+  '.svg': 'image/svg+xml',
+  '.json': 'application/json; charset=utf-8',
+};
+
+let origin = args.origin;
+let files = null;
+
+if (!origin) {
+  files = createServer(async (request, response) => {
+    const path = new URL(request.url, 'http://x').pathname;
+    // Normalised and re-checked against the root: a served directory is a served directory.
+    const target = normalize(join(webRoot, path === '/' ? 'index.html' : path));
+
+    if (!target.startsWith(webRoot + sep)) {
+      response.writeHead(403).end();
+      return;
+    }
+
+    try {
+      const body = await readFile(target);
+      response.writeHead(200, { 'content-type': CONTENT_TYPES[extname(target)] ?? 'application/octet-stream' });
+      response.end(body);
+    } catch {
+      response.writeHead(404).end();
+    }
+  });
+
+  await new Promise((resolve) => files.listen(0, '127.0.0.1', resolve));
+  origin = `http://127.0.0.1:${files.address().port}`;
+}
 const browserPath = args.browser ?? 'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe';
 
 // Frozen, so "checked 40 s ago" is a constant. Every timestamp below is relative to it.
@@ -79,12 +125,21 @@ const HISTORY_ROWS = (count, from) =>
   }));
 
 const OK = (body) => ({ status: 200, body });
+
+// The minimum password length and the session timeout are the service's rules, and the interface
+// counts against them while typing rather than keeping a copy of the numbers.
+const SESSION = (initialized, authenticated) => ({
+  initialized,
+  authenticated,
+  minimumPasswordLength: 10,
+  sessionTimeoutMinutes: 30,
+});
 const NO_CONTENT = { status: 204 };
 const PROBLEM = (status, title) => ({ status, body: { title } });
 
 const BASE = {
   'GET /api/health': OK(HEALTH),
-  'GET /api/auth/session': OK({ initialized: true, authenticated: true }),
+  'GET /api/auth/session': OK(SESSION(true, true)),
   'GET /api/applications': OK([]),
   'GET /api/applications/policy-state': OK({ state: 'Unknown', enabledRuleCount: 0, lastReconciledAt: null }),
   'GET /api/processes': OK(PROCESSES),
@@ -103,18 +158,18 @@ const GATE = "document.getElementById('app-nav').outerHTML + '\\n' + document.ge
 const scenarios = [
   {
     name: 'gate · first run, no password configured',
-    responses: withResponses({ 'GET /api/auth/session': OK({ initialized: false, authenticated: false }) }),
+    responses: withResponses({ 'GET /api/auth/session': OK(SESSION(false, false)) }),
     capture: [GATE, NOTICES],
   },
   {
     name: 'gate · configured but signed out',
-    responses: withResponses({ 'GET /api/auth/session': OK({ initialized: true, authenticated: false }) }),
+    responses: withResponses({ 'GET /api/auth/session': OK(SESSION(true, false)) }),
     capture: [GATE, NOTICES],
   },
   {
     name: 'gate · a wrong password keeps what was typed',
     responses: withResponses({
-      'GET /api/auth/session': OK({ initialized: true, authenticated: false }),
+      'GET /api/auth/session': OK(SESSION(true, false)),
       'POST /api/auth/login': PROBLEM(401, 'Wrong password.'),
     }),
     steps: [
@@ -270,7 +325,10 @@ const scenarios = [
       'GET /api/applications': OK(APPLICATIONS),
       'DELETE /api/applications/1': PROBLEM(500, 'The policy could not be rebuilt.'),
     }),
-    steps: ["document.querySelectorAll('#application-list button')[0].click(); await window.__wcs.settle();"],
+    steps: [
+      "document.querySelectorAll('#application-list button')[0].click();",
+      "document.querySelector('#application-list .button-danger').click(); await window.__wcs.settle();",
+    ],
     capture: [
       "'rows: ' + document.querySelectorAll('#application-list .row').length",
       "'reloaded: ' + window.__wcs.calls.filter((c) => c === 'GET /api/applications').length",
@@ -284,10 +342,98 @@ const scenarios = [
       'GET /api/applications': OK(APPLICATIONS),
       'DELETE /api/applications/1': NO_CONTENT,
     }),
-    steps: ["document.querySelectorAll('#application-list button')[0].click(); await window.__wcs.settle();"],
+    steps: [
+      "document.querySelectorAll('#application-list button')[0].click();",
+      "document.querySelector('#application-list .button-danger').click(); await window.__wcs.settle();",
+    ],
     capture: [
       "'reloaded: ' + window.__wcs.calls.filter((c) => c === 'GET /api/applications').length",
       NOTICES,
+    ],
+  },
+  {
+    // The dialog replaced window.confirm. The row itself asks, so the name of what is about to
+    // change stays exactly where it already was.
+    name: 'applications · a removal asks in the row it belongs to',
+    hash: '#/applications',
+    responses: withResponses({ 'GET /api/applications': OK(APPLICATIONS) }),
+    steps: ["document.querySelectorAll('#application-list button')[0].click(); await window.__wcs.settle();"],
+    capture: [
+      "document.querySelectorAll('#application-list .row')[0].outerHTML",
+      "'asking: ' + document.querySelectorAll('#application-list [data-confirming]').length",
+      "'focused: ' + document.activeElement.textContent.trim()",
+      "'deleted: ' + window.__wcs.calls.filter((c) => c.startsWith('DELETE')).length",
+    ],
+  },
+  {
+    name: 'applications · cancelling a removal puts the row back',
+    hash: '#/applications',
+    responses: withResponses({ 'GET /api/applications': OK(APPLICATIONS) }),
+    steps: [
+      "document.querySelectorAll('#application-list button')[0].click();",
+      "document.querySelector('#application-list .row-actions:not([hidden]) .button-ghost').click(); await window.__wcs.settle();",
+    ],
+    capture: [
+      "'asking: ' + document.querySelectorAll('#application-list [data-confirming]').length",
+      "'rows: ' + document.querySelectorAll('#application-list .row').length",
+      "'deleted: ' + window.__wcs.calls.filter((c) => c.startsWith('DELETE')).length",
+    ],
+  },
+  {
+    // Two rows asking at once is two questions, and the answer to one of them is ambiguous.
+    name: 'applications · opening one confirmation closes the other',
+    hash: '#/applications',
+    responses: withResponses({ 'GET /api/applications': OK(APPLICATIONS) }),
+    steps: [
+      "document.querySelectorAll('#application-list button')[0].click();",
+      "document.querySelectorAll('#application-list .row')[1].querySelector('button').click(); await window.__wcs.settle();",
+    ],
+    capture: [
+      "'asking: ' + document.querySelectorAll('#application-list [data-confirming]').length",
+      "'asking row: ' + [...document.querySelectorAll('#application-list .row')].findIndex((r) => r.hasAttribute('data-confirming'))",
+    ],
+  },
+  {
+    name: 'processes · the filter narrows on name and on path',
+    hash: '#/applications',
+    responses: withResponses({}),
+    steps: [
+      "document.getElementById('load-processes').click(); await window.__wcs.settle();",
+      "document.getElementById('process-search').value = 'other.exe';",
+      "document.getElementById('process-search').dispatchEvent(new Event('input')); await window.__wcs.settle();",
+    ],
+    capture: [
+      "'rows: ' + document.querySelectorAll('#process-list .row').length",
+      "document.getElementById('process-count').outerHTML",
+    ],
+  },
+  {
+    name: 'processes · a search that finds nothing says what it looked for',
+    hash: '#/applications',
+    responses: withResponses({}),
+    steps: [
+      "document.getElementById('load-processes').click(); await window.__wcs.settle();",
+      "document.getElementById('process-search').value = 'nothing-matches-this';",
+      "document.getElementById('process-search').dispatchEvent(new Event('input')); await window.__wcs.settle();",
+    ],
+    capture: [
+      "document.getElementById('process-list').outerHTML",
+      "document.getElementById('process-count').outerHTML",
+    ],
+  },
+  {
+    name: 'processes · it opens with the caret in the search, and escape closes it',
+    hash: '#/applications',
+    responses: withResponses({}),
+    steps: [
+      "document.getElementById('load-processes').click(); await window.__wcs.settle();",
+      "window.__wcs.focusedOnOpen = document.activeElement.id;",
+      "document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })); await window.__wcs.settle();",
+    ],
+    capture: [
+      "'focused on open: ' + window.__wcs.focusedOnOpen",
+      "'open: ' + !document.getElementById('process-modal').hidden",
+      "'focused after escape: ' + document.activeElement.id",
     ],
   },
   {
@@ -396,7 +542,7 @@ const scenarios = [
     ],
     capture: [
       "document.getElementById('history-summary').outerHTML",
-      "'rows: ' + document.querySelectorAll('#history-rows tr').length",
+      "'rows: ' + document.querySelectorAll('#history-rows .row').length",
       "'newer disabled: ' + document.getElementById('history-previous').disabled",
       "'older disabled: ' + document.getElementById('history-next').disabled",
     ],
@@ -411,12 +557,11 @@ const scenarios = [
     }),
     steps: [
       "document.getElementById('history-next').click(); await window.__wcs.settle();",
-      "document.getElementById('history-origin').value = 'remote';",
-      "document.getElementById('history-origin').dispatchEvent(new Event('change')); await window.__wcs.settle();",
+      "document.querySelector('#history-origin [data-origin=remote]').click(); await window.__wcs.settle();",
     ],
     capture: [
       "document.getElementById('history-summary').outerHTML",
-      "'rows: ' + document.querySelectorAll('#history-rows tr').length",
+      "'rows: ' + document.querySelectorAll('#history-rows .row').length",
       "'calls: ' + window.__wcs.calls.filter((c) => c.includes('access-history')).join(' | ')",
     ],
   },
@@ -431,7 +576,7 @@ const scenarios = [
     steps: ["document.getElementById('history-next').click(); await window.__wcs.settle();"],
     capture: [
       "document.getElementById('history-summary').outerHTML",
-      "'rows: ' + document.querySelectorAll('#history-rows tr').length",
+      "'rows: ' + document.querySelectorAll('#history-rows .row').length",
       "'empty shown: ' + !document.getElementById('history-empty').hidden",
       "'calls: ' + window.__wcs.calls.filter((c) => c.includes('access-history')).join(' | ')",
     ],
@@ -450,7 +595,7 @@ const scenarios = [
     ],
     capture: [
       "document.getElementById('history-summary').outerHTML",
-      "'rows: ' + document.querySelectorAll('#history-rows tr').length",
+      "'rows: ' + document.querySelectorAll('#history-rows .row').length",
     ],
   },
   {
@@ -468,7 +613,7 @@ const scenarios = [
     ],
     capture: [
       "document.getElementById('history-summary').outerHTML",
-      "'first cell: ' + document.querySelector('#history-rows td').textContent",
+      "'first row when: ' + document.querySelector('#history-rows .event-ago').textContent",
       "'reloads: ' + window.__wcs.calls.filter((c) => c.includes('access-history')).length",
     ],
   },
@@ -495,6 +640,64 @@ const scenarios = [
     hash: '#/settings',
     responses: withResponses({}),
     capture: [SECTION('settings')],
+  },
+  {
+    // The minimum is the service's rule and arrives with the session. The interface only counts.
+    name: 'settings · the counter counts against the service minimum',
+    hash: '#/settings',
+    responses: withResponses({}),
+    steps: [
+      "document.getElementById('new-password').value = 'short';",
+      "document.getElementById('new-password').dispatchEvent(new Event('input')); await window.__wcs.settle();",
+    ],
+    capture: ["document.getElementById('new-password-count').outerHTML"],
+  },
+  {
+    name: 'settings · the counter stops counting once the minimum is met',
+    hash: '#/settings',
+    responses: withResponses({}),
+    steps: [
+      "document.getElementById('new-password').value = 'long-enough-password';",
+      "document.getElementById('new-password').dispatchEvent(new Event('input')); await window.__wcs.settle();",
+    ],
+    capture: ["document.getElementById('new-password-count').outerHTML"],
+  },
+  {
+    name: 'settings · the repeated password says whether it matches',
+    hash: '#/settings',
+    responses: withResponses({}),
+    steps: [
+      "document.getElementById('new-password').value = 'long-enough-password';",
+      "document.getElementById('confirm-password').value = 'long-enough-passwor';",
+      "document.getElementById('confirm-password').dispatchEvent(new Event('input')); await window.__wcs.settle();",
+    ],
+    capture: ["document.getElementById('confirm-password-match').outerHTML"],
+  },
+  {
+    name: 'settings · and says nothing before there is anything to say',
+    hash: '#/settings',
+    responses: withResponses({}),
+    steps: [
+      "document.getElementById('new-password').value = 'long-enough-password';",
+      "document.getElementById('new-password').dispatchEvent(new Event('input')); await window.__wcs.settle();",
+    ],
+    capture: ["document.getElementById('confirm-password-match').outerHTML"],
+  },
+  {
+    name: 'settings · the session card says when the session ends',
+    hash: '#/settings',
+    responses: withResponses({}),
+    capture: ["document.getElementById('session-expiry').outerHTML"],
+  },
+  {
+    name: 'shell · the tab indicators come from the list and the stream',
+    hash: '#/applications',
+    responses: withResponses({ 'GET /api/applications': OK(APPLICATIONS) }),
+    steps: ["window.__wcs.push('usb', { blocked: true, lastModified: null }); await window.__wcs.settle();"],
+    capture: [
+      "document.getElementById('tab-count-applications').outerHTML",
+      "'device signal: ' + !document.getElementById('tab-signal-devices').hidden",
+    ],
   },
   {
     name: 'settings · two new passwords that do not match',
@@ -550,7 +753,7 @@ const scenarios = [
       'GET /api/applications': PROBLEM(401, 'no'),
       'GET /api/applications/policy-state': PROBLEM(401, 'no'),
     }),
-    capture: [GATE, "'notices: ' + document.querySelectorAll('#notices .notice').length", NOTICES],
+    capture: [GATE, "'notices: ' + document.querySelectorAll('#notices .toast').length", NOTICES],
   },
 ];
 
@@ -714,6 +917,7 @@ const evaluate = async (expression) => {
 };
 
 const blocks = [];
+const counts = { markup: 0, check: 0 };
 
 for (const scenario of scenarios) {
   const injected = await send(
@@ -734,7 +938,13 @@ for (const scenario of scenarios) {
 
   const captured = [];
   for (const expression of scenario.capture) {
-    captured.push(String(await evaluate(`return ${expression};`)));
+    // Two kinds of capture, and they are read differently. A markup capture is expected to
+    // change when the presentation changes; a check is a statement about behaviour, and a
+    // difference in one is a regression until proved otherwise.
+    const kind = /outerHTML|innerHTML/.test(expression) ? 'markup' : 'check';
+    counts[kind]++;
+
+    captured.push(`[${kind}] ${String(await evaluate(`return ${expression};`))}`);
   }
 
   blocks.push(`### ${scenario.name}\n${captured.join('\n')}`);
@@ -747,5 +957,7 @@ for (const scenario of scenarios) {
 writeFileSync(outputPath, `${blocks.join('\n\n')}\n`, 'utf8');
 socket.close();
 browser.kill();
+files?.close();
 
-process.stdout.write(`\n${scenarios.length} scenarios -> ${outputPath}\n`);
+process.stdout.write(
+  `\n${scenarios.length} scenarios, ${counts.check} checks, ${counts.markup} markup -> ${outputPath}\n`);

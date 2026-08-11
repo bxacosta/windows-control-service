@@ -4,21 +4,31 @@
  */
 
 import * as api from './api.js';
-import { elementsOf } from './markup.js';
+import * as shell from './shell.js';
+import { attributes, elementsOf } from './markup.js';
+import { describePasswordLength, describePasswordMatch } from './rules.js';
 import { withPending } from './pending.js';
 import { notify, notifyError } from './notices.js';
 
 const ui = elementsOf('gate');
-const shell = elementsOf('shell');
 
 /** @type {() => void} */
 let onAuthenticated = () => {};
 let lostAlreadyShown = false;
 
+/**
+ * The two rules the service owns and this interface has to obey while typing. They arrive with
+ * the session, which is a call that already happens on every load. Defaults only cover the
+ * moment before the first answer: nothing is validated against them until one arrives.
+ */
+let rules = { minimumPasswordLength: 0, sessionTimeoutMinutes: 0 };
+
+export const minimumPasswordLength = () => rules.minimumPasswordLength;
+export const sessionTimeoutMinutes = () => rules.sessionTimeoutMinutes;
+
 function showGate(which) {
   ui.root.hidden = false;
-  shell.nav.hidden = true;
-  shell.main.hidden = true;
+  shell.showApplication(false);
   ui.setupForm.hidden = which !== 'setup';
   ui.loginForm.hidden = which !== 'login';
 
@@ -28,8 +38,7 @@ function showGate(which) {
 
 function showApplication() {
   ui.root.hidden = true;
-  shell.nav.hidden = false;
-  shell.main.hidden = false;
+  shell.showApplication(true);
   lostAlreadyShown = false;
   onAuthenticated();
 }
@@ -37,6 +46,17 @@ function showApplication() {
 /** Field errors live in a slot that is always in the layout, so showing one moves nothing. */
 function setFieldError(slot, message) {
   slot.textContent = message ?? '';
+}
+
+/** Validation while typing, not after submitting. The minimum is the service's rule. */
+function renderSetupNotes() {
+  const length = describePasswordLength(ui.setupPassword.value, rules.minimumPasswordLength);
+  ui.setupCount.textContent = length.text;
+  ui.setupCount.setAttribute(attributes.noteState, length.state);
+
+  const match = describePasswordMatch(ui.setupPassword.value, ui.setupConfirm.value);
+  ui.setupMatch.textContent = match.text;
+  ui.setupMatch.setAttribute(attributes.noteState, match.state);
 }
 
 /**
@@ -119,7 +139,8 @@ export async function signOut(control) {
 
 /**
  * Decides what the first paint shows. One request, not two: GET /api/auth/session answers both
- * "is this machine configured" and "is this caller signed in".
+ * "is this machine configured" and "is this caller signed in", and carries the two rules the
+ * interface validates against.
  */
 export async function bootstrap(authenticatedHandler) {
   onAuthenticated = authenticatedHandler;
@@ -127,8 +148,17 @@ export async function bootstrap(authenticatedHandler) {
   ui.setupForm.addEventListener('submit', handleSetup);
   ui.loginForm.addEventListener('submit', handleLogin);
 
+  for (const field of [ui.setupPassword, ui.setupConfirm]) {
+    field.addEventListener('input', renderSetupNotes);
+  }
+
   try {
     const session = await api.getSession();
+    rules = {
+      minimumPasswordLength: session.minimumPasswordLength ?? 0,
+      sessionTimeoutMinutes: session.sessionTimeoutMinutes ?? 0,
+    };
+
     if (!session.initialized) {
       showGate('setup');
     } else if (!session.authenticated) {

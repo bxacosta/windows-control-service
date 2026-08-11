@@ -9,6 +9,8 @@ namespace WindowsControlService.IntegrationTests.WebInterface;
 /// </summary>
 public sealed class InterfaceAssetTests
 {
+    private const string SvgNamespace = "http://www.w3.org/2000/svg";
+
     private static readonly string[] ForbiddenCursors =
         ["cursor-wait", "cursor:wait", "cursor: wait", "cursor-not-allowed", "cursor:not-allowed", "cursor: not-allowed"];
 
@@ -49,10 +51,16 @@ public sealed class InterfaceAssetTests
     {
         var content = await File.ReadAllTextAsync(Path.Combine(WebRoot(), relativePath));
 
+        // The XML namespace of SVG is a name, not an address: nothing dereferences it, and
+        // createElementNS cannot build an <svg> without it. Removed before the check rather than
+        // spelled around in the source, because obfuscating a constant to satisfy a string search
+        // is how a rule stops meaning what it says.
+        var withoutNamespaces = content.Replace(SvgNamespace, string.Empty, StringComparison.Ordinal);
+
         // The whole point of option A is that the interface works with no internet and no build
         // step. One CDN link would quietly undo both.
-        Assert.DoesNotContain("http://", content, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("https://", content, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("http://", withoutNamespaces, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("https://", withoutNamespaces, StringComparison.OrdinalIgnoreCase);
     }
 
     [Theory]

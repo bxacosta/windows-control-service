@@ -6,17 +6,20 @@
 
 import * as api from './api.js';
 import * as events from './events.js';
-import { elementsOf } from './markup.js';
+import * as shell from './shell.js';
+import { css, elementsOf } from './markup.js';
 import { acceptsPushedValue, describeUsbChange, describeUsbState } from './rules.js';
 import { isPending, optimistic } from './pending.js';
 import { notify, notifyError } from './notices.js';
 
 const ui = elementsOf('devices');
 
-/** The renderer: two lines of text from one status, and no decision of its own. */
+/** The renderer: a pill and two lines of text from one status, and no decision of its own. */
 function renderUsb(status) {
   const described = describeUsbState(status);
 
+  ui.usbPill.className = css.pill(described.pill.tone);
+  ui.usbPill.textContent = described.pill.text;
   ui.usbTitle.textContent = described.title;
   ui.usbLastModified.textContent = described.lastChanged;
 }
@@ -32,6 +35,7 @@ function showUsb(status) {
   }
 
   renderUsb(status);
+  shell.showDeviceSignal(status.blocked);
 }
 
 async function handleToggle(control) {
@@ -67,5 +71,7 @@ export function connect() {
     void handleToggle(changeEvent.currentTarget);
   });
 
+  // The stream sends the current state on connect, so the tab indicator is right from the first
+  // paint without this section having been opened, and without a second request to ask.
   events.on('usb', showUsb);
 }

@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
+using WindowsControlService.Features.Authentication;
 
 namespace WindowsControlService.IntegrationTests.Features.Authentication;
 
@@ -58,6 +59,26 @@ public sealed class AuthenticationHttpTests : IDisposable
 
         Assert.False(session.GetProperty("initialized").GetBoolean());
         Assert.False(session.GetProperty("authenticated").GetBoolean());
+    }
+
+    [Fact]
+    public async Task TheSessionCarriesTheRulesTheInterfaceValidatesAgainst()
+    {
+        using var client = _factory.CreateClient();
+
+        // Answered to anyone, on purpose. The interface counts a password against the minimum
+        // while it is being typed, and it cannot keep its own copy of a configurable number
+        // without the two silently disagreeing the day one of them changes. Neither value gives
+        // anything away that trying a short password would not.
+        var session = await client.GetFromJsonAsync<JsonElement>("/api/auth/session", CancellationToken.None);
+
+        Assert.Equal(
+            new AuthenticationOptions().MinimumPasswordLength,
+            session.GetProperty("minimumPasswordLength").GetInt32());
+
+        Assert.Equal(
+            (int)new AuthenticationOptions().SessionTimeout.TotalMinutes,
+            session.GetProperty("sessionTimeoutMinutes").GetInt32());
     }
 
     [Fact]

@@ -1,11 +1,12 @@
 /**
- * Notices go into a fixed container that is never part of the layout flow. Anything that
- * appears above the content would move the control the user was about to click.
+ * Toasts stack at the bottom right and never occupy layout: a notice that pushes the page down
+ * moves the control the user was about to click.
  */
 
-import { css, ids } from './markup.js';
+import { el, icon } from './dom.js';
+import { css, icons, ids } from './markup.js';
 
-const DEFAULT_TIMEOUT_MS = 6000;
+const DEFAULT_TIMEOUT_MS = 4500;
 
 const container = () => document.getElementById(ids.shell.notices);
 
@@ -21,17 +22,26 @@ export function notify(message, kind = 'ok', timeoutMs = DEFAULT_TIMEOUT_MS) {
     return () => {};
   }
 
-  const element = document.createElement('div');
-  element.className = css.notice(kind);
-  element.textContent = message;
-  host.append(element);
+  const dismiss = el('button', { type: 'button', class: css.toastDismiss, 'aria-label': 'Dismiss' }, [
+    icon(icons.close),
+  ]);
 
-  const dismiss = () => element.remove();
+  const toast = el('div', { class: css.toastOf(kind) }, [
+    icon(icons[kind] ?? icons.ok, 'toast-icon'),
+    el('div', { class: css.toastText, text: message }),
+    dismiss,
+  ]);
+
+  host.append(toast);
+
+  const remove = () => toast.remove();
+  dismiss.addEventListener('click', remove);
+
   if (timeoutMs > 0) {
-    window.setTimeout(dismiss, timeoutMs);
+    window.setTimeout(remove, timeoutMs);
   }
 
-  return dismiss;
+  return remove;
 }
 
 export const notifyError = (message) => notify(message, 'error');
