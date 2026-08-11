@@ -11,7 +11,10 @@ import * as history from './history.js';
 import * as router from './router.js';
 import * as session from './session.js';
 import * as settings from './settings.js';
+import { elementsOf } from './markup.js';
 import { notifyError } from './notices.js';
+
+const shell = elementsOf('shell');
 
 router.register('applications', { enter: applications.enter });
 router.register('devices', { enter: devices.enter });
@@ -35,15 +38,14 @@ api.whenSessionLost(() => {
  * talking to a running service rather than being a tab left open after it was stopped.
  */
 async function showServiceStatus() {
-  const slot = document.getElementById('service-status');
   try {
     const health = await api.getHealth();
     // The informational version carries the commit after a plus sign. The footer is not the
     // place for a forty character hash.
     const version = String(health.version).split('+')[0];
-    slot.textContent = `${health.status} · version ${version}`;
+    shell.serviceStatus.textContent = `${health.status} · version ${version}`;
   } catch (error) {
-    slot.textContent = 'service unreachable';
+    shell.serviceStatus.textContent = 'service unreachable';
     notifyError(error.message);
   }
 }

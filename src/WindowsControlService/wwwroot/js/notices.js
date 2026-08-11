@@ -3,9 +3,11 @@
  * appears above the content would move the control the user was about to click.
  */
 
+import { css, ids } from './markup.js';
+
 const DEFAULT_TIMEOUT_MS = 6000;
 
-const container = () => document.getElementById('notices');
+const container = () => document.getElementById(ids.shell.notices);
 
 /**
  * @param {string} message
@@ -20,7 +22,7 @@ export function notify(message, kind = 'ok', timeoutMs = DEFAULT_TIMEOUT_MS) {
   }
 
   const element = document.createElement('div');
-  element.className = `notice notice-${kind}`;
+  element.className = css.notice(kind);
   element.textContent = message;
   host.append(element);
 

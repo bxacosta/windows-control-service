@@ -6,17 +6,28 @@
 
 import * as api from './api.js';
 import * as events from './events.js';
+import { currentRoute } from './router.js';
 import { el, replace } from './dom.js';
+import { elementsOf } from './markup.js';
+import { followsPushedEvents, offsetAfterEmptyPage, pagerState } from './rules.js';
 import { formatDuration, formatTimestamp } from './format.js';
 import { withPending } from './pending.js';
 import { notifyError } from './notices.js';
 
 const PAGE_SIZE = 10;
 
-const element = (id) => document.getElementById(id);
+const ui = elementsOf('history');
 
 /** The view lives here, not in the DOM, so a pushed update cannot reset the page you are on. */
 const view = { offset: 0, origin: 'all', total: 0 };
+
+/**
+ * Asked of the router rather than read off a section's `hidden` attribute: how a section is
+ * taken off screen is the navigation's business, and this rule must not have an opinion about it.
+ */
+const isOnScreen = () => currentRoute() === 'history';
+
+// --- Renderers -------------------------------------------------------------
 
 function entryRow(entry) {
   return el('tr', {}, [
@@ -32,16 +43,14 @@ function entryRow(entry) {
 }
 
 function renderPager() {
-  const pages = Math.max(1, Math.ceil(view.total / PAGE_SIZE));
-  const page = Math.floor(view.offset / PAGE_SIZE) + 1;
+  const pager = pagerState(view.offset, view.total, PAGE_SIZE);
 
-  element('history-summary').textContent = view.total === 0
-    ? 'No events recorded yet.'
-    : `${view.total} event(s) · page ${page} of ${pages}`;
-
-  element('history-previous').disabled = view.offset === 0;
-  element('history-next').disabled = view.offset + PAGE_SIZE >= view.total;
+  ui.summary.textContent = pager.summary;
+  ui.previous.disabled = !pager.canGoNewer;
+  ui.next.disabled = !pager.canGoOlder;
 }
+
+// --- Loading ---------------------------------------------------------------
 
 async function load() {
   let page;
@@ -54,15 +63,15 @@ async function load() {
 
   view.total = page.total;
 
-  // An offset past the end can happen after a filter change; step back rather than show nothing.
-  if (page.entries.length === 0 && view.offset > 0) {
-    view.offset = 0;
+  const corrected = offsetAfterEmptyPage(view.offset, page.entries.length);
+  if (corrected !== null) {
+    view.offset = corrected;
     await load();
     return;
   }
 
-  replace(element('history-rows'), page.entries.map(entryRow));
-  element('history-empty').hidden = page.entries.length > 0;
+  replace(ui.rows, page.entries.map(entryRow));
+  ui.empty.hidden = page.entries.length > 0;
   renderPager();
 }
 
@@ -78,17 +87,17 @@ export async function enter() {
 }
 
 export function connect() {
-  element('history-origin').addEventListener('change', (changeEvent) => {
+  ui.origin.addEventListener('change', (changeEvent) => {
     view.origin = changeEvent.currentTarget.value;
     view.offset = 0;
     void load();
   });
 
-  element('history-previous').addEventListener('click', (clickEvent) => {
+  ui.previous.addEventListener('click', (clickEvent) => {
     void move(clickEvent.currentTarget, -1);
   });
 
-  element('history-next').addEventListener('click', (clickEvent) => {
+  ui.next.addEventListener('click', (clickEvent) => {
     void move(clickEvent.currentTarget, 1);
   });
 
@@ -96,9 +105,7 @@ export function connect() {
     view.total = payload.total;
     renderPager();
 
-    // Only the first page follows new events. Reloading page four under someone who is reading
-    // it would move the rows they are looking at.
-    if (view.offset === 0 && !element('section-history').hidden) {
+    if (followsPushedEvents(view.offset, isOnScreen())) {
       void load();
     }
   });

@@ -4,37 +4,39 @@
  */
 
 import * as api from './api.js';
+import { elementsOf } from './markup.js';
 import { withPending } from './pending.js';
 import { notify, notifyError } from './notices.js';
 
-const element = (id) => document.getElementById(id);
+const ui = elementsOf('gate');
+const shell = elementsOf('shell');
 
 /** @type {() => void} */
 let onAuthenticated = () => {};
 let lostAlreadyShown = false;
 
 function showGate(which) {
-  element('gate').hidden = false;
-  element('app-nav').hidden = true;
-  element('main').hidden = true;
-  element('setup-form').hidden = which !== 'setup';
-  element('login-form').hidden = which !== 'login';
+  ui.root.hidden = false;
+  shell.nav.hidden = true;
+  shell.main.hidden = true;
+  ui.setupForm.hidden = which !== 'setup';
+  ui.loginForm.hidden = which !== 'login';
 
-  const field = which === 'setup' ? element('setup-password') : element('login-password');
+  const field = which === 'setup' ? ui.setupPassword : ui.loginPassword;
   field.focus();
 }
 
 function showApplication() {
-  element('gate').hidden = true;
-  element('app-nav').hidden = false;
-  element('main').hidden = false;
+  ui.root.hidden = true;
+  shell.nav.hidden = false;
+  shell.main.hidden = false;
   lostAlreadyShown = false;
   onAuthenticated();
 }
 
 /** Field errors live in a slot that is always in the layout, so showing one moves nothing. */
-function setFieldError(slotId, message) {
-  element(slotId).textContent = message ?? '';
+function setFieldError(slot, message) {
+  slot.textContent = message ?? '';
 }
 
 /**
@@ -53,19 +55,19 @@ export function onSessionLost() {
 
 async function handleSetup(submitEvent) {
   submitEvent.preventDefault();
-  setFieldError('setup-error', '');
+  setFieldError(ui.setupError, '');
 
-  const password = element('setup-password').value;
-  const confirmation = element('setup-confirm').value;
+  const password = ui.setupPassword.value;
+  const confirmation = ui.setupConfirm.value;
 
   // There is no password reset: a typo here would only be discovered at the next sign in, and
   // recovering means deleting the database. The confirmation is worth the extra field.
   if (password !== confirmation) {
-    setFieldError('setup-error', 'The two passwords do not match.');
+    setFieldError(ui.setupError, 'The two passwords do not match.');
     return;
   }
 
-  await withPending(element('setup-submit'), async () => {
+  await withPending(ui.setupSubmit, async () => {
     try {
       await api.configurePassword(password);
       await api.login(password);
@@ -73,26 +75,25 @@ async function handleSetup(submitEvent) {
       showApplication();
     } catch (error) {
       // The minimum length is the service's rule, so its own message is the one shown.
-      setFieldError('setup-error', error.message);
+      setFieldError(ui.setupError, error.message);
     }
   });
 }
 
 async function handleLogin(submitEvent) {
   submitEvent.preventDefault();
-  setFieldError('login-error', '');
+  setFieldError(ui.loginError, '');
 
-  const field = element('login-password');
-  const password = field.value;
+  const password = ui.loginPassword.value;
 
-  await withPending(element('login-submit'), async () => {
+  await withPending(ui.loginSubmit, async () => {
     try {
       await api.login(password);
-      field.value = '';
+      ui.loginPassword.value = '';
       showApplication();
     } catch (error) {
-      setFieldError('login-error', error.status === 401 ? 'That password is not correct.' : error.message);
-      field.select();
+      setFieldError(ui.loginError, error.status === 401 ? 'That password is not correct.' : error.message);
+      ui.loginPassword.select();
     }
   });
 }
@@ -123,8 +124,8 @@ export async function signOut(control) {
 export async function bootstrap(authenticatedHandler) {
   onAuthenticated = authenticatedHandler;
 
-  element('setup-form').addEventListener('submit', handleSetup);
-  element('login-form').addEventListener('submit', handleLogin);
+  ui.setupForm.addEventListener('submit', handleSetup);
+  ui.loginForm.addEventListener('submit', handleLogin);
 
   try {
     const session = await api.getSession();

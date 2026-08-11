@@ -118,15 +118,5 @@ public sealed class InterfaceAssetTests
         Assert.Empty(offenders);
     }
 
-    private static string WebRoot()
-    {
-        var directory = new DirectoryInfo(AppContext.BaseDirectory);
-        while (directory is not null && !File.Exists(Path.Combine(directory.FullName, "WindowsControlService.slnx")))
-        {
-            directory = directory.Parent;
-        }
-
-        Assert.NotNull(directory);
-        return Path.Combine(directory.FullName, "src", "WindowsControlService", "wwwroot");
-    }
+    private static string WebRoot() => Repository.WebRoot;
 }

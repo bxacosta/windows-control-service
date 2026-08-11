@@ -218,6 +218,8 @@
     <span id="service-status" class="status-slot">&nbsp;</span>
   </footer>
 
-  <script type="module" src="/js/app.js"></script>
+  <!-- boot.js, not app.js: a static import that throws while being evaluated cannot be caught
+       from inside the module that did the importing. -->
+  <script type="module" src="/js/boot.js"></script>
 </body>
 </html>

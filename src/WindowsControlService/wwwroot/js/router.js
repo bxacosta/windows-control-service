@@ -4,6 +4,8 @@
  * client can diagnose.
  */
 
+import { attributes, sectionId } from './markup.js';
+
 /** @type {Map<string, {name: string, element: HTMLElement, hooks: {enter?: Function, leave?: Function}}>} */
 const routes = new Map();
 let active = null;
@@ -14,9 +16,9 @@ let started = false;
  * @param {{enter?: () => void | Promise<void>, leave?: () => void}} hooks
  */
 export function register(name, hooks = {}) {
-  const element = document.getElementById(`section-${name}`);
+  const element = document.getElementById(sectionId(name));
   if (!element) {
-    throw new Error(`No <section id="section-${name}"> to route to.`);
+    throw new Error(`No <section id="${sectionId(name)}"> to route to.`);
   }
 
   routes.set(name, { name, element, hooks });
@@ -42,13 +44,13 @@ async function apply() {
   next.element.hidden = false;
   active = next;
 
-  for (const link of document.querySelectorAll('[data-nav]')) {
+  for (const link of document.querySelectorAll(`[${attributes.navTarget}]`)) {
     // aria-current is the only nav state; the styling reserves its border so switching
     // sections does not reflow the row.
-    if (link.dataset.nav === name) {
-      link.setAttribute('aria-current', 'page');
+    if (link.getAttribute(attributes.navTarget) === name) {
+      link.setAttribute(attributes.currentNav, 'page');
     } else {
-      link.removeAttribute('aria-current');
+      link.removeAttribute(attributes.currentNav);
     }
   }
 

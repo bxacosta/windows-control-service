@@ -6,69 +6,66 @@
 
 import * as api from './api.js';
 import * as events from './events.js';
-import { formatTimestamp } from './format.js';
-import { isPending, withPending } from './pending.js';
+import { elementsOf } from './markup.js';
+import { acceptsPushedValue, describeUsbChange, describeUsbState } from './rules.js';
+import { isPending, optimistic } from './pending.js';
 import { notify, notifyError } from './notices.js';
 
-const element = (id) => document.getElementById(id);
+const ui = elementsOf('devices');
 
-function render(status) {
-  const control = element('usb-switch');
+/** The renderer: two lines of text from one status, and no decision of its own. */
+function renderUsb(status) {
+  const described = describeUsbState(status);
 
-  // A pushed update must not yank the switch out from under a click that is still in flight.
-  if (!isPending(control)) {
-    control.checked = status.blocked;
-  }
-
-  element('usb-state-title').textContent = status.blocked
-    ? 'Blocked. New drives will not mount.'
-    : 'Allowed. Drives mount normally.';
-
-  element('usb-last-modified').textContent = status.lastModified
-    ? `Last changed through this service: ${formatTimestamp(status.lastModified)}`
-    : 'Never changed through this service.';
+  ui.usbTitle.textContent = described.title;
+  ui.usbLastModified.textContent = described.lastChanged;
 }
 
-async function handleToggle(changeEvent) {
-  const control = changeEvent.currentTarget;
+/**
+ * Showing a status is not the same as painting it, and the difference is the switch: it belongs
+ * to whoever is clicking it, so a status that arrived on its own only moves it while nothing is
+ * in flight.
+ */
+function showUsb(status) {
+  if (acceptsPushedValue(isPending(ui.usbSwitch))) {
+    ui.usbSwitch.checked = status.blocked;
+  }
 
-  // Optimistic: the browser has already moved the switch and the user should see what they
-  // asked for. Writing the registry takes long enough that waiting would look like a dead click.
-  const wanted = control.checked;
+  renderUsb(status);
+}
 
-  await withPending(control, async () => {
-    try {
+async function handleToggle(control) {
+  try {
+    await optimistic(control, async (wanted) => {
       await api.setUsbBlocked(wanted);
-    } catch (error) {
-      control.checked = !wanted;
-      notifyError(error.message);
-      return;
-    }
+      notify(describeUsbChange(wanted), 'ok');
 
-    notify(wanted ? 'USB mass storage is blocked.' : 'USB mass storage is allowed again.', 'ok');
-
-    // Read back rather than trust the request: if someone edited the registry by hand a moment
-    // ago, this is where the interface finds out.
-    try {
-      render(await api.getUsb());
-    } catch {
-      // The write succeeded; a failed read is not worth a second notice.
-    }
-  });
+      // Read back rather than trust the request: if someone edited the registry by hand a
+      // moment ago, this is where the interface finds out.
+      try {
+        showUsb(await api.getUsb());
+      } catch {
+        // The write succeeded; a failed read is not worth a second notice.
+      }
+    });
+  } catch (error) {
+    // The switch is already back where it was.
+    notifyError(error.message);
+  }
 }
 
 export async function enter() {
   try {
-    render(await api.getUsb());
+    showUsb(await api.getUsb());
   } catch (error) {
     notifyError(error.message);
   }
 }
 
 export function connect() {
-  element('usb-switch').addEventListener('change', (changeEvent) => {
-    void handleToggle(changeEvent);
+  ui.usbSwitch.addEventListener('change', (changeEvent) => {
+    void handleToggle(changeEvent.currentTarget);
   });
 
-  events.on('usb', render);
+  events.on('usb', showUsb);
 }

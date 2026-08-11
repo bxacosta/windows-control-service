@@ -6,37 +6,38 @@
 import * as api from './api.js';
 import * as events from './events.js';
 import * as session from './session.js';
+import { elementsOf } from './markup.js';
 import { withPending } from './pending.js';
 import { notify } from './notices.js';
 
-const element = (id) => document.getElementById(id);
+const ui = elementsOf('settings');
 
 async function handleChangePassword(submitEvent) {
   submitEvent.preventDefault();
-  element('change-password-error').textContent = '';
+  ui.error.textContent = '';
 
-  const current = element('current-password').value;
-  const next = element('new-password').value;
-  const confirmation = element('confirm-password').value;
+  const current = ui.current.value;
+  const replacement = ui.replacement.value;
+  const confirmation = ui.confirm.value;
 
-  if (next !== confirmation) {
-    element('change-password-error').textContent = 'The two new passwords do not match.';
+  if (replacement !== confirmation) {
+    ui.error.textContent = 'The two new passwords do not match.';
     return;
   }
 
-  await withPending(element('change-password-submit'), async () => {
+  await withPending(ui.submit, async () => {
     try {
-      await api.changePassword(current, next);
+      await api.changePassword(current, replacement);
     } catch (error) {
-      element('change-password-error').textContent =
+      ui.error.textContent =
         error.status === 401 ? 'The current password is not correct.' : error.message;
       return;
     }
 
     // The security stamp rotated, so this very session is already dead. Saying so and going to
     // the gate is honest; leaving the interface up would show data it can no longer refresh.
-    for (const id of ['current-password', 'new-password', 'confirm-password']) {
-      element(id).value = '';
+    for (const field of [ui.current, ui.replacement, ui.confirm]) {
+      field.value = '';
     }
 
     notify('Password changed. Every open session was signed out, including this one.', 'ok');
@@ -46,8 +47,8 @@ async function handleChangePassword(submitEvent) {
 }
 
 export function connect() {
-  element('change-password-form').addEventListener('submit', handleChangePassword);
-  element('sign-out').addEventListener('click', (clickEvent) => {
+  ui.form.addEventListener('submit', handleChangePassword);
+  ui.signOut.addEventListener('click', (clickEvent) => {
     events.stop();
     void session.signOut(clickEvent.currentTarget);
   });

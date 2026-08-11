@@ -22,7 +22,12 @@ public sealed class InterfaceHostingTests : IDisposable
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.Equal("text/html", response.Content.Headers.ContentType?.MediaType);
         Assert.Contains("id=\"notices\"", body, StringComparison.Ordinal);
-        Assert.Contains("/js/app.js", body, StringComparison.Ordinal);
+
+        // boot.js, and not app.js: a module that throws while being evaluated cannot report that
+        // from inside itself, so the shell loads app.js dynamically and paints what went wrong.
+        // Loading app.js here directly would put the page back to failing silently.
+        Assert.Contains("/js/boot.js", body, StringComparison.Ordinal);
+        Assert.DoesNotContain("src=\"/js/app.js\"", body, StringComparison.Ordinal);
     }
 
     [Fact]
