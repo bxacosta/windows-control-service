@@ -73,15 +73,15 @@ public sealed class ApplicationBlockingService(
     /// is last. Returns null when the binary carries none of them, and then it cannot be blocked
     /// by name at all.
     /// </remarks>
-    internal static (string Attribute, string Value)? ResolveMatch(PeVersionFields fields)
+    internal static (RuleMatchField Attribute, string Value)? ResolveMatch(PeVersionFields fields)
     {
         ArgumentNullException.ThrowIfNull(fields);
 
         return fields switch
         {
-            { OriginalFileName: { } original } => ("FileName", original),
-            { InternalName: { } internalName } => ("InternalName", internalName),
-            { ProductName: { } product } => ("ProductName", product),
+            { OriginalFileName: { } original } => (RuleMatchField.FileName, original),
+            { InternalName: { } internalName } => (RuleMatchField.InternalName, internalName),
+            { ProductName: { } product } => (RuleMatchField.ProductName, product),
             _ => null,
         };
     }

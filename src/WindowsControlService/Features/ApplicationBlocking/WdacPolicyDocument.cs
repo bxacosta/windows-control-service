@@ -135,7 +135,11 @@ public static class WdacPolicyDocument
             // which is what is wanted, and matches what New-CIPolicyRule -Deny produces.
             // Whichever attribute the row recorded. FileName is the common case but not the only
             // one: a binary with no OriginalFilename is matched by InternalName or ProductName.
-            writer.WriteAttributeString(application.MatchAttribute, application.MatchValue);
+            //
+            // The name comes from an enum, not from a string in a column: an unexpected value
+            // would otherwise become an arbitrary attribute name, or an exception thrown while
+            // the policy is being built, which is the worst moment to find out.
+            writer.WriteAttributeString(application.MatchAttribute.ToString(), application.MatchValue);
             writer.WriteEndElement();
         }
 

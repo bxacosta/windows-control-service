@@ -112,11 +112,11 @@ public sealed class ApplicationBlockingServiceTests : IDisposable
     }
 
     [Theory]
-    [InlineData("app.exe", "app_internal", "App Suite", "FileName", "app.exe")]
-    [InlineData(null, "app_internal", "App Suite", "InternalName", "app_internal")]
-    [InlineData(null, null, "App Suite", "ProductName", "App Suite")]
+    [InlineData("app.exe", "app_internal", "App Suite", RuleMatchField.FileName, "app.exe")]
+    [InlineData(null, "app_internal", "App Suite", RuleMatchField.InternalName, "app_internal")]
+    [InlineData(null, null, "App Suite", RuleMatchField.ProductName, "App Suite")]
     public void TheMatchAttributeFollowsWhatTheBinaryActuallyCarries(
-        string? original, string? internalName, string? product, string expectedAttribute, string expectedValue)
+        string? original, string? internalName, string? product, RuleMatchField expectedAttribute, string expectedValue)
     {
         var match = ApplicationBlockingService.ResolveMatch(new PeVersionFields(original, internalName, product));
 

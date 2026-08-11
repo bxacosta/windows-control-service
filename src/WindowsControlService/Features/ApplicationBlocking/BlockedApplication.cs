@@ -2,6 +2,26 @@ using System.ComponentModel.DataAnnotations;
 
 namespace WindowsControlService.Features.ApplicationBlocking;
 
+/// <summary>
+/// The WDAC attributes a deny rule may match on. Named "Field" rather than "Attribute" only
+/// because CA1711 reserves that suffix for <see cref="Attribute"/> types.
+/// <para>
+/// Every member name here <b>is</b> the XML attribute name written into the policy, which is
+/// why they are not renamed for style: what is valid is decided by the schema shipped with
+/// Windows, not by this file.
+/// </para>
+/// </summary>
+/// <remarks>
+/// <c>FileName</c> is the trap worth remembering: it does not compare against the name of the
+/// file on disk, it compares against the OriginalFilename embedded in the binary.
+/// </remarks>
+public enum RuleMatchField
+{
+    FileName,
+    InternalName,
+    ProductName,
+}
+
 public sealed class BlockedApplication
 {
     public long Id { get; set; }
@@ -15,7 +35,7 @@ public sealed class BlockedApplication
     /// <c>ProductName</c>. Not always the first one, because not every binary carries an
     /// OriginalFilename.
     /// </summary>
-    public string MatchAttribute { get; set; } = "FileName";
+    public RuleMatchField MatchAttribute { get; set; } = RuleMatchField.FileName;
 
     /// <summary>
     /// The value read out of the PE version resource. Stored rather than read on demand so the

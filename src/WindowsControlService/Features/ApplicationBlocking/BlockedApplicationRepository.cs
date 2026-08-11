@@ -76,7 +76,7 @@ public sealed class BlockedApplicationRepository(IDbConnectionFactory connection
                 {
                     application.Name,
                     application.ExecutablePath,
-                    application.MatchAttribute,
+                    MatchAttribute = application.MatchAttribute.ToString(),
                     application.MatchValue,
                     application.ProductName,
                     IsEnabled = application.IsEnabled ? 1 : 0,
@@ -145,11 +145,41 @@ public sealed class BlockedApplicationRepository(IDbConnectionFactory connection
             Id = Id,
             Name = Name,
             ExecutablePath = ExecutablePath,
-            MatchAttribute = MatchAttribute,
+            MatchAttribute = ParseMatchAttribute(Id, MatchAttribute),
             MatchValue = MatchValue,
             ProductName = ProductName,
             IsEnabled = IsEnabled != 0,
             CreatedAt = DateTime.Parse(CreatedAt, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind),
         };
+
     }
+
+    /// <summary>
+    /// The reading end of the barrier. The CHECK constraint stops a bad value going in, and this
+    /// stops one that is already there coming out: the value becomes the name of an attribute in
+    /// a deployed policy, so a row nobody can turn into a rule has to fail here, loudly and with
+    /// the id, rather than three layers later while the policy is written.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <c>Enum.TryParse</c> alone does not validate anything. It also accepts the numeric form
+    /// and answers <see langword="true"/> with a value that is no member at all: <c>"7"</c>
+    /// parses, and <c>ToString()</c> gives back <c>"7"</c>, which is what would reach the policy
+    /// as an attribute name.
+    /// </para>
+    /// <para>
+    /// <c>Enum.IsDefined</c> closes that one but not <c>"0"</c>, which parses to a real member
+    /// and would silently become <c>FileName</c>. So the rule is stricter than either: the
+    /// stored text has to be exactly the name of a member. It always is, because that is what
+    /// the insert writes; anything else came from somewhere this service cannot vouch for.
+    /// </para>
+    /// </remarks>
+    internal static RuleMatchField ParseMatchAttribute(long id, string stored) =>
+        Enum.TryParse<RuleMatchField>(stored, ignoreCase: false, out var parsed)
+        && Enum.IsDefined(parsed)
+        && string.Equals(stored, parsed.ToString(), StringComparison.Ordinal)
+            ? parsed
+            : throw new InvalidOperationException(
+                $"Blocked application {id} records MatchAttribute '{stored}', which is not a WDAC "
+                + "rule attribute this service can write.");
 }
