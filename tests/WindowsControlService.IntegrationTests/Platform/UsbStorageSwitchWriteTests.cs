@@ -21,6 +21,10 @@ public sealed class UsbStorageSwitchWriteTests
     public void BlockingSetsStartToDisabledAndUnblockingPutsItBack()
     {
         var original = ReadStart();
+        // Block and Unblock write WriteProtect too, so restoring only Start leaves the machine in
+        // a pair the service never produces: blocked driver, write protection off. Measured here:
+        // a run of this suite turned off the second layer of a block that had been asked for.
+        var originalWriteProtect = ReadWriteProtect();
         try
         {
             Assert.True(_switch.Block().IsSuccess);
@@ -34,9 +38,11 @@ public sealed class UsbStorageSwitchWriteTests
         finally
         {
             WriteStart(original);
+            WriteWriteProtect(originalWriteProtect);
         }
 
         Assert.Equal(original, ReadStart());
+        Assert.Equal(originalWriteProtect, ReadWriteProtect());
     }
 
     [Fact]
@@ -65,6 +71,7 @@ public sealed class UsbStorageSwitchWriteTests
     public void BlockingTwiceIsHarmless()
     {
         var original = ReadStart();
+        var originalWriteProtect = ReadWriteProtect();
         try
         {
             Assert.True(_switch.Block().IsSuccess);
@@ -74,6 +81,7 @@ public sealed class UsbStorageSwitchWriteTests
         finally
         {
             WriteStart(original);
+            WriteWriteProtect(originalWriteProtect);
         }
     }
 
