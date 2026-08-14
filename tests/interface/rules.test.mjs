@@ -336,6 +336,18 @@ test('a local session is identified by its user, since it has no address', () =>
   assert.equal(outbound.duration, '1 h 30 min');
 });
 
+/** Three, not two. The third is what an event whose record carried no address at all gets. */
+const ORIGINS = ['Local', 'Remote', 'Unknown'];
+
+test('an origin the service could not determine is not reported as local', () => {
+  const texts = ORIGINS.map((origin) => event({ kind: 'Logon', startsSession: true, origin }).origin.text);
+
+  assert.equal(new Set(texts).size, ORIGINS.length, `two origins read the same: ${texts.join(', ')}`);
+  // The one that bit: Unknown fell through to the Local branch and turned "nobody knows where
+  // this came from" into a claim about the machine.
+  assert.notEqual(texts[ORIGINS.indexOf('Unknown')], texts[ORIGINS.indexOf('Local')]);
+});
+
 test('a disconnection is not a sign-out, because here they are different events', () => {
   assert.notEqual(
     event({ kind: 'Disconnect', startsSession: false }).label,

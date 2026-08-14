@@ -37,9 +37,15 @@ api.whenSessionLost(() => {
   session.onSessionLost();
 });
 
+// Every call, not just the one below: the dot in the top bar stays current for the whole
+// session instead of reporting whatever was true when the page loaded.
+api.whenReachabilityChanges(shell.showReachable);
+
 /**
  * GET /api/health is public and always answers, so it doubles as the proof that this page is
- * talking to a running service rather than being a tab left open after it was stopped.
+ * talking to a running service rather than being a tab left open after it was stopped. This
+ * writes the words; the dot beside them is set from every call, in shell.showReachable. They
+ * agree because the only way a public endpoint that always returns 200 fails is by not arriving.
  */
 async function showServiceStatus() {
   try {

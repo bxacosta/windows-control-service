@@ -16,16 +16,30 @@ export function showApplication(visible) {
   ui.main.hidden = !visible;
 }
 
+/** The service's own words, printed rather than interpreted. */
 export function showHealth(health) {
   // The informational version carries the commit after a plus sign. The top bar is not the
   // place for a forty character hash.
   ui.serviceStatus.textContent = `${health.status} · ${String(health.version).split('+')[0]}`;
-  ui.healthDot.setAttribute(attributes.health, health.status === 'healthy' ? 'healthy' : 'unknown');
 }
 
 export function showUnreachable() {
   ui.serviceStatus.textContent = 'unreachable';
-  ui.healthDot.setAttribute(attributes.health, 'unreachable');
+}
+
+/**
+ * The dot answers the one question a browser can actually answer about a service: did the last
+ * call arrive. It used to compare `status` against a word, and `status` is a constant the
+ * service cannot vary -- so the comparison was reading nothing, and it was reading it wrong:
+ * the constant is "running", the comparison wanted "healthy", and the dot never went green on
+ * a machine where everything worked.
+ *
+ * Nothing here decides what "healthy" means. Whether the blocking policy is in force and
+ * whether USB storage is blocked are the health of this service, and both already have a place
+ * on screen that says so in more detail than a dot could.
+ */
+export function showReachable(reachable) {
+  ui.healthDot.setAttribute(attributes.health, reachable ? 'healthy' : 'unreachable');
 }
 
 /** The badge counts blocked applications, and disappears rather than showing a zero. */

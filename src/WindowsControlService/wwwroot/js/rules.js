@@ -214,6 +214,18 @@ const eventLabels = Object.freeze({
 });
 
 /**
+ * Three origins, not two. An event whose record carried no address at all is `Unknown`, and
+ * showing it as "Local" turns "nobody knows where this came from" into a claim about the
+ * machine -- the same mistake `describePolicyState` exists to avoid. Rare and real: one of the
+ * 129 entries stored on a real machine is Unknown.
+ */
+const eventOrigins = Object.freeze({
+  Remote: { tone: 'remote', text: 'RDP' },
+  Local: { tone: 'muted', text: 'Local' },
+  Unknown: { tone: 'muted', text: 'Unknown' },
+});
+
+/**
  * One access event as it reads on screen.
  *
  * The direction is the service's answer, carried in the response as `startsSession`, and is not
@@ -228,9 +240,8 @@ export function describeEvent(entry) {
     // A kind this version does not know is shown verbatim rather than mapped onto one it does
     // know. The direction survives it, because that answer did not come from the kind.
     label: eventLabels[entry.kind] ?? entry.kind,
-    origin: entry.origin === 'Remote'
-      ? { tone: 'remote', text: 'RDP' }
-      : { tone: 'muted', text: 'Local' },
+    // An origin this version does not know is shown verbatim, like the kind above.
+    origin: eventOrigins[entry.origin] ?? { tone: 'muted', text: entry.origin },
     // The address is what identifies a remote session; the user name is all a local one has.
     detail: entry.address ?? entry.userName ?? '',
     ago: formatAgo(entry.occurredAt),

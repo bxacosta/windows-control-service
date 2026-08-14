@@ -16,6 +16,21 @@ export function reportSessionLost() {
   sessionLostHandler();
 }
 
+/** @type {(reachable: boolean) => void} */
+let reachabilityHandler = () => {};
+
+/**
+ * Whether the last call reached the service at all. Reported from here because this is the only
+ * module that calls fetch, so it is the only place that sees every attempt -- which makes the
+ * answer stay current for the whole session instead of being whatever was true at boot.
+ *
+ * A response is a response whatever its status: a 500 means the service is there and unhappy,
+ * not that it is gone. Only a fetch that rejects means nothing arrived.
+ */
+export function whenReachabilityChanges(handler) {
+  reachabilityHandler = handler;
+}
+
 export class ApiError extends Error {
   /**
    * @param {number} status HTTP status, or 0 when the request never reached the service.
@@ -68,8 +83,11 @@ async function request(method, path, body, { anonymous = false } = {}) {
       body: body === undefined ? undefined : JSON.stringify(body),
     });
   } catch {
+    reachabilityHandler(false);
     throw new ApiError(0, 'The service did not answer. It may be stopped.');
   }
+
+  reachabilityHandler(true);
 
   if (response.status === 401 && !anonymous) {
     sessionLostHandler();

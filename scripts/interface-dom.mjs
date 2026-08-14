@@ -82,7 +82,13 @@ const ISO = (secondsAgo) => new Date(NOW - secondsAgo * 1000).toISOString();
 
 // --- The data every scenario is built from ---------------------------------
 
-const HEALTH = { status: 'healthy', version: '1.0.0+0123456789abcdef0123456789abcdef01234567' };
+// "running" because that is the only value the endpoint can return -- it is a literal in
+// HealthEndpoints. The mock used to say "healthy", a value the service cannot produce, and that
+// is exactly why 56 scenarios passed with the indicator broken.
+const HEALTH = { status: 'running', version: '1.0.0+0123456789abcdef0123456789abcdef01234567' };
+
+/** Not an error status: a request that never arrives. */
+const OFFLINE = { offline: true };
 
 const APPLICATIONS = [
   {
@@ -160,6 +166,11 @@ const BASE = {
 
 const withResponses = (extra) => ({ ...BASE, ...extra });
 
+// A stopped service does not answer one call badly, it answers none at all. Faking only the
+// health call offline showed the dot green, and rightly: the other calls of the boot did arrive,
+// so the service was there.
+const NOTHING_ANSWERS = Object.fromEntries(Object.keys(BASE).map((key) => [key, OFFLINE]));
+
 // --- What each scenario shows ----------------------------------------------
 
 const SECTION = (name) => `document.getElementById('section-${name}').outerHTML`;
@@ -196,6 +207,43 @@ const scenarios = [
     capture: [
       "document.getElementById('app-nav').outerHTML",
       "document.getElementById('service-status').outerHTML",
+    ],
+  },
+  {
+    // The dot reports whether the call arrived, not a word inside it. It compared `status`
+    // against "healthy" while the service can only ever say "running", so on a working machine
+    // the dot sat grey forever and only the failure state worked.
+    name: 'shell · the health dot answers whether the call arrived',
+    hash: '#/applications',
+    responses: withResponses({}),
+    capture: [
+      "'dot: ' + document.getElementById('health-dot').getAttribute('data-health')",
+      "'status: ' + document.getElementById('service-status').textContent",
+    ],
+  },
+  {
+    name: 'shell · a service that does not answer turns the dot red',
+    hash: '#/applications',
+    responses: NOTHING_ANSWERS,
+    capture: [
+      "'dot: ' + document.getElementById('health-dot').getAttribute('data-health')",
+      "'status: ' + document.getElementById('service-status').textContent",
+    ],
+  },
+  {
+    // Every call, not only the one at boot: a tab left open after the service stops must not go
+    // on showing the green it earned when the page loaded.
+    name: 'shell · a later call that never arrives turns the dot red too',
+    hash: '#/applications',
+    responses: withResponses({}),
+    steps: [
+      "window.__wcs.beforeClick = document.getElementById('health-dot').getAttribute('data-health');",
+      "window.__wcs.override('GET /api/processes', { offline: true });",
+      "document.getElementById('load-processes').click(); await window.__wcs.settle();",
+    ],
+    capture: [
+      "'dot at boot: ' + window.__wcs.beforeClick",
+      "'dot after a call that failed: ' + document.getElementById('health-dot').getAttribute('data-health')",
     ],
   },
 
@@ -239,6 +287,23 @@ const scenarios = [
       'GET /api/applications/policy-state': PROBLEM(500, 'CiTool did not answer.'),
     }),
     capture: ["document.getElementById('policy-state-line').outerHTML", NOTICES],
+  },
+  {
+    // The three attributes a WDAC rule can match on. InternalName was never rendered until this
+    // scenario existed, which is the gap that let the other two mistakes live: nothing notices a
+    // value the simulated data never produces.
+    name: 'applications · the three attributes a rule can match on',
+    hash: '#/applications',
+    responses: withResponses({
+      'GET /api/applications': OK([
+        { id: 1, name: 'Test Target A', executablePath: 'C:\\ProgramData\\WindowsControlService\\test\\target-a.exe', matchAttribute: 'FileName', matchValue: 'target-a.exe', productName: 'Harmless Test Target', isEnabled: true, createdAt: ISO(7200) },
+        { id: 2, name: 'Test Target B', executablePath: 'C:\\ProgramData\\WindowsControlService\\test\\target-b.exe', matchAttribute: 'InternalName', matchValue: 'target-b', productName: 'Harmless Test Target', isEnabled: true, createdAt: ISO(3600) },
+        { id: 3, name: 'Test Target C', executablePath: 'C:\\ProgramData\\WindowsControlService\\test\\target-c.exe', matchAttribute: 'ProductName', matchValue: 'Harmless Test Target', productName: 'Harmless Test Target', isEnabled: true, createdAt: ISO(1800) },
+      ]),
+    }),
+    capture: [
+      "'attributes: ' + [...document.querySelectorAll('#application-list .chip')].map((c) => c.textContent).join(' / ')",
+    ],
   },
   {
     name: 'applications · the running process list',
@@ -459,6 +524,24 @@ const scenarios = [
     capture: [
       "'open: ' + !document.getElementById('process-modal').hidden",
       "'focused after the scrim: ' + document.activeElement.id",
+    ],
+  },
+  {
+    // .focus() on a disabled control does nothing at all, and the caret lands on <body>, which
+    // is the one place a keyboard user cannot navigate onward from. The opener is still held
+    // disabled by withPending while the process list is loading.
+    name: 'processes · closing while the opener is still busy does not drop the caret',
+    hash: '#/applications',
+    responses: withResponses({}),
+    steps: [
+      "window.__wcs.hold = 'GET /api/processes';",
+      "document.getElementById('load-processes').click(); await window.__wcs.settle();",
+      "window.__wcs.openerDisabled = document.getElementById('load-processes').disabled;",
+      "document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })); await window.__wcs.settle();",
+    ],
+    capture: [
+      "'opener still disabled: ' + window.__wcs.openerDisabled",
+      "'focused: ' + (document.activeElement.id || document.activeElement.tagName)",
     ],
   },
   {
@@ -684,6 +767,24 @@ const scenarios = [
     capture: [
       "'labels: ' + [...document.querySelectorAll('#history-rows .row-title span:first-child')].map((s) => s.textContent).join(' / ')",
       "'directions: ' + [...document.querySelectorAll('#history-rows .event-mark')].map((m) => m.getAttribute('data-direction')).join(' / ')",
+    ],
+  },
+  {
+    // Origin has three values, not two, and the third is real: one of the 129 entries stored on
+    // a real machine is Unknown. Showing it as "Local" turns "nobody knows" into a claim.
+    name: 'history · an origin the service could not determine is not called local',
+    hash: '#/history',
+    responses: withResponses({
+      'GET /api/access-history?limit=10&offset=0': OK({
+        total: 2,
+        entries: [
+          { id: 2, occurredAt: ISO(1), kind: 'Logoff', startsSession: false, origin: 'Unknown', address: null, userName: 'MACHINE\\owner', sessionId: 4, durationSeconds: 300 },
+          { id: 1, occurredAt: ISO(2), kind: 'Logon', startsSession: true, origin: 'Local', address: null, userName: 'MACHINE\\owner', sessionId: 4, durationSeconds: null },
+        ],
+      }),
+    }),
+    capture: [
+      "'origins: ' + [...document.querySelectorAll('#history-rows .pill')].map((p) => p.textContent).join(' / ')",
     ],
   },
   {
@@ -922,6 +1023,13 @@ const bootstrap = (responses) => `
       const entry = table[key];
       if (!entry) {
         return new Response(JSON.stringify({ title: 'No canned answer for ' + key }), { status: 599 });
+      }
+
+      // A service that is not there does not answer with a status: fetch rejects. That is the
+      // one thing a browser can really tell apart from "answered, badly", and it is what the
+      // dot in the top bar reports.
+      if (entry.offline) {
+        throw new TypeError('Failed to fetch');
       }
 
       const status = entry.status || 200;

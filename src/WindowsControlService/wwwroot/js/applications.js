@@ -223,7 +223,11 @@ function closePicker() {
   picker.root.hidden = true;
   document.removeEventListener('keydown', handlePickerKey);
 
-  pickerOpener?.focus();
+  // A disabled control refuses focus without saying so, and the caret lands on <body> -- the one
+  // place a keyboard user cannot navigate onward from. withPending can still be holding the
+  // opener disabled when the dialog closes, so ask before handing it back.
+  const target = pickerOpener?.disabled ? ui.path : pickerOpener;
+  target?.focus();
   pickerOpener = null;
 }
 
