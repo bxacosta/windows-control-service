@@ -23,6 +23,11 @@ export function showHealth(health) {
   ui.serviceStatus.textContent = `${health.status} · ${String(health.version).split('+')[0]}`;
 }
 
+/**
+ * The words beside the dot, when there is no service to quote. Kept in step with the dot rather
+ * than only written at boot: leaving "running · 1.0.0" up next to a red dot states a version of
+ * something that stopped answering.
+ */
 export function showUnreachable() {
   ui.serviceStatus.textContent = 'unreachable';
 }

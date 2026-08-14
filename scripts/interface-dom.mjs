@@ -232,18 +232,29 @@ const scenarios = [
   },
   {
     // Every call, not only the one at boot: a tab left open after the service stops must not go
-    // on showing the green it earned when the page loaded.
+    // on showing the green it earned when the page loaded. The words follow the same signal --
+    // "running · 1.0.0" beside a red dot is a version of a service that stopped answering -- and
+    // coming back asks again instead of restoring what was on screen before the gap.
     name: 'shell · a later call that never arrives turns the dot red too',
     hash: '#/applications',
     responses: withResponses({}),
     steps: [
       "window.__wcs.beforeClick = document.getElementById('health-dot').getAttribute('data-health');",
+      "window.__wcs.wordsAtBoot = document.getElementById('service-status').textContent;",
       "window.__wcs.override('GET /api/processes', { offline: true });",
+      "document.getElementById('load-processes').click(); await window.__wcs.settle();",
+      "window.__wcs.dotWhileGone = document.getElementById('health-dot').getAttribute('data-health');",
+      "window.__wcs.whileGone = document.getElementById('service-status').textContent;",
+      "window.__wcs.override('GET /api/processes', { status: 200, body: " + JSON.stringify(PROCESSES) + " });",
       "document.getElementById('load-processes').click(); await window.__wcs.settle();",
     ],
     capture: [
       "'dot at boot: ' + window.__wcs.beforeClick",
-      "'dot after a call that failed: ' + document.getElementById('health-dot').getAttribute('data-health')",
+      "'status at boot: ' + window.__wcs.wordsAtBoot",
+      "'dot after a call that failed: ' + window.__wcs.dotWhileGone",
+      "'status after a call that failed: ' + window.__wcs.whileGone",
+      "'dot once it answers again: ' + document.getElementById('health-dot').getAttribute('data-health')",
+      "'status once it answers again: ' + document.getElementById('service-status').textContent",
     ],
   },
 

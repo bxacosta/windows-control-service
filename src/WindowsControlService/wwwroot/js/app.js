@@ -37,9 +37,24 @@ api.whenSessionLost(() => {
   session.onSessionLost();
 });
 
-// Every call, not just the one below: the dot in the top bar stays current for the whole
-// session instead of reporting whatever was true when the page loaded.
-api.whenReachabilityChanges(shell.showReachable);
+// Every call, not one at boot: the indicator stays current for the whole session instead of
+// reporting whatever was true when the page loaded. Both halves of it follow this one signal,
+// because a version printed next to a red dot is a claim about a service that is not there.
+//
+// This is also what puts the first values on screen -- the first call the page makes is the
+// first transition -- which is why nothing below asks for the health separately.
+//
+// Coming back asks the service again rather than restoring the words from memory: what was true
+// before the gap is not evidence about now, and a service that was restarted in the meantime can
+// answer with a different version than the one this page loaded with.
+api.whenReachabilityChanges((reachable) => {
+  shell.showReachable(reachable);
+  if (reachable) {
+    void showServiceStatus();
+  } else {
+    shell.showUnreachable();
+  }
+});
 
 /**
  * GET /api/health is public and always answers, so it doubles as the proof that this page is
@@ -60,4 +75,3 @@ void session.bootstrap(() => {
   router.start();
   events.start();
 });
-void showServiceStatus();

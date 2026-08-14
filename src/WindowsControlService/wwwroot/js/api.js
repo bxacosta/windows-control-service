@@ -20,15 +20,37 @@ export function reportSessionLost() {
 let reachabilityHandler = () => {};
 
 /**
- * Whether the last call reached the service at all. Reported from here because this is the only
- * module that calls fetch, so it is the only place that sees every attempt -- which makes the
- * answer stay current for the whole session instead of being whatever was true at boot.
+ * Unknown until the first call answers or fails to, which is what the indicator shows before
+ * anything has been asked. Starting here rather than at "reachable" is deliberate: it makes the
+ * first call of the page a transition like any other, so one code path paints the indicator at
+ * boot and keeps it right afterwards.
+ * @type {boolean | null}
+ */
+let reachable = null;
+
+/**
+ * Whether the service is answering at all. Reported from here because this is the only module
+ * that calls fetch, so it is the only place that sees every attempt -- which makes the answer
+ * stay current for the whole session instead of being whatever was true at boot.
  *
  * A response is a response whatever its status: a 500 means the service is there and unhappy,
  * not that it is gone. Only a fetch that rejects means nothing arrived.
+ *
+ * Called on transitions, as the name says. The handler asks the service for the words to put
+ * beside the dot whenever it becomes reachable, and doing that after every successful call would
+ * be one extra request per request.
  */
 export function whenReachabilityChanges(handler) {
   reachabilityHandler = handler;
+}
+
+function reportReachable(next) {
+  if (next === reachable) {
+    return;
+  }
+
+  reachable = next;
+  reachabilityHandler(next);
 }
 
 export class ApiError extends Error {
@@ -83,11 +105,11 @@ async function request(method, path, body, { anonymous = false } = {}) {
       body: body === undefined ? undefined : JSON.stringify(body),
     });
   } catch {
-    reachabilityHandler(false);
+    reportReachable(false);
     throw new ApiError(0, 'The service did not answer. It may be stopped.');
   }
 
-  reachabilityHandler(true);
+  reportReachable(true);
 
   if (response.status === 401 && !anonymous) {
     sessionLostHandler();
