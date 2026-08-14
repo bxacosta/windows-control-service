@@ -86,6 +86,38 @@ public sealed class AccessHistoryHttpTests : IDisposable
     }
 
     [Fact]
+    public async Task EveryEntrySaysWhetherItOpensASessionOrClosesOne()
+    {
+        // Reconnect and Disconnect, because they are what a real machine actually records:
+        // 456 of the 474 relevant entries in the channel. A client left to work the direction out
+        // from the kind reads "Logon" and calls the other three an ending.
+        _factory.LogonEvents.Events.Add(Event(1, Base, LogonEventKind.Logon, session: 1, address: "203.0.113.2"));
+        _factory.LogonEvents.Events.Add(Event(2, Base.AddMinutes(5), LogonEventKind.Disconnect, session: 1));
+        _factory.LogonEvents.Events.Add(Event(3, Base.AddMinutes(10), LogonEventKind.Reconnect, session: 1, address: "203.0.113.2"));
+        _factory.LogonEvents.Events.Add(Event(4, Base.AddMinutes(20), LogonEventKind.Logoff, session: 1));
+
+        using var client = await SignedInClientAsync();
+        var page = await WaitForEntriesAsync(client, "/api/access-history");
+
+        var byKind = page.GetProperty("entries").EnumerateArray()
+            .ToDictionary(
+                entry => entry.GetProperty("kind").GetString()!,
+                entry => entry.GetProperty("startsSession").GetBoolean());
+
+        Assert.True(byKind["Logon"]);
+        Assert.True(byKind["Reconnect"]);
+        Assert.False(byKind["Disconnect"]);
+        Assert.False(byKind["Logoff"]);
+
+        // The same rule that answers the field is the one that pairs a duration, so a Reconnect
+        // has to be the start the following Logoff is measured from: 10 minutes, not 20.
+        var logoff = page.GetProperty("entries").EnumerateArray()
+            .First(entry => entry.GetProperty("kind").GetString() == "Logoff");
+
+        Assert.Equal(600, logoff.GetProperty("durationSeconds").GetInt32());
+    }
+
+    [Fact]
     public async Task TheRemoteFilterNarrowsTheTotal()
     {
         _factory.LogonEvents.Events.Add(Event(1, Base, LogonEventKind.Logon, session: 1, address: "203.0.113.2"));
@@ -148,7 +180,13 @@ public sealed class AccessHistoryHttpTests : IDisposable
         new(
             Channel: LogonEventSource.DefaultChannel,
             RecordId: recordId,
-            EventId: kind is LogonEventKind.Logon ? 21 : 23,
+            EventId: kind switch
+            {
+                LogonEventKind.Logon => 21,
+                LogonEventKind.Logoff => 23,
+                LogonEventKind.Disconnect => 24,
+                _ => 25,
+            },
             Kind: kind,
             OccurredAt: occurredAt,
             UserName: @"MACHINE\owner",

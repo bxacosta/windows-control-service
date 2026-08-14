@@ -12,7 +12,7 @@ import * as api from './api.js';
 import * as events from './events.js';
 import * as shell from './shell.js';
 import { el, icon, replace, setIcon } from './dom.js';
-import { attributes, css, elementsOf, icons } from './markup.js';
+import { attributes, css, elementsOf, focusable, icons } from './markup.js';
 import {
   describeMatch,
   describePolicyState,
@@ -132,8 +132,10 @@ function processRow(process) {
     // never reveals the real path of a file chosen with a file picker.
     ui.path.value = process.executablePath;
     ui.name.value = process.name;
+    // Not back to the button that opened the dialog: this is the one exit with somewhere better
+    // to send the caret, which is the field the value just landed in.
+    pickerOpener = ui.path;
     closePicker();
-    ui.path.focus();
   });
 
   return el('div', { class: css.row }, [
@@ -211,19 +213,53 @@ async function handleAdd(submitEvent) {
   });
 }
 
+/**
+ * What had focus when the dialog opened. Held here so that every way out restores it, rather
+ * than each exit remembering to -- which is how the scrim came to be the one that did not.
+ */
+let pickerOpener = null;
+
 function closePicker() {
   picker.root.hidden = true;
   document.removeEventListener('keydown', handlePickerKey);
+
+  pickerOpener?.focus();
+  pickerOpener = null;
+}
+
+/**
+ * `aria-modal="true"` says the rest of the page is inert, and Tab walking out to the controls
+ * behind the scrim makes that a false claim: they are still reachable, still operable, and
+ * invisible under the veil. Wrapping at both edges is what makes the attribute true.
+ */
+function keepFocusInside(keyEvent) {
+  const stops = [...picker.root.querySelectorAll(focusable)];
+  if (stops.length === 0) {
+    return;
+  }
+
+  const leaving = keyEvent.shiftKey ? stops[0] : stops.at(-1);
+  if (document.activeElement !== leaving && picker.root.contains(document.activeElement)) {
+    return;
+  }
+
+  keyEvent.preventDefault();
+  (keyEvent.shiftKey ? stops.at(-1) : stops[0]).focus();
 }
 
 function handlePickerKey(keyEvent) {
   if (keyEvent.key === 'Escape') {
     closePicker();
-    ui.openProcesses.focus();
+    return;
+  }
+
+  if (keyEvent.key === 'Tab') {
+    keepFocusInside(keyEvent);
   }
 }
 
 async function openPicker(control) {
+  pickerOpener = control;
   picker.root.hidden = false;
   document.addEventListener('keydown', handlePickerKey);
   // The search is the point of the dialog, so it is where the caret goes.
@@ -293,10 +329,7 @@ export function connect() {
     void openPicker(clickEvent.currentTarget);
   });
 
-  picker.close.addEventListener('click', () => {
-    closePicker();
-    ui.openProcesses.focus();
-  });
+  picker.close.addEventListener('click', closePicker);
 
   picker.refresh.addEventListener('click', (clickEvent) => {
     void loadProcesses(clickEvent.currentTarget);

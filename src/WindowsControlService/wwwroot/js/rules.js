@@ -142,6 +142,21 @@ export const followsPushedEvents = (offset, isSectionVisible) => offset === 0 &&
 export const offsetAfterEmptyPage = (offset, entryCount) =>
   (entryCount === 0 && offset > 0 ? 0 : null);
 
+/**
+ * A range needs both of its ends, and `shown` is the one the service has not answered yet. With
+ * a total but nothing under it -- a pushed total that arrived before any page was loaded, or a
+ * page the service answered empty -- `${offset + 1}–${offset + shown}` reads "1–0 of 30": a
+ * range that ends before it begins. Saying how many exist without naming a slice is the honest
+ * answer when the slice is not known.
+ */
+function summarise(offset, total, shown) {
+  if (total === 0) {
+    return 'Nothing recorded';
+  }
+
+  return shown === 0 ? 'Nothing on this page' : `${offset + 1}–${offset + shown} of ${total}`;
+}
+
 /** @returns {{page: number, pages: number, summary: string, canGoNewer: boolean, canGoOlder: boolean}} */
 export function pagerState(offset, total, pageSize, shown = 0) {
   const pages = Math.max(1, Math.ceil(total / pageSize));
@@ -150,7 +165,7 @@ export function pagerState(offset, total, pageSize, shown = 0) {
   return {
     page,
     pages,
-    summary: total === 0 ? 'Nothing recorded' : `${offset + 1}–${offset + shown} of ${total}`,
+    summary: summarise(offset, total, shown),
     canGoNewer: offset > 0,
     canGoOlder: offset + pageSize < total,
   };
@@ -186,15 +201,33 @@ export function pageNumbers(page, pages) {
 }
 
 /**
- * One access event as it reads on screen. The kind and the origin are the service's words;
- * "Connected" and "RDP" are this interface's.
+ * The four transitions this machine records, in this interface's words. Flattening them into two
+ * would throw away the only distinction the log actually makes here: on a box reached over RDP,
+ * "I closed the session" and "the connection dropped" are different events, and Disconnect and
+ * Reconnect are the overwhelming majority of what gets recorded.
+ */
+const eventLabels = Object.freeze({
+  Logon: 'Signed in',
+  Reconnect: 'Reconnected',
+  Disconnect: 'Disconnected',
+  Logoff: 'Signed out',
+});
+
+/**
+ * One access event as it reads on screen.
+ *
+ * The direction is the service's answer, carried in the response as `startsSession`, and is not
+ * worked out from the kind here. Which event ids open a session is a fact about Windows that the
+ * service already owns and already uses to pair each session end with its start. Deriving it
+ * again in the browser is a second copy of that rule, and the copy that got written -- `kind ===
+ * 'Logon'` -- called every Reconnect a disconnection and pointed the caret the wrong way.
  */
 export function describeEvent(entry) {
-  const inbound = entry.kind === 'Logon';
-
   return {
-    direction: inbound ? 'in' : 'out',
-    label: inbound ? 'Connected' : 'Disconnected',
+    direction: entry.startsSession ? 'in' : 'out',
+    // A kind this version does not know is shown verbatim rather than mapped onto one it does
+    // know. The direction survives it, because that answer did not come from the kind.
+    label: eventLabels[entry.kind] ?? entry.kind,
     origin: entry.origin === 'Remote'
       ? { tone: 'remote', text: 'RDP' }
       : { tone: 'muted', text: 'Local' },

@@ -26,6 +26,15 @@ public sealed class AccessHistoryOptions
     public int MaxPageSize { get; set; } = 500;
 }
 
+/// <param name="StartsSession">
+/// Whether this event opens a session rather than closing one. Sent rather than left for the
+/// client to work out from <paramref name="Kind"/>, because which event ids begin a session is a
+/// fact about Windows and this service already owns it: <see cref="LogonEvent.IsSessionStart"/>
+/// is what pairs an end with its start to produce <paramref name="DurationSeconds"/>. A client
+/// deriving the same rule would be a second copy of it, and a copy that reads
+/// <c>Kind == Logon</c> is exactly the copy that got written -- mislabelling every Reconnect on
+/// a machine where Reconnect is half of all traffic.
+/// </param>
 /// <param name="DurationSeconds">
 /// Only ever set on an entry that ends a session, and null when the matching start fell outside
 /// the window or the interval was not plausible.
@@ -34,6 +43,7 @@ public sealed record AccessHistoryEntry(
     long Id,
     DateTime OccurredAt,
     LogonEventKind Kind,
+    bool StartsSession,
     LogonOrigin Origin,
     string? Address,
     string UserName,
@@ -172,6 +182,7 @@ public sealed class AccessHistoryService(
             stored.Id,
             stored.Event.OccurredAt,
             stored.Event.Kind,
+            stored.Event.IsSessionStart,
             origin,
             address,
             stored.Event.UserName,

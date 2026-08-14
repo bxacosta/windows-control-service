@@ -140,6 +140,24 @@ export const css = Object.freeze({
 });
 
 /**
+ * What the browser will stop on when Tab is pressed, in document order. It lives here because it
+ * describes the markup rather than any one module.
+ *
+ * `a[href]` and not a bare `[href]`: every icon in this interface is an `<svg><use href="#id">`,
+ * and a bare attribute selector matches those. They are not focusable, so the last "stop" in a
+ * dialog came out as a `<use>` element, `.focus()` on it did nothing, and the trap silently let
+ * Tab through -- which is how it read on the first run of the scenario written to prove it.
+ */
+export const focusable = [
+  'a[href]',
+  'button:not([disabled])',
+  'input:not([disabled])',
+  'select:not([disabled])',
+  'textarea:not([disabled])',
+  '[tabindex]:not([tabindex="-1"])',
+].join(', ');
+
+/**
  * Attributes the modules write and app.css reads. Each one is a styling hook, which is why they
  * belong to this file rather than to the module that happens to set them.
  */

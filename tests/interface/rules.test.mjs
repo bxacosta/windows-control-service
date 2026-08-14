@@ -216,6 +216,18 @@ test('the last page can only go newer, and counts only the rows it actually has'
   assert.equal(pager.canGoOlder, false);
 });
 
+test('a total with no rows under it names no range', () => {
+  // "1–0 of 30" was on screen: a range that ends before it begins, produced whenever a total
+  // was known and the slice was not -- a pushed total before the first load, or a page the
+  // service answered empty.
+  const pager = pagerState(0, 30, 10, 0);
+
+  assert.equal(pager.summary, 'Nothing on this page');
+  assert.ok(!pager.summary.includes('1–0'), pager.summary);
+  // The total is still known, so the pager still knows how many pages there are.
+  assert.equal(pager.pages, 3);
+});
+
 test('a total that is an exact multiple of the page size does not invent a page', () => {
   // The off-by-one that would show a last page with nothing on it.
   const full = pagerState(10, 20, 10, 10);
@@ -254,39 +266,80 @@ test('the pager never offers a page that does not exist', () => {
 
 // --- Access events ----------------------------------------------------------
 
-test('a logon is an inbound connection and a logoff is not', () => {
-  const inbound = describeEvent({
-    kind: 'Logon',
+/**
+ * The four the TerminalServices channel emits, and the whole list on purpose: a test that only
+ * ever passes Logon and Logoff is what let `kind === 'Logon'` look right while it mislabelled
+ * every Reconnect. Dropping one from this table fails the test below rather than going unnoticed.
+ */
+const KINDS = ['Logon', 'Reconnect', 'Disconnect', 'Logoff'];
+
+const event = (fields) => describeEvent({
+  origin: 'Local',
+  address: null,
+  userName: 'MACHINE\\owner',
+  occurredAt: new Date().toISOString(),
+  durationSeconds: null,
+  ...fields,
+});
+
+test('all four transitions get their own label, and no two share one', () => {
+  const labels = KINDS.map((kind) => event({ kind, startsSession: false }).label);
+
+  for (const [index, kind] of KINDS.entries()) {
+    // The fallback shows an unknown kind verbatim, so a label equal to the kind means this one
+    // was never given words of its own.
+    assert.notEqual(labels[index], kind, `${kind} has no label of its own`);
+  }
+
+  assert.equal(new Set(labels).size, KINDS.length, `two kinds share a label: ${labels.join(', ')}`);
+});
+
+test('the direction is the service\'s answer, not something derived from the kind', () => {
+  // Every kind, both answers. If the direction were derived here, half of these would disagree
+  // with what was asked for -- which is exactly the bug this replaces.
+  for (const kind of KINDS) {
+    assert.equal(event({ kind, startsSession: true }).direction, 'in', `${kind} starting`);
+    assert.equal(event({ kind, startsSession: false }).direction, 'out', `${kind} ending`);
+  }
+});
+
+test('a kind this version does not know keeps its direction and shows itself', () => {
+  const unknown = event({ kind: 'ShadowConnect', startsSession: true });
+
+  assert.equal(unknown.label, 'ShadowConnect');
+  assert.equal(unknown.direction, 'in');
+});
+
+test('a reconnection reads as a reconnection and opens a session', () => {
+  const reconnect = event({
+    kind: 'Reconnect',
+    startsSession: true,
     origin: 'Remote',
     address: '203.0.113.44',
-    userName: 'M\\owner',
-    occurredAt: new Date().toISOString(),
-    durationSeconds: null,
   });
 
-  assert.equal(inbound.direction, 'in');
-  assert.equal(inbound.label, 'Connected');
-  assert.deepEqual(inbound.origin, { tone: 'remote', text: 'RDP' });
-  assert.equal(inbound.detail, '203.0.113.44');
+  assert.equal(reconnect.direction, 'in');
+  assert.equal(reconnect.label, 'Reconnected');
+  assert.deepEqual(reconnect.origin, { tone: 'remote', text: 'RDP' });
+  assert.equal(reconnect.detail, '203.0.113.44');
   // Only the events that close a session carry a duration, and null is not zero.
-  assert.equal(inbound.duration, '');
+  assert.equal(reconnect.duration, '');
 });
 
 test('a local session is identified by its user, since it has no address', () => {
-  const outbound = describeEvent({
-    kind: 'Logoff',
-    origin: 'Local',
-    address: null,
-    userName: 'MACHINE\\owner',
-    occurredAt: new Date().toISOString(),
-    durationSeconds: 5400,
-  });
+  const outbound = event({ kind: 'Logoff', startsSession: false, durationSeconds: 5400 });
 
   assert.equal(outbound.direction, 'out');
-  assert.equal(outbound.label, 'Disconnected');
+  assert.equal(outbound.label, 'Signed out');
   assert.deepEqual(outbound.origin, { tone: 'muted', text: 'Local' });
   assert.equal(outbound.detail, 'MACHINE\\owner');
   assert.equal(outbound.duration, '1 h 30 min');
+});
+
+test('a disconnection is not a sign-out, because here they are different events', () => {
+  assert.notEqual(
+    event({ kind: 'Disconnect', startsSession: false }).label,
+    event({ kind: 'Logoff', startsSession: false }).label);
 });
 
 // --- Validation while typing ------------------------------------------------

@@ -112,17 +112,28 @@ const PROCESSES = [
   { name: 'Another Target', executablePath: 'C:\\ProgramData\\WindowsControlService\\test\\other.exe' },
 ];
 
+// All four kinds, in the proportion the real machine shows them: Reconnect and Disconnect are
+// the traffic, and Logon and Logoff the exception. Rows built only from Logon and Logoff are
+// what let a direction derived from `kind === 'Logon'` look correct for a whole release.
+const HISTORY_KINDS = ['Logon', 'Disconnect', 'Reconnect', 'Disconnect', 'Reconnect', 'Logoff'];
+
 const HISTORY_ROWS = (count, from) =>
-  Array.from({ length: count }, (unused, index) => ({
-    id: from + index,
-    occurredAt: ISO(3600 * (from + index)),
-    kind: index % 2 === 0 ? 'Logon' : 'Logoff',
-    origin: index % 3 === 0 ? 'Remote' : 'Local',
-    address: index % 3 === 0 ? '203.0.113.44' : null,
-    userName: 'MACHINE\\owner',
-    sessionId: 2 + index,
-    durationSeconds: index % 2 === 0 ? null : 5400,
-  }));
+  Array.from({ length: count }, (unused, index) => {
+    const kind = HISTORY_KINDS[(from + index) % HISTORY_KINDS.length];
+    const startsSession = kind === 'Logon' || kind === 'Reconnect';
+
+    return {
+      id: from + index,
+      occurredAt: ISO(3600 * (from + index)),
+      kind,
+      startsSession,
+      origin: index % 3 === 0 ? 'Remote' : 'Local',
+      address: index % 3 === 0 ? '203.0.113.44' : null,
+      userName: 'MACHINE\\owner',
+      sessionId: 2 + index,
+      durationSeconds: startsSession ? null : 5400,
+    };
+  });
 
 const OK = (body) => ({ status: 200, body });
 
@@ -437,6 +448,42 @@ const scenarios = [
     ],
   },
   {
+    // Three ways out, and the scrim used to be the one that dropped the caret on the body.
+    name: 'processes · the scrim gives the caret back like escape does',
+    hash: '#/applications',
+    responses: withResponses({}),
+    steps: [
+      "document.getElementById('load-processes').click(); await window.__wcs.settle();",
+      "document.getElementById('process-modal').click(); await window.__wcs.settle();",
+    ],
+    capture: [
+      "'open: ' + !document.getElementById('process-modal').hidden",
+      "'focused after the scrim: ' + document.activeElement.id",
+    ],
+  },
+  {
+    // aria-modal="true" says the page behind is inert. A synthetic Tab moves nothing on its own,
+    // so a focus that lands on the far edge is the trap working and not the browser helping.
+    name: 'processes · tab does not walk out from under the scrim',
+    hash: '#/applications',
+    responses: withResponses({}),
+    steps: [
+      "document.getElementById('load-processes').click(); await window.__wcs.settle();",
+      "window.__wcs.stops = [...document.getElementById('process-modal')"
+        + ".querySelectorAll('button:not([disabled]), input:not([disabled])')];",
+      "window.__wcs.stops.at(-1).focus(); window.__wcs.lastStop = document.activeElement.id;",
+      "document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab' }));",
+      "window.__wcs.afterTab = document.activeElement.id;",
+      "window.__wcs.stops[0].focus(); window.__wcs.firstStop = document.activeElement.id;",
+      "document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', shiftKey: true }));",
+    ],
+    capture: [
+      "'tab from the last stop (' + window.__wcs.lastStop + '): ' + window.__wcs.afterTab",
+      "'shift-tab from the first (' + window.__wcs.firstStop + '): ' + document.activeElement.id",
+      "'still inside: ' + document.getElementById('process-modal').contains(document.activeElement)",
+    ],
+  },
+  {
     // Rule 4. A pushed policy state must not rebuild the form under a half-typed path.
     name: 'applications · a pushed state leaves the half-typed form alone',
     hash: '#/applications',
@@ -590,7 +637,7 @@ const scenarios = [
     }),
     steps: [
       "window.__wcs.override('GET /api/access-history?limit=10&offset=0', { status: 200, body: { total: 24, entries: "
-        + "[{ id: 99, occurredAt: '" + ISO(1) + "', kind: 'Logon', origin: 'Local', address: null, userName: 'MACHINE\\\\owner', sessionId: 9, durationSeconds: null }] } });",
+        + "[{ id: 99, occurredAt: '" + ISO(1) + "', kind: 'Reconnect', startsSession: true, origin: 'Local', address: null, userName: 'MACHINE\\\\owner', sessionId: 9, durationSeconds: null }] } });",
       "window.__wcs.push('access-history', { total: 24 }); await window.__wcs.settle();",
     ],
     capture: [
@@ -615,6 +662,56 @@ const scenarios = [
       "document.getElementById('history-summary').outerHTML",
       "'first row when: ' + document.querySelector('#history-rows .event-ago').textContent",
       "'reloads: ' + window.__wcs.calls.filter((c) => c.includes('access-history')).length",
+    ],
+  },
+  {
+    // Four kinds, four labels. The direction is the service's answer, carried as startsSession:
+    // derived from the kind it read every Reconnect as a disconnection, and Reconnect is half of
+    // what this machine records.
+    name: 'history · the four transitions read as four different things',
+    hash: '#/history',
+    responses: withResponses({
+      'GET /api/access-history?limit=10&offset=0': OK({
+        total: 4,
+        entries: [
+          { id: 4, occurredAt: ISO(1), kind: 'Reconnect', startsSession: true, origin: 'Remote', address: '203.0.113.44', userName: 'MACHINE\\owner', sessionId: 2, durationSeconds: null },
+          { id: 3, occurredAt: ISO(2), kind: 'Disconnect', startsSession: false, origin: 'Remote', address: '203.0.113.44', userName: 'MACHINE\\owner', sessionId: 2, durationSeconds: 5400 },
+          { id: 2, occurredAt: ISO(3), kind: 'Logoff', startsSession: false, origin: 'Local', address: null, userName: 'MACHINE\\owner', sessionId: 1, durationSeconds: 900 },
+          { id: 1, occurredAt: ISO(4), kind: 'Logon', startsSession: true, origin: 'Local', address: null, userName: 'MACHINE\\owner', sessionId: 1, durationSeconds: null },
+        ],
+      }),
+    }),
+    capture: [
+      "'labels: ' + [...document.querySelectorAll('#history-rows .row-title span:first-child')].map((s) => s.textContent).join(' / ')",
+      "'directions: ' + [...document.querySelectorAll('#history-rows .event-mark')].map((m) => m.getAttribute('data-direction')).join(' / ')",
+    ],
+  },
+  {
+    // The service can answer a page empty while reporting a total. A range needs both ends.
+    name: 'history · a page answered empty says so instead of naming a range',
+    hash: '#/history',
+    responses: withResponses({
+      'GET /api/access-history?limit=10&offset=0': OK({ total: 30, entries: [] }),
+    }),
+    capture: [
+      "document.getElementById('history-summary').outerHTML",
+      "'empty shown: ' + !document.getElementById('history-empty').hidden",
+    ],
+  },
+  {
+    // The other half: a pushed total arriving after a first load that failed. The pager has a
+    // total and has never had a row, and it must not invent the slice.
+    name: 'history · a total pushed over a failed load names no range',
+    hash: '#/history',
+    responses: withResponses({
+      'GET /api/access-history?limit=10&offset=0': PROBLEM(500, 'The log could not be read.'),
+    }),
+    steps: [
+      "window.__wcs.push('access-history', { total: 30 }); await window.__wcs.settle();",
+    ],
+    capture: [
+      "document.getElementById('history-summary').outerHTML",
+      "'rows: ' + document.querySelectorAll('#history-rows .row').length",
     ],
   },
   {

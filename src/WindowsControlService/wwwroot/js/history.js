@@ -144,10 +144,18 @@ export function connect() {
 
   events.on('access-history', (payload) => {
     view.total = payload.total;
-    renderPager();
 
     if (followsPushedEvents(view.offset, isOnScreen())) {
+      // load() repaints the pager itself, once it knows what is on the page.
       void load();
+      return;
+    }
+
+    // A total is not a page. Repainting a pager that has never had rows under it is what used to
+    // put "1–0 of 30" on screen; where there are rows, the new total is the one thing that did
+    // change and the pager has to follow it.
+    if (view.shown > 0) {
+      renderPager();
     }
   });
 }
