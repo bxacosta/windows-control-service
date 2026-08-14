@@ -217,6 +217,12 @@ public sealed class ApplicationBlockingHttpTests : IDisposable
         // user something false.
         Assert.Equal("Unknown", state.GetProperty("state").GetString());
         Assert.Equal(0, state.GetProperty("enabledRuleCount").GetInt32());
+
+        // Spelled out because the property is the enum now, not its name: as a number the
+        // browser would be comparing against member order, and Unknown and NotEnforced are the
+        // two that mean opposite things. The event stream carries the same record and has the
+        // same assertion, in EventStreamTests.
+        Assert.Equal(JsonValueKind.String, state.GetProperty("state").ValueKind);
     }
 
     [Fact]

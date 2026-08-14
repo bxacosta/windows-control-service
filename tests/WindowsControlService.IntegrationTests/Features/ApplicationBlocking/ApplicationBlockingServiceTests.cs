@@ -350,7 +350,7 @@ public sealed class ApplicationBlockingServiceTests : IDisposable
         _codeIntegrity.State = PolicyState.Enforced;
 
         var before = await _service.GetPolicyStateAsync(CancellationToken.None);
-        Assert.Equal("Enforced", before.Value.State);
+        Assert.Equal(PolicyState.Enforced, before.Value.State);
         Assert.Equal(2, before.Value.EnabledRuleCount);
         Assert.Null(before.Value.LastReconciledAt);
 

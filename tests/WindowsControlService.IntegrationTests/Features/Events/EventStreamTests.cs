@@ -46,8 +46,11 @@ public sealed class EventStreamTests : IDisposable
         Assert.Contains("event: usb", body, StringComparison.Ordinal);
         Assert.Contains("event: access-history", body, StringComparison.Ordinal);
 
-        // The enum goes out as a name. As an integer the interface could not tell Unknown from
-        // NotEnforced without knowing the member order, and those two mean opposite things.
+        // The enum goes out as a name. This is the second of the two exits the same record takes:
+        // the stream does not serialize with the REST pipeline, so "the application's JSON
+        // options apply here too" is checked rather than assumed. As an integer the interface
+        // could not tell Unknown from NotEnforced without knowing the member order, and those
+        // two mean opposite things.
         Assert.Contains("\"state\":\"NotEnforced\"", body, StringComparison.Ordinal);
         Assert.DoesNotContain("\"state\":0", body, StringComparison.Ordinal);
     }

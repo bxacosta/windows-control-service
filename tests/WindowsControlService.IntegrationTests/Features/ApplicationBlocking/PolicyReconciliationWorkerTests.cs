@@ -3,6 +3,7 @@ using Microsoft.Extensions.Options;
 using WindowsControlService.Features.ApplicationBlocking;
 using WindowsControlService.Infrastructure.Events;
 using WindowsControlService.Infrastructure.Results;
+using WindowsControlService.Platform;
 
 namespace WindowsControlService.IntegrationTests.Features.ApplicationBlocking;
 
@@ -125,6 +126,6 @@ public sealed class PolicyReconciliationWorkerTests
             Task.FromResult(Result.Failure(ErrorCode.NotFound, "no"));
 
         public Task<Result<PolicyStateResponse>> GetPolicyStateAsync(CancellationToken cancellationToken) =>
-            Task.FromResult(Result<PolicyStateResponse>.Success(new PolicyStateResponse("Unknown", 0, null)));
+            Task.FromResult(Result<PolicyStateResponse>.Success(new PolicyStateResponse(PolicyState.Unknown, 0, null)));
     }
 }

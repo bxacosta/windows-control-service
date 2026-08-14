@@ -97,7 +97,7 @@ public sealed class ApplicationBlockingService(
         var enabled = await repository.GetEnabledAsync(cancellationToken);
 
         return Result<PolicyStateResponse>.Success(
-            new PolicyStateResponse(state.Value.ToString(), enabled.Count, _lastReconciledAt));
+            new PolicyStateResponse(state.Value, enabled.Count, _lastReconciledAt));
     }
 
     private async Task<Result<long>> AddCoreAsync(string executablePath, string name, CancellationToken cancellationToken)
