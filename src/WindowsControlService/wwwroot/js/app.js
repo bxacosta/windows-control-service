@@ -66,7 +66,11 @@ async function showServiceStatus() {
   try {
     shell.showHealth(await api.getHealth());
   } catch (error) {
-    shell.showUnreachable();
+    // The words are not written here on failure. "Unreachable" belongs to a call that never
+    // arrived, and that case is already handled above; a health call that arrived and failed
+    // says nothing about reachability, and printing the word anyway would put it next to a
+    // green dot -- the two halves contradicting each other, which is the whole point of
+    // having them follow one signal.
     notifyError(error.message);
   }
 }
