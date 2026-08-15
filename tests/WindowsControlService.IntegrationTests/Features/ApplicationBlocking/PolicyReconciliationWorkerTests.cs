@@ -79,8 +79,10 @@ public sealed class PolicyReconciliationWorkerTests
     {
         private readonly TaskCompletionSource _reached = new(TaskCreationOptions.RunContinuationsAsynchronously);
         private int _target = int.MaxValue;
+        private int _cycles;
 
-        public int Cycles { get; private set; }
+        /// <summary>Written by the worker's thread and read by the test's, so never a plain field.</summary>
+        public int Cycles => Volatile.Read(ref _cycles);
 
         public bool Throw { get; init; }
 
@@ -90,13 +92,21 @@ public sealed class PolicyReconciliationWorkerTests
         {
             Volatile.Write(ref _target, count);
 
+            // The worker starts before this is called, so the cycles being waited for may already
+            // have happened -- and then nothing would ever set the signal. Checking after writing
+            // the target closes that window from this side; the worker closes it from the other.
+            if (Cycles >= count)
+            {
+                _reached.TrySetResult();
+            }
+
             var finished = await Task.WhenAny(_reached.Task, Task.Delay(TimeSpan.FromSeconds(10)));
             Assert.Same(_reached.Task, finished);
         }
 
         public Task<Result> ReconcileAsync(CancellationToken cancellationToken)
         {
-            Cycles++;
+            Interlocked.Increment(ref _cycles);
             if (Cycles >= Volatile.Read(ref _target))
             {
                 _reached.TrySetResult();
