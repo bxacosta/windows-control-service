@@ -139,6 +139,8 @@ export const css = Object.freeze({
   ghostButton: 'button button-ghost',
   dangerButton: 'button button-danger',
   iconButton: 'button button-ghost button-icon',
+  /** The word inside a button, so it can shimmer while the button is working. */
+  buttonLabel: 'button-label',
   /** The one action in a row that cannot be undone, so hovering it answers in its own colour. */
   removeButton: 'button button-ghost button-icon button-destructive',
   /** The weight below the four: an action that belongs to one row or one dialog. */

@@ -82,8 +82,8 @@ function applicationRow(application, onChanged) {
     'aria-label': `Stop blocking ${application.name}`,
   }, [icon(icons.trash)]);
 
-  const cancel = el('button', { type: 'button', class: css.smallGhostButton }, ['Cancel']);
-  const confirm = el('button', { type: 'button', class: css.smallDangerButton }, ['Remove']);
+  const cancel = el('button', { type: 'button', class: css.smallGhostButton }, [el('span', { class: css.buttonLabel, text: 'Cancel' })]);
+  const confirm = el('button', { type: 'button', class: css.smallDangerButton }, [el('span', { class: css.buttonLabel, text: 'Remove' })]);
 
   // Which attribute is doing the blocking, not a fixed label: a binary with no
   // OriginalFilename is matched by InternalName or ProductName, and saying otherwise would
@@ -143,7 +143,7 @@ function applicationRow(application, onChanged) {
 }
 
 function processRow(process) {
-  const pick = el('button', { type: 'button', class: css.smallSecondaryButton }, ['Use']);
+  const pick = el('button', { type: 'button', class: css.smallSecondaryButton }, [el('span', { class: css.buttonLabel, text: 'Use' })]);
 
   pick.addEventListener('click', () => {
     // The only two ways to name an executable: this list, or typing the path. A browser

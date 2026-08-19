@@ -1092,40 +1092,15 @@ h1, h2, p { margin: 0; }
 
 /* A busy control shimmers rather than growing a spinner. The spinner had to appear from
    somewhere, and wherever it came from the button changed width at the moment it was pressed and
-   again when it finished. This costs no layout at all: a band of the control's own colour sweeps
-   across it, above the label and below nothing.
+   again when it finished. This costs no layout at all.
 
-   `currentColor` is what makes one rule enough: on the primary button it is near-black over
-   near-white, on a ghost one near-white over near-black, and both read the same. */
-.button[data-busy] {
-  position: relative;
-  overflow: hidden;
-}
-
-/* A control that is working is not a control that is unavailable. withPending disables it so a
-   second click cannot land, but the 40% of a disabled control would bury the sweep and say the
-   wrong thing: the shimmer is the signal, and it needs the button at full strength to be seen. */
-.button[data-busy]:disabled { opacity: 1; }
-
-.button[data-busy]::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    90deg,
-    transparent,
-    color-mix(in srgb, currentColor 20%, transparent),
-    transparent);
-  transform: translateX(-100%);
-  animation: sweep var(--shimmer) linear infinite;
-}
-
-@keyframes sweep { to { transform: translateX(100%); } }
-
-/* The same idea on a line of text, where a band over the letters would hide them: the sweep is
-   the paint of the text itself, clipped to the glyphs. Two layers -- the moving highlight and
-   the flat colour under it -- so the words never disappear between passes. */
-.shimmer {
+   The shimmer is the paint of the label, clipped to the letters. Not a band over the button:
+   the button keeps the treatment of a control that cannot be pressed, because while it is busy
+   it cannot be, and a sweep across the whole face was saying that instead of saying it is
+   working. Two layers -- the moving highlight and the flat colour under it -- so the word never
+   disappears between passes. */
+.shimmer,
+.button[data-busy] .button-label {
   color: transparent;
   background-image:
     linear-gradient(
@@ -1142,18 +1117,35 @@ h1, h2, p { margin: 0; }
   animation: shimmer var(--shimmer) linear infinite;
 }
 
+/* On a filled button the two layers come from the button's own colours instead: near-black on
+   near-white is the same reading as near-white on near-black, and one rule cannot serve both. */
+.button-primary[data-busy] .button-label,
+.button-danger[data-busy] .button-label {
+  background-image:
+    linear-gradient(
+      90deg,
+      transparent calc(50% - var(--shimmer-spread)),
+      currentColor,
+      transparent calc(50% + var(--shimmer-spread))),
+    linear-gradient(
+      color-mix(in srgb, currentColor 55%, transparent),
+      color-mix(in srgb, currentColor 55%, transparent));
+}
+
 @keyframes shimmer { to { background-position: 0% center; } }
 
 /* Under reduced motion the global rule would run these once in a millisecond and leave them
    frozen mid-sweep, so they are turned off here rather than sped up. */
 @media (prefers-reduced-motion: reduce) {
-  .button[data-busy]::after { display: none; }
-
-  .shimmer {
+  .shimmer,
+  .button[data-busy] .button-label {
     color: var(--text-muted);
     background-image: none;
     animation: none;
   }
+
+  .button-primary[data-busy] .button-label,
+  .button-danger[data-busy] .button-label { color: inherit; }
 }
 
 /* -------------------------------------------------------- boot failure -- */
