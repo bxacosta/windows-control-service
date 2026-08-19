@@ -8,7 +8,7 @@
  * replaces. Here they survive it, and can be read without reading any markup.
  */
 
-import { formatAgo, formatDuration, formatTimestamp } from './format.js';
+import { formatAgo, formatDuration, formatTimestamp, formatWhen } from './format.js';
 
 /**
  * Every time this interface shows is relative, because the question being asked of it is "was
@@ -266,7 +266,9 @@ export function describeEvent(entry) {
     origin: eventOrigins[entry.origin] ?? { tone: 'muted', text: entry.origin },
     // The address is what identifies a remote session; the user name is all a local one has.
     detail: entry.address ?? entry.userName ?? '',
-    ago: formatAgo(entry.occurredAt),
+    // Not always relative: an event from this morning reads as a time and one from last week as
+    // a date. "19 h ago" makes the reader do the subtraction instead of the interface.
+    ago: formatWhen(entry.occurredAt),
     agoExactly: exactly(entry.occurredAt),
     // Only the events that close a session carry a duration, and null is not zero. An empty
     // string rather than a dash: an absent value does not need a placeholder holding its place.
@@ -279,18 +281,29 @@ export function describeEvent(entry) {
 // --- Settings --------------------------------------------------------------
 
 /**
- * The counter a password field shows against the minimum while it is being typed. The minimum
- * is the service's rule and arrives from it: a copy of it here would be a second source of
- * truth for a value that is configurable.
+ * What a password field says about itself while it is being typed. Both halves of the rule are
+ * the service's and both arrive from it: a copy here would be a hint that goes on being given
+ * after the rule behind it changed.
+ *
+ * Length first, and only then the alphabet: complaining that six characters need a digit while
+ * there are three of them is answering a question nobody has reached yet.
+ *
+ * @param {{minimum: number, requiresLettersAndDigits: boolean}} rule As the service states it.
  */
-export function describePasswordLength(value, minimum) {
+export function describePasswordNote(value, rule) {
   if (value.length === 0) {
     return { text: '', state: 'neutral', icon: null };
   }
 
-  return value.length >= minimum
-    ? { text: `${value.length}`, state: 'ok', icon: null }
-    : { text: `${value.length}/${minimum}`, state: 'bad', icon: 'alert' };
+  if (value.length < rule.minimum) {
+    return { text: `${value.length}/${rule.minimum}`, state: 'bad', icon: 'alert' };
+  }
+
+  if (rule.requiresLettersAndDigits && !(/\p{L}/u.test(value) && /\p{Nd}/u.test(value))) {
+    return { text: 'letters and digits', state: 'bad', icon: 'alert' };
+  }
+
+  return { text: `${value.length}`, state: 'ok', icon: null };
 }
 
 /** Says nothing until there is something to say: an empty field has not failed to match yet. */
@@ -312,8 +325,17 @@ export const describeSessionExpiry = (minutes) =>
 
 /**
  * What the card asks of a new password, at the head of the card rather than only inside the
- * field while it is being typed. The number is the service's and arrives from it, so this says
- * nothing before the answer does.
+ * field while it is being typed. Says nothing before the service has answered: a rule invented
+ * to fill the space would be wrong the moment the real one differed.
+ *
+ * @param {{minimum: number, requiresLettersAndDigits: boolean}} rule
  */
-export const describePasswordRule = (minimum) =>
-  (minimum > 0 ? `at least ${minimum} characters` : '');
+export function describePasswordRule(rule) {
+  if (rule.minimum <= 0) {
+    return '';
+  }
+
+  return rule.requiresLettersAndDigits
+    ? `at least ${rule.minimum} characters, letters and digits`
+    : `at least ${rule.minimum} characters`;
+}

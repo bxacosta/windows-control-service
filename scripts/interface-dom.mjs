@@ -148,8 +148,9 @@ const OK = (body) => ({ status: 200, body });
 const SESSION = (initialized, authenticated) => ({
   initialized,
   authenticated,
-  minimumPasswordLength: 10,
-  sessionTimeoutMinutes: 30,
+  minimumPasswordLength: 6,
+  requiresLettersAndDigits: true,
+  sessionTimeoutMinutes: 10,
 });
 const NO_CONTENT = { status: 204 };
 const PROBLEM = (status, title) => ({ status, body: { title } });

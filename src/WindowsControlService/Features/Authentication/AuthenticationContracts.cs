@@ -15,11 +15,17 @@ namespace WindowsControlService.Features.Authentication;
 /// How long a session survives without activity. Shown in Settings, for the same reason: it is
 /// an operational value that belongs to the service.
 /// </param>
+/// <param name="RequiresLettersAndDigits">
+/// The other half of the password rule. Sent for the same reason as the length: the browser
+/// hints while the password is being typed, and a hint it keeps a private copy of is a hint that
+/// goes on being given after the rule behind it has changed.
+/// </param>
 public sealed record SessionResponse(
     bool Initialized,
     bool Authenticated,
     int MinimumPasswordLength,
-    int SessionTimeoutMinutes);
+    int SessionTimeoutMinutes,
+    bool RequiresLettersAndDigits);
 
 public sealed record ConfigurePasswordRequest([Required] string Password);
 

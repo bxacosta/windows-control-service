@@ -131,12 +131,32 @@ public sealed class PasswordService(
     public Task<string?> GetSecurityStampAsync(CancellationToken cancellationToken) =>
         settings.GetAsync(SecurityStampKey, cancellationToken);
 
-    private Result? PolicyViolation(string? password) =>
-        string.IsNullOrEmpty(password) || password.Length < options.Value.MinimumPasswordLength
-            ? Result.Failure(
+    /// <summary>
+    /// Length and alphabet. Case is not part of it: forcing a capital buys one bit and buys it
+    /// from the person typing, who answers by capitalising the first letter.
+    /// </summary>
+    private Result? PolicyViolation(string? password)
+    {
+        var minimum = options.Value.MinimumPasswordLength;
+
+        if (string.IsNullOrEmpty(password) || password.Length < minimum)
+        {
+            return Result.Failure(
                 ErrorCode.Invalid,
-                $"The password must be at least {options.Value.MinimumPasswordLength} characters long.")
-            : null;
+                $"The password must be at least {minimum} characters long.");
+        }
+
+        // Both messages name the whole rule rather than the half that failed: a rule learned one
+        // refusal at a time is a rule learned by being refused twice.
+        if (!password.Any(char.IsLetter) || !password.Any(char.IsDigit))
+        {
+            return Result.Failure(
+                ErrorCode.Invalid,
+                $"The password must be at least {minimum} characters long and mix letters and digits.");
+        }
+
+        return null;
+    }
 
     private async Task StoreAsync(string password, CancellationToken cancellationToken)
     {

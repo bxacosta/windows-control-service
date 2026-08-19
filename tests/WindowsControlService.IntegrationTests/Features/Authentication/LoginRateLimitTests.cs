@@ -10,7 +10,7 @@ namespace WindowsControlService.IntegrationTests.Features.Authentication;
 /// </summary>
 public sealed class LoginRateLimitTests : IDisposable
 {
-    private const string Password = "una-contrasena-larga";
+    private const string Password = "una-contrasena-larga-2026";
 
     private readonly ServiceApplicationFactory _factory = new();
 

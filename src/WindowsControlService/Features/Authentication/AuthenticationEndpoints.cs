@@ -61,7 +61,10 @@ public static class AuthenticationEndpoints
             Initialized: await passwords.IsConfiguredAsync(context.RequestAborted),
             Authenticated: context.User.Identity?.IsAuthenticated ?? false,
             MinimumPasswordLength: options.Value.MinimumPasswordLength,
-            SessionTimeoutMinutes: (int)options.Value.SessionTimeout.TotalMinutes));
+            SessionTimeoutMinutes: (int)options.Value.SessionTimeout.TotalMinutes,
+            // Not read from options: it is not configurable, and saying so here is what keeps the
+            // browser from being the place that decides it.
+            RequiresLettersAndDigits: true));
 
     private static async Task<Results<Ok, ProblemHttpResult>> ConfigurePasswordAsync(
         ConfigurePasswordRequest request,

@@ -11,7 +11,7 @@ namespace WindowsControlService.IntegrationTests.Features.Events;
 /// </summary>
 public sealed class EventStreamTests : IDisposable
 {
-    private const string Password = "una-contrasena-larga";
+    private const string Password = "una-contrasena-larga-2026";
 
     private readonly ServiceApplicationFactory _factory = new ServiceApplicationFactory()
         .WithGenerousLoginLimit()

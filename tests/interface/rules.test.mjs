@@ -12,7 +12,7 @@ import {
   acceptsPushedValue,
   describeEvent,
   describeMatch,
-  describePasswordLength,
+  describePasswordNote,
   describePasswordMatch,
   describePasswordRule,
   describePolicyState,
@@ -372,9 +372,14 @@ test('a disconnection is not a sign-out, because here they are different events'
 // --- Validation while typing ------------------------------------------------
 
 test('the password counter counts against the minimum until it is met', () => {
-  assert.deepEqual(describePasswordLength('', 10), { text: '', state: 'neutral', icon: null });
-  assert.deepEqual(describePasswordLength('short', 10), { text: '5/10', state: 'bad', icon: 'alert' });
-  assert.deepEqual(describePasswordLength('exactly-10', 10), { text: '10', state: 'ok', icon: null });
+  const rule = { minimum: 6, requiresLettersAndDigits: true };
+
+  assert.deepEqual(describePasswordNote('', rule), { text: '', state: 'neutral', icon: null });
+  assert.deepEqual(describePasswordNote('sh1', rule), { text: '3/6', state: 'bad', icon: 'alert' });
+  // Long enough, and only then is the alphabet the thing standing in the way.
+  assert.deepEqual(describePasswordNote('letters', rule), { text: 'letters and digits', state: 'bad', icon: 'alert' });
+  assert.deepEqual(describePasswordNote('1234567', rule), { text: 'letters and digits', state: 'bad', icon: 'alert' });
+  assert.deepEqual(describePasswordNote('letter5', rule), { text: '7', state: 'ok', icon: null });
 });
 
 test('the repeated password says nothing before there is anything to say', () => {
@@ -385,9 +390,12 @@ test('the repeated password says nothing before there is anything to say', () =>
 });
 
 test('the password card asks for the service minimum, and says nothing before it knows it', () => {
-  assert.equal(describePasswordRule(10), 'at least 10 characters');
+  assert.equal(
+    describePasswordRule({ minimum: 6, requiresLettersAndDigits: true }),
+    'at least 6 characters, letters and digits');
+  assert.equal(describePasswordRule({ minimum: 6, requiresLettersAndDigits: false }), 'at least 6 characters');
   // Before the first answer arrives there is no number, and a guess would be worse than silence.
-  assert.equal(describePasswordRule(0), '');
+  assert.equal(describePasswordRule({ minimum: 0, requiresLettersAndDigits: true }), '');
 });
 
 test('the session card says when the session ends, and nothing when it cannot', () => {

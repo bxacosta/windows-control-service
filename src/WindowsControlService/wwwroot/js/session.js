@@ -7,7 +7,7 @@ import * as api from './api.js';
 import * as shell from './shell.js';
 import { elementsOf } from './markup.js';
 import { showFieldNote } from './dom.js';
-import { describePasswordLength, describePasswordMatch } from './rules.js';
+import { describePasswordMatch, describePasswordNote } from './rules.js';
 import { withPending } from './pending.js';
 import { notify, notifyError } from './notices.js';
 
@@ -18,13 +18,13 @@ let onAuthenticated = () => {};
 let lostAlreadyShown = false;
 
 /**
- * The two rules the service owns and this interface has to obey while typing. They arrive with
- * the session, which is a call that already happens on every load. Defaults only cover the
- * moment before the first answer: nothing is validated against them until one arrives.
+ * The rules the service owns and this interface has to obey while typing. They arrive with the
+ * session, which is a call that already happens on every load. Defaults only cover the moment
+ * before the first answer: nothing is validated against them until one arrives.
  */
-let rules = { minimumPasswordLength: 0, sessionTimeoutMinutes: 0 };
+let rules = { minimum: 0, requiresLettersAndDigits: false, sessionTimeoutMinutes: 0 };
 
-export const minimumPasswordLength = () => rules.minimumPasswordLength;
+export const passwordRule = () => rules;
 export const sessionTimeoutMinutes = () => rules.sessionTimeoutMinutes;
 
 function showGate(which) {
@@ -51,7 +51,7 @@ function setFieldError(slot, message) {
 
 /** Validation while typing, not after submitting. The minimum is the service's rule. */
 function renderSetupNotes() {
-  showFieldNote(ui.setupCount, describePasswordLength(ui.setupPassword.value, rules.minimumPasswordLength));
+  showFieldNote(ui.setupCount, describePasswordNote(ui.setupPassword.value, rules));
   showFieldNote(ui.setupMatch, describePasswordMatch(ui.setupPassword.value, ui.setupConfirm.value));
 }
 
@@ -151,7 +151,8 @@ export async function bootstrap(authenticatedHandler) {
   try {
     const session = await api.getSession();
     rules = {
-      minimumPasswordLength: session.minimumPasswordLength ?? 0,
+      minimum: session.minimumPasswordLength ?? 0,
+      requiresLettersAndDigits: session.requiresLettersAndDigits ?? false,
       sessionTimeoutMinutes: session.sessionTimeoutMinutes ?? 0,
     };
 

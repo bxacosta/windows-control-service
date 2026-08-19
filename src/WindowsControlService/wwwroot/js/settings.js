@@ -9,8 +9,8 @@ import * as session from './session.js';
 import { elementsOf } from './markup.js';
 import { showFieldNote } from './dom.js';
 import {
-  describePasswordLength,
   describePasswordMatch,
+  describePasswordNote,
   describePasswordRule,
   describeSessionExpiry,
 } from './rules.js';
@@ -21,13 +21,13 @@ const ui = elementsOf('settings');
 
 /** Validation while typing, so the rules a field has to satisfy are visible before it is sent. */
 function renderFieldNotes() {
-  showFieldNote(ui.replacementCount, describePasswordLength(ui.replacement.value, session.minimumPasswordLength()));
+  showFieldNote(ui.replacementCount, describePasswordNote(ui.replacement.value, session.passwordRule()));
   showFieldNote(ui.confirmMatch, describePasswordMatch(ui.replacement.value, ui.confirm.value));
 }
 
 export function renderSession() {
   ui.sessionExpiry.textContent = describeSessionExpiry(session.sessionTimeoutMinutes());
-  ui.passwordRule.textContent = describePasswordRule(session.minimumPasswordLength());
+  ui.passwordRule.textContent = describePasswordRule(session.passwordRule());
 }
 
 async function handleChangePassword(submitEvent) {
