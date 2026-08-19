@@ -358,6 +358,11 @@ h1, h2, p { margin: 0; }
   background: transparent;
 }
 
+/* Above the rule, not under it. Both are absolutely positioned with no z-index, and the rule is
+   a pseudo-element of the container -- generated after the tabs, so it painted over them and the
+   dark line crossed the light one. */
+.tab::after { z-index: 1; }
+
 .tab[aria-current="page"]::after { background: var(--primary); }
 
 .tab-badge {
