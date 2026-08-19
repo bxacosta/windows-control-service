@@ -14,6 +14,7 @@ import {
   describeMatch,
   describePasswordLength,
   describePasswordMatch,
+  describePasswordRule,
   describePolicyState,
   describeProcessCount,
   describeProcessEmptiness,
@@ -39,34 +40,45 @@ test('an enforced policy says how many rules and how long ago it was checked', (
   });
 
   assert.equal(described.tone, 'enforced');
-  assert.equal(described.text, 'Policy enforced · 3 rules');
+  // Two halves, not one sentence: only the claim is set in bold, and finding the boundary again
+  // in the renderer would mean splitting on a separator that belongs to rules.js.
+  assert.equal(described.headline, 'Policy enforced');
+  assert.equal(described.detail, '3 rules');
   assert.equal(described.icon, 'ok');
   assert.match(described.checked, /^checked .* ago$/);
+  // The relative time answers "was that just now"; the recorded one has to survive alongside it,
+  // because a value the service recorded must never be only paraphrased.
+  assert.notEqual(described.checkedExactly, '');
+  assert.notEqual(described.checkedExactly, described.checked);
 });
 
 test('one rule is one rule, not one rules', () => {
   const described = describePolicyState({ state: 'Enforced', enabledRuleCount: 1, lastReconciledAt: null });
 
-  assert.equal(described.text, 'Policy enforced · 1 rule');
+  assert.equal(described.detail, '1 rule');
   // Nothing has been reconciled yet, so there is nothing to say about when.
   assert.equal(described.checked, '');
+  assert.equal(described.checkedExactly, '');
 });
 
 test('an unknown state never claims that nothing is blocked', () => {
   const described = describePolicyState({ state: 'Unknown', enabledRuleCount: 0, lastReconciledAt: null });
 
   assert.equal(described.tone, 'unknown');
-  assert.equal(described.text, 'Policy state unknown');
+  assert.equal(described.headline, 'Policy state unknown');
+  assert.equal(described.detail, '');
   assert.equal(described.icon, 'alert');
-  assert.doesNotMatch(described.text, /nothing/i);
+  assert.doesNotMatch(described.headline, /nothing/i);
 });
 
 test('a policy that is not enforced distinguishes waiting rules from no rules at all', () => {
   const waiting = describePolicyState({ state: 'NotEnforced', enabledRuleCount: 2, lastReconciledAt: null });
   const nothing = describePolicyState({ state: 'NotEnforced', enabledRuleCount: 0, lastReconciledAt: null });
 
-  assert.equal(waiting.text, 'Not enforced · 2 rules waiting');
-  assert.equal(nothing.text, 'No policy deployed');
+  assert.equal(waiting.headline, 'Not enforced');
+  assert.equal(waiting.detail, '2 rules waiting');
+  assert.equal(nothing.headline, 'No policy deployed');
+  assert.equal(nothing.detail, '');
   assert.equal(waiting.tone, 'notenforced');
   assert.equal(nothing.tone, 'notenforced');
 });
@@ -75,14 +87,14 @@ test('a state that could not be read at all is not turned into one that could', 
   const described = describePolicyState(null);
 
   assert.equal(described.tone, 'unknown');
-  assert.equal(described.text, 'Policy state unavailable');
+  assert.equal(described.headline, 'Policy state unavailable');
   assert.equal(described.checked, '');
 });
 
 test('a state this version does not know is shown verbatim rather than guessed at', () => {
   const described = describePolicyState({ state: 'Auditing', enabledRuleCount: 1, lastReconciledAt: null });
 
-  assert.equal(described.text, 'Auditing');
+  assert.equal(described.headline, 'Auditing');
   assert.equal(described.tone, 'auditing');
 });
 
@@ -147,13 +159,16 @@ test('the usb state is described from what the service reports', () => {
   const blocked = describeUsbState({ blocked: true, lastModified: '2026-08-19T10:00:00Z' });
   const allowed = describeUsbState({ blocked: false, lastModified: null });
 
+  // One line, and the time in it is relative like every other time in this interface.
   assert.deepEqual(blocked.pill, { tone: 'signal', text: 'Blocked' });
-  assert.equal(blocked.title, 'New drives will not mount.');
-  assert.match(blocked.lastChanged, /^Last changed through this service: /);
+  assert.match(blocked.detail, /^New drives will not mount · changed .* ago$/);
+
+  assert.notEqual(blocked.detailExactly, '');
 
   assert.deepEqual(allowed.pill, { tone: 'muted', text: 'Allowed' });
-  assert.equal(allowed.title, 'Drives mount normally.');
-  assert.equal(allowed.lastChanged, 'Never changed through this service.');
+  assert.equal(allowed.detail, 'Drives mount normally · never changed through this service');
+  // Never changed is not a time, so there is no exact one to show on hover either.
+  assert.equal(allowed.detailExactly, '');
 });
 
 test('the usb notice names the state that is now true', () => {
@@ -357,15 +372,22 @@ test('a disconnection is not a sign-out, because here they are different events'
 // --- Validation while typing ------------------------------------------------
 
 test('the password counter counts against the minimum until it is met', () => {
-  assert.deepEqual(describePasswordLength('', 10), { text: '', state: 'neutral' });
-  assert.deepEqual(describePasswordLength('short', 10), { text: '5/10', state: 'bad' });
-  assert.deepEqual(describePasswordLength('exactly-10', 10), { text: '10', state: 'ok' });
+  assert.deepEqual(describePasswordLength('', 10), { text: '', state: 'neutral', icon: null });
+  assert.deepEqual(describePasswordLength('short', 10), { text: '5/10', state: 'bad', icon: 'alert' });
+  assert.deepEqual(describePasswordLength('exactly-10', 10), { text: '10', state: 'ok', icon: null });
 });
 
 test('the repeated password says nothing before there is anything to say', () => {
-  assert.deepEqual(describePasswordMatch('secret', ''), { text: '', state: 'neutral' });
-  assert.deepEqual(describePasswordMatch('secret', 'secret'), { text: 'Match', state: 'ok' });
-  assert.deepEqual(describePasswordMatch('secret', 'secrez'), { text: 'No match', state: 'bad' });
+  assert.deepEqual(describePasswordMatch('secret', ''), { text: '', state: 'neutral', icon: null });
+  assert.deepEqual(describePasswordMatch('secret', 'secret'), { text: 'Match', state: 'ok', icon: null });
+  // Falling short of the minimum is a warning; two passwords that differ is a refusal.
+  assert.deepEqual(describePasswordMatch('secret', 'secrez'), { text: 'No match', state: 'bad', icon: 'no' });
+});
+
+test('the password card asks for the service minimum, and says nothing before it knows it', () => {
+  assert.equal(describePasswordRule(10), 'at least 10 characters');
+  // Before the first answer arrives there is no number, and a guess would be worse than silence.
+  assert.equal(describePasswordRule(0), '');
 });
 
 test('the session card says when the session ends, and nothing when it cannot', () => {

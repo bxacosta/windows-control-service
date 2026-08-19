@@ -7,8 +7,8 @@
 import * as api from './api.js';
 import * as events from './events.js';
 import { currentRoute } from './router.js';
-import { el, replace } from './dom.js';
-import { attributes, css, elementsOf } from './markup.js';
+import { el, icon, replace } from './dom.js';
+import { attributes, css, elementsOf, icons } from './markup.js';
 import { describeEvent, followsPushedEvents, offsetAfterEmptyPage, pageNumbers, pagerState } from './rules.js';
 import { withPending } from './pending.js';
 import { notifyError } from './notices.js';
@@ -31,8 +31,13 @@ const isOnScreen = () => currentRoute() === 'history';
 function entryRow(entry) {
   const described = describeEvent(entry);
 
-  return el('div', { class: css.row }, [
-    el('span', { class: css.eventMark, [attributes.direction]: described.direction, 'aria-hidden': 'true' }),
+  // A filled caret from the sprite rather than a triangle made of borders: one shape, one colour
+  // property, and the same drawing at any size.
+  const mark = icon(described.direction === 'in' ? icons.caretIn : icons.caretOut, css.eventMark);
+  mark.setAttribute(attributes.direction, described.direction);
+
+  return el('div', { class: css.historyRow }, [
+    mark,
     el('div', { class: css.rowMain }, [
       el('div', { class: css.rowTitle }, [
         el('span', { text: described.label }),
@@ -41,7 +46,7 @@ function entryRow(entry) {
       el('div', { class: css.rowDetail, text: described.detail }),
     ]),
     el('div', { class: css.eventWhen }, [
-      el('div', { class: css.eventAgo, text: described.ago }),
+      el('div', { class: css.eventAgo, text: described.ago, title: described.agoExactly }),
       // Only the events that close a session carry one, and null is not zero.
       el('div', { class: css.eventDuration, text: described.duration }),
     ]),

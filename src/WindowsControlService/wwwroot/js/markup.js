@@ -59,8 +59,7 @@ export const ids = Object.freeze({
   devices: Object.freeze({
     usbSwitch: 'usb-switch',
     usbPill: 'usb-state-pill',
-    usbTitle: 'usb-state-title',
-    usbLastModified: 'usb-last-modified',
+    usbDetail: 'usb-state-title',
   }),
   history: Object.freeze({
     origin: 'history-origin',
@@ -81,6 +80,7 @@ export const ids = Object.freeze({
     error: 'change-password-error',
     submit: 'change-password-submit',
     signOut: 'sign-out',
+    passwordRule: 'password-rule',
     sessionPill: 'session-pill',
     sessionExpiry: 'session-expiry',
   }),
@@ -103,6 +103,17 @@ export const icons = Object.freeze({
   warn: 'i-alert-triangle',
   error: 'i-x-circle',
   close: 'i-x',
+  caretIn: 'i-caret-right',
+  caretOut: 'i-caret-left',
+});
+
+/**
+ * What a field's own note shows beside its text. The rules in rules.js name the icon rather than
+ * the symbol -- they know nothing about the sprite -- and this is where the two meet.
+ */
+export const noteIcons = Object.freeze({
+  alert: 'i-alert-triangle',
+  no: 'i-x',
 });
 
 /**
@@ -117,6 +128,8 @@ export const css = Object.freeze({
   rowMeta: 'row-meta',
   rowActions: 'row-actions',
   rowConfirm: 'row-confirm',
+  /** An access event is one line and a time, so its row carries less air than an application's. */
+  historyRow: 'row row-compact',
   chip: 'chip',
   spinner: 'spinner',
   empty: 'empty',
@@ -125,7 +138,11 @@ export const css = Object.freeze({
   ghostButton: 'button button-ghost',
   dangerButton: 'button button-danger',
   iconButton: 'button button-ghost button-icon',
-  eventMark: 'event-mark',
+  /** The weight below the four: an action that belongs to one row or one dialog. */
+  smallSecondaryButton: 'button button-secondary button-small',
+  smallGhostButton: 'button button-ghost button-small',
+  smallDangerButton: 'button button-danger button-small',
+  eventMark: 'icon-caret event-mark',
   eventWhen: 'event-when',
   eventAgo: 'event-ago',
   eventDuration: 'event-duration',

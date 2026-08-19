@@ -4,6 +4,8 @@
  * into being markup.
  */
 
+import { attributes, noteIcons } from './markup.js';
+
 const SVG = 'http://www.w3.org/2000/svg';
 
 /**
@@ -53,6 +55,21 @@ export function icon(name, extraClass = '') {
 /** Points an existing icon at a different symbol, so the element itself survives a re-render. */
 export function setIcon(svg, name) {
   svg.firstElementChild?.setAttribute('href', `#${name}`);
+}
+
+/**
+ * A field's own note: an icon when what it says is a complaint, and the text either way. Here
+ * rather than in each form because both the gate and Settings show the same notes, and a second
+ * copy of "which icon goes with which state" is a second thing to keep in step.
+ *
+ * @param {HTMLElement} element
+ * @param {{text: string, state: string, icon: string | null}} note From rules.js.
+ */
+export function showFieldNote(element, note) {
+  element.setAttribute(attributes.noteState, note.state);
+  element.replaceChildren(
+    ...(note.icon === null ? [] : [icon(noteIcons[note.icon], 'icon-sm')]),
+    note.text);
 }
 
 /** Replaces the children of a container in one go, so the page never shows a half-built list. */

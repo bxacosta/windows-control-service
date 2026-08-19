@@ -14,11 +14,30 @@ colors:
   # Surfaces, from the page up. Each step is a level of elevation and nothing else.
   ground: "#030303"
   inset: "#070707"
+  sunken: "#0D0D0D"
   surface: "#0F0F0F"
   raised: "#161616"
   overlay: "#1F1F1F"
-  line: "#272727"
+
+  # The top bar over the page it is stuck to: `ground` at 86%, so what scrolls under it is felt
+  # rather than seen. It is the only translucent surface here.
+  ground-veil: "rgba(3, 3, 3, 0.86)"
+
+  # Hairlines are their own ramp, from the divider inside a card to the border of a focused
+  # field. Five steps, and which one to use is decided by how much the edge has to be noticed.
   line-soft: "#1A1A1A"
+  line: "#272727"
+  line-selected: "#303030"
+  line-strong: "#343434"
+  line-focus: "#4A4A4A"
+
+  # Neutral light at 9%, the only thing on this palette that brightens a surface instead of
+  # darkening it: the halo around a focused field.
+  halo: "rgba(255, 255, 255, 0.09)"
+  # The same 9%, flattened over `ground`, for the one place it sits behind text instead of
+  # around a control: the badge on the tab you are already on. Flattened for the same reason the
+  # washes are -- text on a translucent surface cannot be checked for contrast against it.
+  halo-flat: "#1A1A1A"
 
   # Text.
   text: "#EDEDED"
@@ -55,11 +74,12 @@ colors:
   shadow: "#000000"
 
 typography:
+  # The wordmark, and nothing else. Small on purpose: see Typography.
   display:
     fontFamily: "Segoe UI Variable Display, Segoe UI Variable Text, Segoe UI, system-ui, sans-serif"
-    fontSize: 20px
+    fontSize: 14px
     fontWeight: 600
-    letterSpacing: -0.015em
+    letterSpacing: -0.01em
   title:
     fontFamily: "Segoe UI Variable Display, Segoe UI Variable Text, Segoe UI, system-ui, sans-serif"
     fontSize: 13.5px
@@ -70,6 +90,33 @@ typography:
     fontSize: 13.5px
     fontWeight: 400
     lineHeight: 1.45
+  # The name of a row, which has to win over the value under it without becoming a heading.
+  body-strong:
+    fontFamily: "Segoe UI Variable Text, Segoe UI, system-ui, sans-serif"
+    fontSize: 13.5px
+    fontWeight: 500
+    lineHeight: 1.45
+
+  # What you press or type into. 500 is the weight of a control: it holds its own against the
+  # content it sits beside without claiming to be a title.
+  control:
+    fontFamily: "Segoe UI Variable Text, Segoe UI, system-ui, sans-serif"
+    fontSize: 13px
+    fontWeight: 500
+
+  # The one control that executes rather than offers, so it carries the weight of a title.
+  control-strong:
+    fontFamily: "Segoe UI Variable Text, Segoe UI, system-ui, sans-serif"
+    fontSize: 13px
+    fontWeight: 600
+
+  # Text a person typed, and the label naming it. Not `control`: 500 on the contents of a field
+  # reads as emphasis on something the interface did not write.
+  input:
+    fontFamily: "Segoe UI Variable Text, Segoe UI, system-ui, sans-serif"
+    fontSize: 13px
+    fontWeight: 400
+
   meta:
     fontFamily: "Segoe UI Variable Text, Segoe UI, system-ui, sans-serif"
     fontSize: 12px
@@ -84,7 +131,15 @@ typography:
     fontSize: 12px
     letterSpacing: -0.01em
 
+  # The same face one step down, for a machine value inside a chip. A chip is 19px tall and the
+  # value in it is read at a glance, not compared character by character like a path.
+  mono-compact:
+    fontFamily: "Cascadia Mono, Cascadia Code, Consolas, ui-monospace, monospace"
+    fontSize: 11px
+    letterSpacing: -0.01em
+
 rounded:
+  xs: 5px
   sm: 6px
   md: 8px
   lg: 12px
@@ -108,13 +163,27 @@ components:
     padding: "0 20px"
 
   top-bar:
-    backgroundColor: "{colors.ground}"
+    backgroundColor: "{colors.ground-veil}"
     textColor: "{colors.text}"
     height: 56px
     padding: "0 20px"
 
+  # The product's name, and the only blue on screen that is not a claim about the machine. See
+  # Colors: it identifies the product, which is why it is allowed to keep a hue.
+  wordmark:
+    backgroundColor: "{colors.ground-veil}"
+    textColor: "{colors.text}"
+    typography: "{typography.display}"
+
+  wordmark-mark:
+    backgroundColor: "{colors.ground-veil}"
+    textColor: "{colors.signal}"
+
+  # Anchored near the top rather than centred: a dialog floating in the middle of an empty page
+  # has nothing to sit against, and the list inside it grows downward anyway.
   scrim:
     backgroundColor: "{colors.shadow}"
+    padding: "80px 20px 20px"
 
   card:
     backgroundColor: "{colors.surface}"
@@ -128,16 +197,24 @@ components:
     height: 48px
     padding: "8px 16px"
 
-  # The tinted band at the top of a card. It is not a header: it carries the section's identity
-  # and, on Applications, the state of the policy.
+  # What a header says at its trailing edge: a fact about the card that is not its title.
+  card-meta:
+    backgroundColor: "{colors.surface}"
+    textColor: "{colors.text-muted}"
+    typography: "{typography.meta}"
+
+  # The band above the blocked applications, and the only one. It is not a header: it carries a
+  # state of the machine, not the name of a card, which is why it has an icon and a header does
+  # not. Set in text rather than display, with only the state itself at 600 -- "Policy enforced"
+  # is the claim, "2 rules" is the detail, and setting both in bold says they weigh the same.
   strip:
     textColor: "{colors.text}"
-    typography: "{typography.title}"
+    typography: "{typography.input}"
     height: 40px
     padding: "0 16px"
 
   card-footer:
-    backgroundColor: "{colors.inset}"
+    backgroundColor: "{colors.sunken}"
     textColor: "{colors.text-muted}"
     typography: "{typography.meta}"
     padding: "10px 16px"
@@ -152,14 +229,41 @@ components:
     backgroundColor: "{colors.raised}"
     textColor: "{colors.text}"
 
+  # The name of the row. Heavier than the value under it, lighter than a card title.
+  row-title:
+    backgroundColor: "{colors.surface}"
+    textColor: "{colors.text}"
+    typography: "{typography.body-strong}"
+
   row-detail:
     backgroundColor: "{colors.surface}"
     textColor: "{colors.text-muted}"
     typography: "{typography.mono}"
 
+  # An access event is one line of text and a time, where an application is two lines and two
+  # controls. Same row, less air.
+  row-compact:
+    backgroundColor: "{colors.surface}"
+    textColor: "{colors.text}"
+    typography: "{typography.body}"
+    padding: "10px 16px"
+
+  # The question a row asks before a removal. Grey, not red: the wash behind it and the button
+  # under it are already red, and a third red is not more certain, only louder.
+  row-confirm:
+    backgroundColor: "{colors.surface}"
+    textColor: "{colors.text-secondary}"
+    typography: "{typography.meta}"
+
+  # The guide icon at the head of a row sits in a fixed slot, so titles line up down a list
+  # whether or not their row has one.
+  row-icon:
+    size: 22px
+
   button-primary:
     backgroundColor: "{colors.primary}"
     textColor: "{colors.on-primary}"
+    typography: "{typography.control-strong}"
     rounded: "{rounded.md}"
     height: 32px
     padding: "0 12px"
@@ -185,24 +289,47 @@ components:
   button-secondary:
     backgroundColor: "{colors.raised}"
     textColor: "{colors.text}"
+    typography: "{typography.control}"
     rounded: "{rounded.md}"
     height: 32px
 
   button-ghost:
     backgroundColor: "{colors.surface}"
     textColor: "{colors.text-secondary}"
+    typography: "{typography.control}"
     rounded: "{rounded.md}"
     height: 32px
 
   button-danger:
     backgroundColor: "{colors.denied}"
     textColor: "{colors.on-denied}"
+    typography: "{typography.control}"
     rounded: "{rounded.md}"
     height: 32px
+
+  # The weight below the four: an action that belongs to one row or one dialog rather than to
+  # the card it sits in. Same colours, one size down.
+  button-small:
+    backgroundColor: "{colors.raised}"
+    textColor: "{colors.text}"
+    typography: "{typography.meta}"
+    rounded: "{rounded.md}"
+    height: 27px
+    padding: "0 9px"
+
+  # A button whose whole content is one icon is square, and sized so the icon has air on every
+  # side rather than the two the padding of a text button would give it.
+  button-icon:
+    backgroundColor: "{colors.surface}"
+    textColor: "{colors.text-secondary}"
+    rounded: "{rounded.md}"
+    height: 30px
+    width: 30px
 
   field:
     backgroundColor: "{colors.raised}"
     textColor: "{colors.text}"
+    typography: "{typography.input}"
     rounded: "{rounded.md}"
     height: 34px
     padding: "0 11px"
@@ -211,11 +338,28 @@ components:
     backgroundColor: "{colors.raised}"
     textColor: "{colors.text-muted}"
 
+  # The two edges a field draws on itself. Hairlines, so they are components for the same reason
+  # `divider` is one: the schema has no border property.
+  field-border-hover:
+    backgroundColor: "{colors.line-strong}"
+    height: 1px
+
+  field-border-focus:
+    backgroundColor: "{colors.line-focus}"
+    height: 1px
+
+  # And the halo outside that edge. A field is the one control that does not take the global
+  # focus ring: see Components.
+  field-focus-ring:
+    backgroundColor: "{colors.halo}"
+    size: 3px
+
   # The narrow field that sits beside one taking the remaining width -- the optional name in the
   # block form. Wide enough for a name, narrow enough that the path keeps the room.
   field-compact:
     backgroundColor: "{colors.raised}"
     textColor: "{colors.text}"
+    typography: "{typography.input}"
     rounded: "{rounded.md}"
     height: 34px
     width: 190px
@@ -225,8 +369,15 @@ components:
   form-label:
     backgroundColor: "{colors.surface}"
     textColor: "{colors.text-secondary}"
-    typography: "{typography.body}"
+    typography: "{typography.input}"
     width: 172px
+
+  # A form row is tighter than a list row: a field already carries 34px of its own height, so the
+  # padding only has to keep the rows apart.
+  form-row:
+    backgroundColor: "{colors.surface}"
+    textColor: "{colors.text}"
+    padding: "9px 16px"
 
   # What a field says about itself, at its trailing edge: the counter against the minimum, and
   # Match / No match on a repeated password.
@@ -251,6 +402,15 @@ components:
 
   # Both thumbs are geometrically 16. The one on a light track is drawn a point larger because a
   # dark shape on a light field reads smaller than the reverse. See Do's and Don'ts.
+  # Asked for and not answered yet: neither of the two settled colours, so what is on screen
+  # reads as the request rather than as the state of the machine.
+  switch-pending:
+    backgroundColor: "{colors.overlay}"
+    textColor: "{colors.text-secondary}"
+    rounded: "{rounded.full}"
+    width: 38px
+    height: 22px
+
   switch-thumb:
     backgroundColor: "{colors.text-secondary}"
     rounded: "{rounded.full}"
@@ -264,8 +424,9 @@ components:
   tab:
     backgroundColor: "{colors.ground}"
     textColor: "{colors.text-muted}"
-    typography: "{typography.meta}"
+    typography: "{typography.control}"
     height: 44px
+    padding: "0 14px"
 
   tab-selected:
     backgroundColor: "{colors.ground}"
@@ -281,7 +442,17 @@ components:
     backgroundColor: "{colors.overlay}"
     textColor: "{colors.text-secondary}"
     typography: "{typography.label}"
-    rounded: "{rounded.sm}"
+    rounded: "{rounded.xs}"
+    height: 18px
+    padding: "0 5px"
+
+  # On the tab you are already on, the badge is lit rather than recessed: it belongs to the
+  # selected tab and has to read as part of it.
+  tab-badge-selected:
+    backgroundColor: "{colors.halo-flat}"
+    textColor: "{colors.text}"
+    typography: "{typography.label}"
+    rounded: "{rounded.xs}"
     height: 18px
 
   segmented-track:
@@ -295,11 +466,18 @@ components:
     textColor: "{colors.text}"
     rounded: "{rounded.sm}"
     height: 24px
+    padding: "0 11px"
+
+  # The selected segment is the one place a border is drawn a step above `line`: it has to lift
+  # off a track that is already recessed.
+  segmented-border-selected:
+    backgroundColor: "{colors.line-selected}"
+    height: 1px
 
   chip:
     backgroundColor: "{colors.overlay}"
     textColor: "{colors.text-secondary}"
-    typography: "{typography.mono}"
+    typography: "{typography.mono-compact}"
     rounded: "{rounded.sm}"
     height: 19px
 
@@ -353,13 +531,61 @@ components:
   icon:
     size: 16px
 
+  # Inside a control, where the icon is beside a word rather than standing for one.
+  icon-small:
+    size: 14px
+
+  # The direction mark in Activity. Bigger than the icons around it because it is a filled shape
+  # with no interior: at 16px a solid caret reads smaller than a drawn outline of the same box.
+  icon-caret:
+    size: 12px
+
+  # A state dot and the halo around it. The halo is what makes it read as live rather than as a
+  # bullet, and it is the same size on the tab rail and in the top bar.
+  state-dot:
+    size: 6px
+
+  state-dot-halo:
+    size: 3px
+
+  pager-page:
+    backgroundColor: "{colors.surface}"
+    textColor: "{colors.text-muted}"
+    typography: "{typography.meta}"
+    rounded: "{rounded.sm}"
+    height: 26px
+    width: 26px
+
+  # Gaps. Components for the same reason `page` is one: a number that lives only in a stylesheet
+  # is a number nobody can check against this document.
+  gap-control:
+    size: 7px
+
+  gap-note:
+    size: 5px
+
+  gap-stack:
+    size: 3px
+
+  gap-segmented:
+    size: 2px
+
+  # A toast is as wide as its message needs, between these two. A fixed width leaves a short
+  # notice mostly empty and breaks a long one over four lines.
   toast:
     backgroundColor: "{colors.raised}"
     textColor: "{colors.text}"
     typography: "{typography.body}"
     rounded: "{rounded.md}"
     padding: "10px 12px"
-    width: 320px
+    width: 380px
+
+  toast-narrow:
+    backgroundColor: "{colors.raised}"
+    textColor: "{colors.text}"
+    typography: "{typography.body}"
+    rounded: "{rounded.md}"
+    width: 260px
 ---
 
 ## Overview
@@ -388,8 +614,19 @@ there is no password recovery -- it is one line of `meta` in a card footer, not 
 
 Surfaces are a single neutral ramp with no hue bias, and each step means one level of elevation:
 `ground` for the page, `surface` for cards, `raised` for inputs and hovered rows, `overlay` for
-chips and the selected segment, `inset` for anything recessed. Nothing is coloured because it
-looked better; a surface is picked by how far it should sit from the page.
+chips and the selected segment, `sunken` for a card's own footer, `inset` for anything recessed
+deeper than that. Nothing is coloured because it looked better; a surface is picked by how far it
+should sit from the page.
+
+`sunken` and `inset` are not interchangeable. A footer is part of its card and sits barely below
+it; the track of a segmented control and a switch that is off are holes in the surface and sit
+much further down. A footer painted at `inset` reads as a separate black band under the card.
+
+**Hairlines are their own ramp**, and which step to use is decided by how much the edge has to be
+noticed: `line-soft` between rows inside a card, `line` for the edge of a card, a chip or a
+field, `line-selected` for the segment that is chosen, `line-strong` for a field under the
+pointer, `line-focus` for the field the caret is in. A border is not a surface, which is why
+these are not picked from the ramp above.
 
 `primary` is the neutral control colour. It fills the primary button with `on-primary` on top,
 draws the focus ring, underlines the active tab, and fills a switch that is on.
@@ -404,23 +641,48 @@ The five state colours are the only ones that mean anything:
 | `denied` | a write was refused, or is about to be undone | error toasts, the danger button, a row awaiting confirmation |
 | `remote` | access arrived over RDP | the `RDP` pill, the Activity header tint |
 
-Each section header carries its own tint at 10-11%, fading out by 48% of the width: green for
+Each section's card header carries its own tint, fading out by 48% of the width: `enforced` for
 Applications, `signal` for Devices, `remote` for Activity, `waiting` for Settings. **This is the
 only place a section is allowed to identify itself by hue.** Anywhere else, a colour is a claim
 about the machine.
 
+The tint is not the same percentage for all four, because the four hues do not weigh the same at
+equal alpha: `signal` 11%, `enforced` and `remote` 10%, `waiting` 9%. They are matched by eye, not
+by number, and **equalising them is not a fix.** Amber at 11% turns the header into a warning
+about nothing.
+
+One exception, and it is deliberate: **the shield in the wordmark is `signal`**. It identifies the
+product rather than a state, which is the one thing on this palette that is not a claim about the
+machine. Everywhere else, blue means something is active.
+
 ## Typography
 
-Six roles, and no size outside them. `display` for the wordmark, `title` for card headings,
-`body` for row titles and running text, `meta` for anything secondary, `label` for pills and
-uppercase eyebrows, `mono` for every value that came from the machine -- executable paths, IP
+Six sizes, and nothing between them: 14, 13.5, 13, 12, 11 and the same 11 in mono. `display` for
+the wordmark, `title` for card headings, `body` and `body-strong` for rows and running text,
+`control` for anything you press or type into, `meta` for anything secondary, `label` for pills
+and uppercase eyebrows, `mono` for every value that came from the machine -- executable paths, IP
 addresses, match attributes, version strings.
+
+**The wordmark is 14px, not the largest thing on screen.** It was 20px, and at that size it
+dominated the top bar and made the tab rail under it read as a footnote. The name of the product
+is the one thing on this page nobody needs to read: what matters is the sections and what they
+say about the machine. The hierarchy runs the other way round on purpose.
+
+**500 is the weight of a control.** A tab, a button, a segment and the name of a row are set in
+it: heavy enough to hold their own beside the content they sit next to, and short of the 600 that
+says "this is a heading". What a person typed is never 500 -- a field's own contents are `input`,
+at 400, because weight on them would be the interface emphasising something it did not write.
 
 The `mono` rule is not decoration. A path is a machine value that a person has to compare
 character by character, and a proportional face makes `l`, `I` and `1` the same shape.
 
 Every place digits line up in a column -- counts, durations, pagination, the character counter --
 sets `font-variant-numeric: tabular-nums`, so numbers do not shift as they change.
+
+**Every time is relative, and carries the exact one in its title.** "5 h ago" answers the question
+actually being asked -- was that just now -- and the timestamp the service recorded answers "when
+exactly". A recorded value must never be only paraphrased, so it is a hover away rather than
+absent. Never both on the line: two clocks for one fact.
 
 ## Layout
 
@@ -436,6 +698,22 @@ across leaves a hole nothing explains.
 instead of the header growing. The tallest thing a header ever holds is the segmented control at
 32px, and the row is sized for that. A header that is taller than its neighbours because of what
 happens to be inside it is a layout accident.
+
+**A header and a strip are different things, and a card has one or the other.** The header carries
+the card's title, its tint, and whatever control belongs to the whole card -- a segmented filter, a
+button. It has no icon: the title is the identification, and an icon beside it only repeats the
+tab that is already lit. The strip carries a *state* of the machine, has an icon coloured by that
+state, and appears exactly once, above the blocked applications, for the policy. Stacking both is
+96px of chrome before the first row and two headings for one card.
+
+**The rule under the tabs is as wide as the content, not as wide as the window.** It ends where
+the cards begin -- inset by the page padding, not merely clipped to the page width, or it
+overhangs every card by that padding on both sides. The top bar is the opposite: its edge runs the
+full width, because it is stuck to the window and not to the column.
+
+The 2px underline of the active tab is **centred on that rule**, not resting above it. Two lines
+stacked read as a thick edge under one tab; one line drawn through the other reads as that tab
+claiming the edge, which is what it means.
 
 Card footers carry the summary on the left and the action on the right: the pager in Activity,
 the caveat and `Change password` in Settings.
@@ -463,7 +741,13 @@ use `inset` with `inset 0 1px 2px rgba(0,0,0,.6)`. A control that is not doing a
 below the surface it is on, and rises when it is. A switch that is on drops the inset shadow;
 the selected segment gains a border and a drop shadow.
 
-Modals use a heavier shadow and a blurred scrim, and rise 8px on open over 160ms.
+Modals use a heavier shadow and a blurred scrim, and rise 8px on open over 160ms. They are
+anchored 80px from the top of the viewport rather than centred in it: a dialog floating in the
+middle of an empty page has nothing to sit against, and the list inside it grows downward.
+
+The top bar is translucent -- `ground` at 86% with a 12px backdrop blur -- so the page is felt
+moving under it. It is the only translucent surface here, and the only one whose colour is not
+flat.
 
 Every shadow is mixed from `shadow`, so no alpha black is written by hand:
 
@@ -483,9 +767,12 @@ changes remain.
 
 ## Shapes
 
-`sm` for chips, badges and the selected segment; `md` for buttons, fields and toasts; `lg` for
-cards and modals; `full` for pills and switches. Nothing else. A radius that is not on this list
-is a mistake, not a variation.
+`xs` for the count on a tab; `sm` for chips and the selected segment; `md` for buttons, fields and
+toasts; `lg` for cards and modals; `full` for pills and switches. Nothing else. A radius that is
+not on this list is a mistake, not a variation.
+
+`xs` exists because the badge is 18px tall: at `sm` the corners eat most of an edge that short,
+and the badge reads as a lozenge rather than as a square with its corners taken off.
 
 ## Components
 
@@ -493,11 +780,24 @@ is a mistake, not a variation.
 one action that executes; `secondary` with a border for anything else; `ghost` for actions that
 should not compete; `danger` filled red, which appears only inside a confirmation.
 
+**And in two sizes.** 32px is the size of an action that belongs to a card -- `Block`,
+`Change password`. 27px is the size of an action that belongs to one row or one dialog: `Use` in
+the process list, `Cancel` and `Remove` in a confirmation, `Sign out` on the session row,
+`Running processes` in the header. A row is 44px tall; a 32px button in it leaves 6px of air above
+and below and reads as the row's main event rather than as its aside.
+
 **Destructive actions never fire on the first click, and never open a dialog.** The row itself
 becomes the confirmation: it takes a `denied` wash, the secondary detail gives way to the
 question, and the actions become `Cancel` and `Remove`, with focus moving to `Remove`. Opening
 one closes any other. The name of what is about to change stays exactly where it already was,
 which no dialog can manage.
+
+**A switch that has been asked but not answered shows it.** Applying a policy takes seconds, and
+for those seconds what the user asked for and what the machine is doing are not the same thing.
+The thumb moves on the click -- a control that waits for the round trip looks dead -- and the
+track drops to `switch-pending`, which is neither of its two settled colours. No spinner: the
+thumb is already saying what was asked, and a spinner over it is a second thing to read for one
+fact.
 
 **Switches** are 38×22 with a 16px thumb. Off is a recess with a grey thumb; on is a `primary`
 track with a dark thumb, and the two ends of the neutral ramp are the widest gap this palette
@@ -508,16 +808,24 @@ correction and it must not be "fixed" by making the numbers equal.**
 **Pills** carry no leading dot. The colour already says what the dot would.
 
 **Fields** show their state inside themselves where it is useful -- a character counter against
-the minimum, `Match` / `No match` on a repeated password -- in `label` size at the trailing edge.
-Validation while typing, not after submitting.
+the minimum, `Match` / `No match` on a repeated password -- in `label` size at the trailing edge,
+with a 14px icon when what it says is a complaint. Validation while typing, not after submitting.
+
+A field is the one control that does not take the global focus ring. It answers focus with its own
+border at `line-focus`, a 3px `halo` outside it, and a drop to `surface` inside: a 2px ring at 2px
+offset around a 34px field draws a box bigger than the field it is pointing at, and on the search
+inside a dialog it swallows the control whole. Under the pointer the border goes to `line-strong`
+and no further -- a hover that draws a light frame is a hover pretending to be a focus.
 
 **Toasts** stack at the bottom right, dismiss themselves after 4.5s and can be dismissed by hand.
 They never occupy layout: a notice that pushes the page down moves the control the user was
-about to click.
+about to click. A toast is as wide as its message needs between 260px and 380px, rather than a
+fixed width that leaves a short notice half empty and wraps a long one four times.
 
 **Focus** is a 2px `primary` ring at 2px offset, drawn only for `:focus-visible`, so a mouse
-click never leaves a ring behind. It is the same ring on every control, including rows that can
-be reached by keyboard. Nothing removes an outline without putting one back.
+click never leaves a ring behind. It is the same ring on every control except a field, which
+answers focus in its own border as described above. Nothing removes an outline without putting one
+back.
 
 **A disabled control drops to 40% opacity and stops taking pointer events**, and that is the
 whole treatment: no separate grey, no change of shape. The one thing that must not happen is a
@@ -528,16 +836,24 @@ of its two ends disabled.
 have taken.** It never borrows the layout of a row, and it never apologises: "No applications are
 blocked" is the whole message.
 
-**Icons** are Lucide, at 16px with a 1.7 stroke, inlined as a single SVG sprite. The two carets
-in Activity are the exception: solid triangles pointing right for a connection and left for a
-disconnection, 8px on the base and 10px tall, which is a direction and reads better as a shape
-than as an arrow. No icon font,
-no CDN, nothing fetched at run time.
+**Icons** are Lucide, at 16px with a 1.7 stroke, inlined as a single SVG sprite, and 14px when
+they sit beside a word inside a control. No icon font, no CDN, nothing fetched at run time.
+
+The two carets in Activity are the exception: filled rather than stroked, 12px, pointing right for
+a connection and left for a disconnection. A direction reads better as a shape than as an arrow,
+and a filled shape needs the extra 4px because it has no interior to be read by.
+
+**An icon names what is inside, not what the thing is called.** Activity is a `clock`, not a pulse
+line -- it is a list of sessions that already happened, and a pulse says live monitoring. Settings
+is `sliders`, not a gear: a gear is the most generic icon there is and says only "options".
+Applications is a `grid` of four squares. A card header carries no icon at all.
 
 ## Do's and Don'ts
 
-**Do** pick a surface by how far it should sit from the page.
-**Don't** invent a grey. If none of the six fits, the layout is wrong, not the palette.
+**Do** pick a surface by how far it should sit from the page, and a hairline by how much its edge
+has to be noticed.
+**Don't** invent a grey. There are six surfaces and five hairlines; if none of them fits, the
+layout is wrong, not the palette.
 
 **Do** let colour make a claim about the machine.
 **Don't** colour a control because it is important. Weight and position do that.
@@ -551,6 +867,9 @@ what will happen if the user clicks. If the interface needs a paragraph, the int
 
 **Do** keep every card header at 48px.
 **Don't** let its contents decide its height.
+
+**Do** give a card one heading: a header with its tint, or the policy strip.
+**Don't** stack a strip and a header on the same card.
 
 **Do** confirm a destructive action in the row that owns it.
 **Don't** open a dialog, and don't use `window.confirm`.

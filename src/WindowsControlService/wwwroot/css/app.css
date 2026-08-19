@@ -17,11 +17,21 @@
   /* --- colors ----------------------------------------------------------- */
   --ground: #030303;
   --inset: #070707;
+  --sunken: #0D0D0D;
   --surface: #0F0F0F;
   --raised: #161616;
   --overlay: #1F1F1F;
-  --line: #272727;
+  --ground-veil: rgba(3, 3, 3, 0.86);
+
+  /* Hairlines are their own ramp: how much an edge has to be noticed, not how high it sits. */
   --line-soft: #1A1A1A;
+  --line: #272727;
+  --line-selected: #303030;
+  --line-strong: #343434;
+  --line-focus: #4A4A4A;
+
+  --halo: rgba(255, 255, 255, 0.09);
+  --halo-flat: #1A1A1A;
 
   --text: #EDEDED;
   --text-secondary: #A6A6A6;
@@ -52,19 +62,23 @@
   --font-text: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
   --font-mono: "Cascadia Mono", "Cascadia Code", Consolas, ui-monospace, monospace;
 
-  --size-display: 20px;
+  --size-display: 14px;
   --size-title: 13.5px;
   --size-body: 13.5px;
+  --size-control: 13px;
   --size-meta: 12px;
   --size-label: 11px;
   --size-mono: 12px;
+  --size-mono-compact: 11px;
 
   --weight-display: 600;
   --weight-title: 600;
+  /* The weight of a control: a tab, a button, a segment, the name of a row. */
+  --weight-medium: 500;
   --weight-body: 400;
   --weight-label: 600;
 
-  --tracking-display: -0.015em;
+  --tracking-display: -0.01em;
   --tracking-title: -0.005em;
   --tracking-label: 0.01em;
   --tracking-mono: -0.01em;
@@ -72,6 +86,7 @@
   --leading-body: 1.45;
 
   /* --- rounded ---------------------------------------------------------- */
+  --radius-xs: 5px;
   --radius-sm: 6px;
   --radius-md: 8px;
   --radius-lg: 12px;
@@ -91,6 +106,7 @@
   --page-pad: var(--space-7);
   --top-bar-height: 56px;
   --tab-height: 44px;
+  --tab-pad: var(--space-5);
   --tab-underline: 2px;
   --card-header-height: 48px;
   --strip-height: 40px;
@@ -107,10 +123,30 @@
   --badge-height: 18px;
   --modal-width: 540px;
   --modal-list-height: 330px;
+  --scrim-top: 80px;
   --gate-width: 380px;
-  --toast-width: 320px;
+  --toast-min: 260px;
+  --toast-max: 380px;
+  --button-small-height: 27px;
+  --button-small-pad: 9px;
+  --button-icon-size: 30px;
+  --pager-page-size: 26px;
+  --form-row-pad: 9px;
+  --row-compact-pad: 10px;
+  --row-icon-width: 22px;
+  --state-dot: var(--space-2);
+  --state-dot-halo: 3px;
   --icon-size: 16px;
+  --icon-small: 14px;
+  --icon-caret: 12px;
   --icon-stroke: 1.7;
+  --icon-stroke-solid: 1.4;
+
+  /* Gaps that are not steps of the spacing scale: they belong to one component each. */
+  --gap-control: 7px;
+  --gap-note: 5px;
+  --gap-stack: 3px;
+  --gap-segmented: 2px;
 
   /* --- elevation -------------------------------------------------------- */
   --shadow-card:
@@ -170,6 +206,21 @@ h1, h2, p { margin: 0; }
   stroke-linejoin: round;
 }
 
+/* Beside a word inside a control, where the icon is not standing in for the word. */
+.icon-sm {
+  width: var(--icon-small);
+  height: var(--icon-small);
+}
+
+/* A filled shape has no interior to be read by, so it is drawn larger than the outlines around
+   it and its weight comes from the fill rather than from the stroke. */
+.icon-caret {
+  width: var(--icon-caret);
+  height: var(--icon-caret);
+  fill: currentColor;
+  stroke-width: var(--icon-stroke-solid);
+}
+
 /* Numbers that sit in a column must not shift as they change. */
 .tabular { font-variant-numeric: tabular-nums; }
 
@@ -180,7 +231,10 @@ h1, h2, p { margin: 0; }
   top: 0;
   z-index: 30;
   height: var(--top-bar-height);
-  background: var(--ground);
+  /* The one translucent surface here, and its edge is the one that runs the full width: the bar
+     is stuck to the window, not to the column of cards. */
+  background: var(--ground-veil);
+  backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--line-soft);
 }
 
@@ -210,7 +264,7 @@ h1, h2, p { margin: 0; }
   letter-spacing: var(--tracking-display);
 }
 
-.wordmark-icon { color: var(--text-secondary); }
+.wordmark-icon { color: var(--signal); }
 
 .top-bar-right {
   display: flex;
@@ -221,39 +275,58 @@ h1, h2, p { margin: 0; }
 .health {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--gap-control);
   color: var(--text-muted);
   font-size: var(--size-meta);
   font-variant-numeric: tabular-nums;
 }
 
+/* The halo is drawn from the dot's own colour, so the three states need one rule and not three:
+   only `color` changes, and the fill and the halo follow it. */
 .health-dot {
-  width: var(--space-3);
-  height: var(--space-3);
+  width: var(--state-dot);
+  height: var(--state-dot);
   border-radius: var(--radius-full);
-  background: var(--text-muted);
+  color: var(--text-muted);
+  background: currentColor;
+  box-shadow: 0 0 0 var(--state-dot-halo) color-mix(in srgb, currentColor 13%, transparent);
 }
 
-.health-dot[data-health="healthy"] { background: var(--enforced); }
-.health-dot[data-health="unreachable"] { background: var(--denied); }
+.health-dot[data-health="healthy"] { color: var(--enforced); }
+.health-dot[data-health="unreachable"] { color: var(--denied); }
 
 /* ---------------------------------------------------------------- tabs -- */
 
-.tabs { border-bottom: 1px solid var(--line-soft); }
-
+/* The rule ends where the cards begin. Not a border on the rail -- that ran the full width of
+   the window -- and not one on this box either: this box is the page width including its
+   padding, so its border would overhang the cards by that padding on each side. */
 .tabs-inner {
+  position: relative;
   display: flex;
-  gap: var(--space-6);
+  gap: var(--gap-segmented);
 }
 
+.tabs-inner::after {
+  content: "";
+  position: absolute;
+  inset-inline: var(--page-pad);
+  bottom: 0;
+  height: 1px;
+  background: var(--line-soft);
+}
+
+/* The padding is what the underline measures: without it the rule under the active tab is only
+   as wide as the word, and the row reads as text pushed against the left edge. */
 .tab {
   position: relative;
   display: flex;
   align-items: center;
   gap: var(--space-2);
   height: var(--tab-height);
+  padding-inline: var(--tab-pad);
   color: var(--text-muted);
-  font-size: var(--size-meta);
+  font-size: var(--size-control);
+  font-weight: var(--weight-medium);
   text-decoration: none;
   transition: color var(--fast) ease;
 }
@@ -262,12 +335,14 @@ h1, h2, p { margin: 0; }
 
 .tab[aria-current="page"] { color: var(--text); }
 
-/* The underline is reserved on every tab so becoming the active one does not reflow the row. */
+/* The underline is reserved on every tab so becoming the active one does not reflow the row, and
+   it is centred on the rule rather than resting above it: two lines stacked read as a thick edge
+   under one tab, one line through the other reads as the tab claiming that edge. */
 .tab::after {
   content: "";
   position: absolute;
   inset-inline: 0;
-  bottom: 0;
+  bottom: calc((1px - var(--tab-underline)) / 2);
   height: var(--tab-underline);
   background: transparent;
 }
@@ -280,8 +355,8 @@ h1, h2, p { margin: 0; }
   justify-content: center;
   min-width: var(--badge-height);
   height: var(--badge-height);
-  padding-inline: var(--space-1);
-  border-radius: var(--radius-sm);
+  padding-inline: 5px;
+  border-radius: var(--radius-xs);
   background: var(--overlay);
   color: var(--text-secondary);
   font-size: var(--size-label);
@@ -290,13 +365,19 @@ h1, h2, p { margin: 0; }
   font-variant-numeric: tabular-nums;
 }
 
+/* On the tab you are already on the badge is lit rather than recessed: it is part of the tab. */
+.tab[aria-current="page"] .tab-badge {
+  background: var(--halo-flat);
+  color: var(--text);
+}
+
 /* A dot with a halo: the halo is what makes it read as live rather than as decoration. */
 .tab-signal {
-  width: var(--space-2);
-  height: var(--space-2);
+  width: var(--state-dot);
+  height: var(--state-dot);
   border-radius: var(--radius-full);
   background: var(--signal);
-  box-shadow: 0 0 0 var(--space-1) color-mix(in srgb, var(--signal) 22%, transparent);
+  box-shadow: 0 0 0 var(--state-dot-halo) color-mix(in srgb, var(--signal) 16%, transparent);
 }
 
 /* --------------------------------------------------------------- pages -- */
@@ -331,11 +412,32 @@ h1, h2, p { margin: 0; }
   border-bottom: 1px solid var(--line-soft);
 }
 
+/* A section identifies itself here, and only here. No icon: the title is the identification, and
+   an icon beside it repeats the tab that is already lit.
+
+   The four hues are not the same percentage. They do not weigh the same at equal alpha, so they
+   are matched by eye -- amber at 11% turns a header into a warning about nothing. Equalising
+   these numbers is not a fix. */
+.card-header[data-tint] { background-image: linear-gradient(to right, var(--tint), transparent 48%); }
+
+.card-header[data-tint="signal"] { --tint: color-mix(in srgb, var(--signal) 11%, transparent); }
+.card-header[data-tint="remote"] { --tint: color-mix(in srgb, var(--remote) 10%, transparent); }
+.card-header[data-tint="waiting"] { --tint: color-mix(in srgb, var(--waiting) 9%, transparent); }
+
 .card-title {
   font-family: var(--font-display);
   font-size: var(--size-title);
   font-weight: var(--weight-title);
   letter-spacing: var(--tracking-title);
+}
+
+/* What a header says at its trailing edge: a fact about the card that is not its title. It is
+   also what keeps the row balanced when the header holds nothing but a heading. */
+.card-meta {
+  margin-left: auto;
+  color: var(--text-muted);
+  font-size: var(--size-meta);
+  font-variant-numeric: tabular-nums;
 }
 
 .card-footer {
@@ -344,7 +446,9 @@ h1, h2, p { margin: 0; }
   justify-content: space-between;
   gap: var(--space-4);
   padding: 10px var(--space-6);
-  background: var(--inset);
+  /* Barely below its card, not the hole that `inset` is: a footer painted at `inset` reads as a
+     separate black band under the card rather than as part of it. */
+  background: var(--sunken);
   border-top: 1px solid var(--line-soft);
 }
 
@@ -354,8 +458,8 @@ h1, h2, p { margin: 0; }
   font-variant-numeric: tabular-nums;
 }
 
-/* The one place a section identifies itself by hue. The tint fades out by 48% of the width, so
-   it reads as a wash on the card rather than as a coloured band. */
+/* Not a header: this carries a state of the machine rather than the name of a card, which is why
+   it has an icon and a header does not. It appears once, above the blocked applications. */
 .strip {
   display: flex;
   align-items: center;
@@ -366,16 +470,16 @@ h1, h2, p { margin: 0; }
 }
 
 .strip[data-tint="enforced"] { background: linear-gradient(to right, color-mix(in srgb, var(--enforced) 10%, transparent), transparent 48%); }
-.strip[data-tint="signal"] { background: linear-gradient(to right, color-mix(in srgb, var(--signal) 10%, transparent), transparent 48%); }
-.strip[data-tint="remote"] { background: linear-gradient(to right, color-mix(in srgb, var(--remote) 10%, transparent), transparent 48%); }
-.strip[data-tint="waiting"] { background: linear-gradient(to right, color-mix(in srgb, var(--waiting) 10%, transparent), transparent 48%); }
+.strip[data-tint="waiting"] { background: linear-gradient(to right, color-mix(in srgb, var(--waiting) 9%, transparent), transparent 48%); }
 
+/* Set in text rather than display, and only the state itself in bold: "Policy enforced" is the
+   claim and "2 rules" is the detail, and bolding both says they weigh the same. */
 .strip-text {
-  font-family: var(--font-display);
-  font-size: var(--size-title);
-  font-weight: var(--weight-title);
-  letter-spacing: var(--tracking-title);
+  font-size: var(--size-control);
+  font-weight: var(--weight-body);
 }
+
+.strip-text b { font-weight: var(--weight-title); }
 
 .strip-meta {
   margin-left: auto;
@@ -386,8 +490,6 @@ h1, h2, p { margin: 0; }
 
 .strip-icon { color: var(--text-secondary); }
 .strip[data-tint="enforced"] .strip-icon { color: var(--enforced); }
-.strip[data-tint="signal"] .strip-icon { color: var(--signal); }
-.strip[data-tint="remote"] .strip-icon { color: var(--remote); }
 .strip[data-tint="waiting"] .strip-icon { color: var(--waiting); }
 
 /* The policy strip is the one strip whose colour is a claim about the machine, so its icon and
@@ -402,7 +504,7 @@ h1, h2, p { margin: 0; }
 .row {
   display: flex;
   align-items: center;
-  gap: var(--space-4);
+  gap: var(--space-5);
   padding: var(--space-4) var(--space-6);
   border-bottom: 1px solid var(--line-soft);
   transition: background var(--fast) ease;
@@ -411,14 +513,23 @@ h1, h2, p { margin: 0; }
 .row:last-child { border-bottom: none; }
 .row:hover { background: var(--raised); }
 
-.row-icon { color: var(--text-muted); }
+/* An access event is one line and a time, where an application is two lines and two controls. */
+.row-compact { padding-block: var(--row-compact-pad); }
+
+/* A fixed slot rather than the width of the glyph, so titles line up down a list whether or not
+   their row has an icon. content-box keeps the icon itself at 16. */
+.row-icon {
+  box-sizing: content-box;
+  padding-inline: calc((var(--row-icon-width) - var(--icon-size)) / 2);
+  color: var(--text-muted);
+}
 
 .row-main {
   min-width: 0;
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
+  gap: var(--gap-stack);
 }
 
 .row-title {
@@ -426,6 +537,7 @@ h1, h2, p { margin: 0; }
   align-items: center;
   gap: var(--space-3);
   min-width: 0;
+  font-weight: var(--weight-medium);
 }
 
 .row-title > span:first-child {
@@ -470,11 +582,12 @@ h1, h2, p { margin: 0; }
   align-items: center;
   height: var(--chip-height);
   padding-inline: var(--space-2);
+  border: 1px solid var(--line);
   border-radius: var(--radius-sm);
   background: var(--overlay);
   color: var(--text-secondary);
   font-family: var(--font-mono);
-  font-size: var(--size-mono);
+  font-size: var(--size-mono-compact);
   letter-spacing: var(--tracking-mono);
   white-space: nowrap;
 }
@@ -505,20 +618,26 @@ h1, h2, p { margin: 0; }
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: var(--space-2);
+  gap: var(--gap-control);
   height: var(--control-height);
   padding-inline: var(--space-4);
   border: 1px solid transparent;
   border-radius: var(--radius-md);
   font-family: inherit;
-  font-size: var(--size-body);
+  font-size: var(--size-control);
+  font-weight: var(--weight-medium);
   line-height: 1;
   transition: background var(--fast) ease, color var(--fast) ease, border-color var(--fast) ease;
 }
 
 .button:disabled { opacity: 0.4; pointer-events: none; }
 
-.button-primary { background: var(--primary); color: var(--on-primary); }
+/* The one control that executes rather than offers, so it carries the weight of a title. */
+.button-primary {
+  background: var(--primary);
+  color: var(--on-primary);
+  font-weight: var(--weight-title);
+}
 .button-primary:hover { background: var(--primary-hover); }
 .button-primary:active { background: var(--primary-press); }
 
@@ -531,7 +650,20 @@ h1, h2, p { margin: 0; }
 .button-danger { background: var(--denied); color: var(--on-denied); }
 .button-danger:hover { background: color-mix(in srgb, var(--denied) 88%, var(--primary-hover)); }
 
-.button-icon { padding-inline: var(--space-2); }
+/* An action that belongs to one row or one dialog rather than to the card around it. A 32px
+   button inside a 44px row reads as the row's main event instead of as its aside. */
+.button-small {
+  height: var(--button-small-height);
+  padding-inline: var(--button-small-pad);
+  font-size: var(--size-meta);
+}
+
+/* All content and no label: square, so the icon has air on every side. */
+.button-icon {
+  width: var(--button-icon-size);
+  height: var(--button-icon-size);
+  padding-inline: 0;
+}
 
 /* -------------------------------------------------------------- fields -- */
 
@@ -552,12 +684,26 @@ h1, h2, p { margin: 0; }
   border-radius: var(--radius-md);
   color: var(--text);
   font-family: inherit;
-  font-size: var(--size-body);
-  transition: border-color var(--fast) ease;
+  font-size: var(--size-control);
+  transition: border-color var(--fast) ease, background var(--fast) ease, box-shadow var(--fast) ease;
 }
 
 .field::placeholder { color: var(--text-muted); }
-.field:hover { border-color: var(--text-muted); }
+
+/* One step of the hairline ramp, and no further: a hover that draws a light frame is a hover
+   pretending to be a focus. This was `text-muted`, which is nearly the colour of the text. */
+.field:hover { border-color: var(--line-strong); }
+
+/* The one control that does not take the global ring. A 2px ring at 2px offset around a 34px
+   field draws a box bigger than the field it points at, and on the search inside the dialog it
+   swallows the control whole. */
+.field:focus {
+  border-color: var(--line-focus);
+  background: var(--surface);
+  box-shadow: 0 0 0 var(--state-dot-halo) var(--halo);
+}
+
+.field:focus-visible { outline: none; }
 
 .field-compact { flex: none; width: var(--field-compact-width); }
 
@@ -565,6 +711,9 @@ h1, h2, p { margin: 0; }
 .field-note {
   position: absolute;
   right: 11px;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--gap-note);
   color: var(--text-muted);
   font-size: var(--size-label);
   font-weight: var(--weight-label);
@@ -584,24 +733,36 @@ h1, h2, p { margin: 0; }
 
 .field-error:empty { display: none; }
 
-/* A form is rows: a label on the left, the field taking whatever is left. */
+/* A form is rows: a label on the left, the field taking whatever is left. A grid rather than a
+   flex row, so the label column is the same width down the form whatever is in it -- ragged
+   labels down a column is the thing a form layout exists to prevent. */
 .form-rows { display: flex; flex-direction: column; }
 
 .form-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: var(--form-label-width) 1fr;
   align-items: center;
-  gap: var(--space-4);
-  padding: var(--space-4) var(--space-6);
+  gap: var(--space-5);
+  padding: var(--form-row-pad) var(--space-6);
   border-bottom: 1px solid var(--line-soft);
 }
 
 .form-row:last-child { border-bottom: none; }
 
 .form-label {
-  width: var(--form-label-width);
-  flex: none;
   color: var(--text-secondary);
+  font-size: var(--size-control);
 }
+
+/* The wrap holds the field's own note, so it is the wrap that has to be the fixed one: leaving
+   it growing left the name field at 190px inside a box the width of the gap to the button, and
+   the dead space in between belonged to nothing. */
+.field-wrap-compact {
+  flex: none;
+  width: var(--field-compact-width);
+}
+
+.field-wrap-compact .field-compact { width: 100%; }
 
 /* The block form: path takes what is left, name is fixed, button is last. */
 .block-form {
@@ -620,10 +781,11 @@ h1, h2, p { margin: 0; }
   width: var(--switch-width);
   height: var(--switch-height);
   margin: 0;
+  border: 1px solid var(--line);
   border-radius: var(--radius-full);
   background: var(--inset);
   box-shadow: var(--shadow-recess);
-  transition: background var(--fast) ease;
+  transition: background var(--fast) ease, border-color var(--fast) ease;
 }
 
 .switch::after {
@@ -645,6 +807,7 @@ h1, h2, p { margin: 0; }
    optical correction. It must not be "fixed" by making the numbers equal. */
 .switch:checked {
   background: var(--primary);
+  border-color: var(--primary);
   box-shadow: none;
 }
 
@@ -655,12 +818,31 @@ h1, h2, p { margin: 0; }
   transform: translate(calc(var(--switch-width) - var(--switch-thumb-on) - 6px), -50%);
 }
 
+/* Asked for, not answered yet. The thumb moves on the click -- a switch that waits for the round
+   trip looks like a dead control -- but the track drops to neither of its two settled colours, so
+   what is on screen reads as the request and not as the state of the machine. Applying a policy
+   takes seconds, and for those seconds the two are not the same thing.
+
+   No spinner: the position of the thumb is already saying what was asked for, and a spinner on
+   top of it would be a second thing to read for the same fact. */
+.switch[data-busy],
+.switch[data-busy]:checked {
+  background: var(--overlay);
+  border-color: var(--line-strong);
+  box-shadow: none;
+  opacity: 0.7;
+}
+
+.switch[data-busy]::after,
+.switch[data-busy]:checked::after { background: var(--text-secondary); }
+
 /* ----------------------------------------------------------- segmented -- */
 
 .segmented {
   display: flex;
-  gap: var(--space-1);
+  gap: var(--gap-segmented);
   padding: 3px;
+  border: 1px solid var(--line);
   border-radius: var(--radius-md);
   background: var(--inset);
   box-shadow: var(--shadow-recess);
@@ -668,43 +850,35 @@ h1, h2, p { margin: 0; }
 
 .segment {
   height: 24px;
-  padding-inline: var(--space-4);
+  padding-inline: 11px;
   border: 1px solid transparent;
   border-radius: var(--radius-sm);
   background: transparent;
   color: var(--text-muted);
   font-family: inherit;
   font-size: var(--size-meta);
+  font-weight: var(--weight-medium);
   transition: color var(--fast) ease, background var(--fast) ease;
 }
 
 .segment:hover { color: var(--text-secondary); }
 
+/* The one border drawn a step above `line`: it has to lift off a track that is already sunk. */
 .segment[aria-pressed="true"] {
   background: var(--overlay);
-  border-color: var(--line);
+  border-color: var(--line-selected);
   box-shadow: var(--shadow-segment);
   color: var(--text);
 }
 
 /* -------------------------------------------------------------- events -- */
 
-/* Solid triangles rather than arrows: this is a direction, and a direction reads better as a
-   shape. Right and green for a connection, left and muted for a disconnection. */
-.event-mark {
-  width: 0;
-  height: 0;
-  flex: none;
-  border-block: 5px solid transparent;
-}
-
-.event-mark[data-direction="in"] {
-  border-left: 8px solid var(--enforced);
-}
-
-.event-mark[data-direction="out"] {
-  border-right: 8px solid var(--text-muted);
-}
+/* A filled caret rather than an arrow: this is a direction, and a direction reads better as a
+   shape. Green and to the right for a connection, muted and to the left for a disconnection.
+   Drawn from the sprite rather than from borders, so it is the same shape at any size and its
+   colour is one property instead of one per direction. */
+.event-mark[data-direction="in"] { color: var(--enforced); }
+.event-mark[data-direction="out"] { color: var(--text-muted); }
 
 .event-when {
   flex: none;
@@ -734,8 +908,8 @@ h1, h2, p { margin: 0; }
 }
 
 .pager-page {
-  min-width: 24px;
-  height: 24px;
+  min-width: var(--pager-page-size);
+  height: var(--pager-page-size);
   padding-inline: var(--space-2);
   border: 1px solid transparent;
   border-radius: var(--radius-sm);
@@ -761,24 +935,32 @@ h1, h2, p { margin: 0; }
 
 /* Destructive actions confirm in the row that owns them. The name of what is about to change
    stays exactly where it already was, which no dialog can manage. */
-.row[data-confirming] { background: var(--denied-wash); }
-.row[data-confirming]:hover { background: var(--denied-wash); }
+/* Tinted from the left and fading out, not a flat block: a whole row washed red is a red bar,
+   and the name of what is about to change -- the reason this confirms in the row at all -- stops
+   being the thing you read first. */
+.row[data-confirming],
+.row[data-confirming]:hover {
+  background: linear-gradient(to right, color-mix(in srgb, var(--denied) 13%, transparent), transparent 70%);
+}
 
+/* Grey, not red. The wash behind it and the button under it are already red, and a third red is
+   not more certain, only louder. */
 .row-confirm {
-  color: var(--denied);
+  color: var(--text-secondary);
   font-size: var(--size-meta);
 }
 
 /* --------------------------------------------------------------- modal -- */
 
+/* Anchored near the top rather than centred: a dialog floating in the middle of an empty page
+   has nothing to sit against, and the list inside it grows downward. */
 .scrim {
   position: fixed;
   inset: 0;
   z-index: 40;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: var(--space-7);
+  display: grid;
+  place-items: start center;
+  padding: var(--scrim-top) var(--space-7) var(--space-7);
   background: var(--scrim);
   backdrop-filter: blur(2px);
 }
@@ -837,11 +1019,14 @@ h1, h2, p { margin: 0; }
   pointer-events: none;
 }
 
+/* As wide as the message needs, between two bounds: a fixed width leaves a short notice mostly
+   empty and wraps a long one four times. */
 .toast {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: var(--space-3);
-  width: var(--toast-width);
+  min-width: var(--toast-min);
+  max-width: var(--toast-max);
   padding: 10px var(--space-4);
   background: var(--raised);
   border: 1px solid var(--line);
@@ -881,25 +1066,24 @@ h1, h2, p { margin: 0; }
 
 .gate-card { width: 100%; max-width: var(--gate-width); }
 
-.gate-card .form-label { width: auto; }
+.gate-card .form-row { grid-template-columns: auto 1fr; }
 
 /* ------------------------------------------------------------- spinner -- */
 
+/* Out of the layout entirely when there is nothing to say. It used to be hidden with a negative
+   margin cancelling its own width, which cancelled the width but not the gap after it, so every
+   button carried one gap of dead space on its left and its label sat off centre. */
 .spinner {
+  display: none;
   width: var(--space-4);
   height: var(--space-4);
   flex: none;
   border-radius: var(--radius-full);
   border: 2px solid color-mix(in srgb, currentColor 30%, transparent);
   border-top-color: currentColor;
-  visibility: hidden;
-  margin-inline-start: calc(var(--space-4) * -1);
 }
 
-[data-busy] .spinner {
-  visibility: visible;
-  margin-inline-start: 0;
-}
+[data-busy] .spinner { display: block; }
 
 @media (prefers-reduced-motion: no-preference) {
   [data-busy] .spinner { animation: spin 700ms linear infinite; }
@@ -937,11 +1121,10 @@ h1, h2, p { margin: 0; }
   .block-form .field-compact { width: 100%; }
   .block-form .button { width: 100%; }
 
-  .form-row { align-items: stretch; flex-direction: column; gap: var(--space-2); }
-  .form-label { width: auto; }
+  .form-row { grid-template-columns: 1fr; align-items: stretch; gap: var(--space-2); }
 
   .toasts { left: var(--space-7); }
-  .toast { width: auto; }
+  .toast { min-width: 0; max-width: none; width: auto; }
 }
 
 @media (prefers-reduced-motion: reduce) {

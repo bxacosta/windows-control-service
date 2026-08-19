@@ -14,14 +14,15 @@ import { notify, notifyError } from './notices.js';
 
 const ui = elementsOf('devices');
 
-/** The renderer: a pill and two lines of text from one status, and no decision of its own. */
+/** The renderer: a pill and one line of text from one status, and no decision of its own. */
 function renderUsb(status) {
   const described = describeUsbState(status);
 
   ui.usbPill.className = css.pill(described.pill.tone);
   ui.usbPill.textContent = described.pill.text;
-  ui.usbTitle.textContent = described.title;
-  ui.usbLastModified.textContent = described.lastChanged;
+  ui.usbDetail.textContent = described.detail;
+  // The exact time behind the relative one, for the pointer. Empty when there is none to show.
+  ui.usbDetail.title = described.detailExactly;
 }
 
 /**

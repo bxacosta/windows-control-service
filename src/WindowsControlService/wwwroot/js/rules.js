@@ -10,6 +10,14 @@
 
 import { formatAgo, formatDuration, formatTimestamp } from './format.js';
 
+/**
+ * Every time this interface shows is relative, because the question being asked of it is "was
+ * that just now". The exact one is the value the service recorded, and a recorded value must
+ * never be only paraphrased -- so it travels alongside, for the renderer to hang on the title.
+ * Beside the relative one it would be two clocks on one line for one fact.
+ */
+const exactly = (iso) => (iso ? formatTimestamp(iso) : '');
+
 // --- Applications ----------------------------------------------------------
 
 /**
@@ -17,36 +25,43 @@ import { formatAgo, formatDuration, formatTimestamp } from './format.js';
  * that nothing is blocked. Collapsing it into "not enforced" would tell the administrator the
  * machine is unprotected when the truth is that nobody knows.
  *
+ * The answer comes in two halves rather than as one sentence: the state is the claim and the rest
+ * is the detail behind it, and the strip sets only the claim in bold. One string would force the
+ * renderer to find the boundary again, by splitting on a separator that lives in this file.
+ *
  * @param {{state: string, enabledRuleCount: number, lastReconciledAt: string | null} | null} state
  *   null when the service could not be asked at all.
- * @returns {{tone: string, text: string, checked: string, icon: 'ok' | 'alert'}}
- *   `tone` is the styling hook, `text` reads on the strip, `checked` sits at its trailing edge.
+ * @returns {{tone: string, headline: string, detail: string, checked: string, icon: 'ok' | 'alert'}}
+ *   `tone` is the styling hook, `headline` and `detail` read on the strip, `checked` sits at its
+ *   trailing edge.
  */
 export function describePolicyState(state) {
   if (!state) {
-    return { tone: 'unknown', text: 'Policy state unavailable', checked: '', icon: 'alert' };
+    return { tone: 'unknown', headline: 'Policy state unavailable', detail: '', checked: '', icon: 'alert' };
   }
 
   const rules = `${state.enabledRuleCount} ${state.enabledRuleCount === 1 ? 'rule' : 'rules'}`;
 
   const described = {
-    Enforced: { text: `Policy enforced · ${rules}`, icon: 'ok' },
+    Enforced: { headline: 'Policy enforced', detail: rules, icon: 'ok' },
     NotEnforced: state.enabledRuleCount > 0
-      ? { text: `Not enforced · ${rules} waiting`, icon: 'alert' }
-      : { text: 'No policy deployed', icon: 'alert' },
+      ? { headline: 'Not enforced', detail: `${rules} waiting`, icon: 'alert' }
+      : { headline: 'No policy deployed', detail: '', icon: 'alert' },
     // Never "nothing is blocked": nobody knows, and saying otherwise is a claim about the
     // machine that this interface cannot make.
-    Unknown: { text: 'Policy state unknown', icon: 'alert' },
+    Unknown: { headline: 'Policy state unknown', detail: '', icon: 'alert' },
   };
 
   // A state this version does not know is shown verbatim rather than mapped to one it does know.
-  const fallback = { text: state.state, icon: 'alert' };
+  const fallback = { headline: state.state, detail: '', icon: 'alert' };
   const chosen = described[state.state] ?? fallback;
 
   return {
     tone: state.state.toLowerCase(),
-    text: chosen.text,
+    headline: chosen.headline,
+    detail: chosen.detail,
     checked: state.lastReconciledAt === null ? '' : `checked ${formatAgo(state.lastReconciledAt)}`,
+    checkedExactly: exactly(state.lastReconciledAt),
     icon: chosen.icon,
   };
 }
@@ -101,17 +116,24 @@ export const describeProcessEmptiness = (query, total) =>
 
 // --- Devices ---------------------------------------------------------------
 
-/** @param {{blocked: boolean, lastModified: string | null}} status As the service reports it. */
+/**
+ * One line under the title, not two. What the switch does and when it last moved are the same
+ * fact seen twice, and splitting them made the row three lines tall for one control.
+ *
+ * The time is relative, like every other time in this interface: an absolute timestamp forces a
+ * subtraction to answer "was that just now", which is the only question being asked here.
+ *
+ * @param {{blocked: boolean, lastModified: string | null}} status As the service reports it.
+ */
 export const describeUsbState = (status) => ({
   pill: status.blocked
     ? { tone: 'signal', text: 'Blocked' }
     : { tone: 'muted', text: 'Allowed' },
-  title: status.blocked
-    ? 'New drives will not mount.'
-    : 'Drives mount normally.',
-  lastChanged: status.lastModified
-    ? `Last changed through this service: ${formatTimestamp(status.lastModified)}`
-    : 'Never changed through this service.',
+  detail: [
+    status.blocked ? 'New drives will not mount' : 'Drives mount normally',
+    status.lastModified ? `changed ${formatAgo(status.lastModified)}` : 'never changed through this service',
+  ].join(' · '),
+  detailExactly: exactly(status.lastModified),
 });
 
 export const describeUsbChange = (blocked) =>
@@ -245,6 +267,7 @@ export function describeEvent(entry) {
     // The address is what identifies a remote session; the user name is all a local one has.
     detail: entry.address ?? entry.userName ?? '',
     ago: formatAgo(entry.occurredAt),
+    agoExactly: exactly(entry.occurredAt),
     // Only the events that close a session carry a duration, and null is not zero. An empty
     // string rather than a dash: an absent value does not need a placeholder holding its place.
     duration: entry.durationSeconds === null || entry.durationSeconds === undefined
@@ -262,25 +285,35 @@ export function describeEvent(entry) {
  */
 export function describePasswordLength(value, minimum) {
   if (value.length === 0) {
-    return { text: '', state: 'neutral' };
+    return { text: '', state: 'neutral', icon: null };
   }
 
   return value.length >= minimum
-    ? { text: `${value.length}`, state: 'ok' }
-    : { text: `${value.length}/${minimum}`, state: 'bad' };
+    ? { text: `${value.length}`, state: 'ok', icon: null }
+    : { text: `${value.length}/${minimum}`, state: 'bad', icon: 'alert' };
 }
 
 /** Says nothing until there is something to say: an empty field has not failed to match yet. */
 export function describePasswordMatch(replacement, confirmation) {
   if (confirmation.length === 0) {
-    return { text: '', state: 'neutral' };
+    return { text: '', state: 'neutral', icon: null };
   }
 
+  // Two failures, two icons: falling short of the minimum is a warning about something still
+  // being typed, and two passwords that differ is a refusal.
   return replacement === confirmation
-    ? { text: 'Match', state: 'ok' }
-    : { text: 'No match', state: 'bad' };
+    ? { text: 'Match', state: 'ok', icon: null }
+    : { text: 'No match', state: 'bad', icon: 'no' };
 }
 
 /** The pill beside it already says "Signed in", so this says the one thing it does not. */
 export const describeSessionExpiry = (minutes) =>
   (minutes > 0 ? `Ends after ${minutes} minutes of inactivity.` : '');
+
+/**
+ * What the card asks of a new password, at the head of the card rather than only inside the
+ * field while it is being typed. The number is the service's and arrives from it, so this says
+ * nothing before the answer does.
+ */
+export const describePasswordRule = (minimum) =>
+  (minimum > 0 ? `at least ${minimum} characters` : '');

@@ -45,8 +45,13 @@ function renderPolicyState(state) {
   setIcon(ui.policyIcon, described.icon === 'ok' ? icons.shieldCheck : icons.shieldAlert);
 
   ui.policyState.setAttribute(attributes.policyState, described.tone);
-  ui.policyState.textContent = described.text;
+  // The state in bold and the detail beside it, because they do not weigh the same: "Policy
+  // enforced" is the claim about the machine and "2 rules" is what is behind it.
+  ui.policyState.replaceChildren(
+    el('b', { text: described.headline }),
+    described.detail === '' ? '' : ` · ${described.detail}`);
   ui.policyChecked.textContent = described.checked;
+  ui.policyChecked.title = described.checkedExactly;
 }
 
 function applicationRow(application, onChanged) {
@@ -68,8 +73,8 @@ function applicationRow(application, onChanged) {
     'aria-label': `Stop blocking ${application.name}`,
   }, [icon(icons.trash)]);
 
-  const cancel = el('button', { type: 'button', class: css.ghostButton }, ['Cancel']);
-  const confirm = el('button', { type: 'button', class: css.dangerButton }, [
+  const cancel = el('button', { type: 'button', class: css.smallGhostButton }, ['Cancel']);
+  const confirm = el('button', { type: 'button', class: css.smallDangerButton }, [
     el('span', { class: css.spinner, 'aria-hidden': 'true' }),
     'Remove',
   ]);
@@ -79,17 +84,22 @@ function applicationRow(application, onChanged) {
   // be the same guess that made the block silently do nothing.
   const detail = el('div', { class: css.rowDetail, text: application.executablePath });
   const chip = el('span', { class: css.chip, text: describeMatch(application) });
-  const question = el('div', { class: css.rowConfirm, text: 'Stop blocking this application?', hidden: true });
+  // Not "this application": the name is directly above it, in the same row, which is the whole
+  // reason a removal confirms in the row instead of in a dialog.
+  const question = el('div', { class: css.rowConfirm, text: 'Stop blocking it?', hidden: true });
 
   const actions = el('div', { class: css.rowActions }, [toggle, remove]);
   const confirmActions = el('div', { class: css.rowActions, hidden: true }, [cancel, confirm]);
 
+  // The chip is a sibling of the text block, not part of the title: inside it, it squeezed the
+  // name while the right half of the row sat empty. Out here it lines up with the switch.
   const row = el('div', { class: css.row }, [
     el('div', { class: css.rowMain }, [
-      el('div', { class: css.rowTitle }, [el('span', { text: application.name }), chip]),
+      el('div', { class: css.rowTitle }, [el('span', { text: application.name })]),
       detail,
       question,
     ]),
+    chip,
     actions,
     confirmActions,
   ]);
@@ -97,6 +107,8 @@ function applicationRow(application, onChanged) {
   const ask = (asking) => {
     row.toggleAttribute(attributes.confirming, asking);
     detail.hidden = asking;
+    // The chip is a machine value, and a question is not the moment to compare one.
+    chip.hidden = asking;
     question.hidden = !asking;
     actions.hidden = asking;
     confirmActions.hidden = !asking;
@@ -125,7 +137,7 @@ function applicationRow(application, onChanged) {
 }
 
 function processRow(process) {
-  const pick = el('button', { type: 'button', class: css.secondaryButton }, ['Use']);
+  const pick = el('button', { type: 'button', class: css.smallSecondaryButton }, ['Use']);
 
   pick.addEventListener('click', () => {
     // The only two ways to name an executable: this list, or typing the path. A browser
@@ -264,6 +276,11 @@ function handlePickerKey(keyEvent) {
 
 async function openPicker(control) {
   pickerOpener = control;
+  // The list takes a moment to arrive, and until it does the dialog is a search box over nothing.
+  // Said in the space the rows will take, like every other empty list here -- the button that
+  // opened it is behind the scrim, so its spinner is not visible from in here.
+  replace(picker.list, [el('p', { class: css.empty, text: 'Reading the running processes…' })]);
+  picker.count.textContent = '';
   picker.root.hidden = false;
   document.addEventListener('keydown', handlePickerKey);
   // The search is the point of the dialog, so it is where the caret goes.

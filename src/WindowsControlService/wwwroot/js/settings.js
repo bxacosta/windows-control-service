@@ -6,8 +6,14 @@
 import * as api from './api.js';
 import * as events from './events.js';
 import * as session from './session.js';
-import { attributes, elementsOf } from './markup.js';
-import { describePasswordLength, describePasswordMatch, describeSessionExpiry } from './rules.js';
+import { elementsOf } from './markup.js';
+import { showFieldNote } from './dom.js';
+import {
+  describePasswordLength,
+  describePasswordMatch,
+  describePasswordRule,
+  describeSessionExpiry,
+} from './rules.js';
 import { withPending } from './pending.js';
 import { notify } from './notices.js';
 
@@ -15,17 +21,13 @@ const ui = elementsOf('settings');
 
 /** Validation while typing, so the rules a field has to satisfy are visible before it is sent. */
 function renderFieldNotes() {
-  const length = describePasswordLength(ui.replacement.value, session.minimumPasswordLength());
-  ui.replacementCount.textContent = length.text;
-  ui.replacementCount.setAttribute(attributes.noteState, length.state);
-
-  const match = describePasswordMatch(ui.replacement.value, ui.confirm.value);
-  ui.confirmMatch.textContent = match.text;
-  ui.confirmMatch.setAttribute(attributes.noteState, match.state);
+  showFieldNote(ui.replacementCount, describePasswordLength(ui.replacement.value, session.minimumPasswordLength()));
+  showFieldNote(ui.confirmMatch, describePasswordMatch(ui.replacement.value, ui.confirm.value));
 }
 
 export function renderSession() {
   ui.sessionExpiry.textContent = describeSessionExpiry(session.sessionTimeoutMinutes());
+  ui.passwordRule.textContent = describePasswordRule(session.minimumPasswordLength());
 }
 
 async function handleChangePassword(submitEvent) {

@@ -5,7 +5,8 @@
 
 import * as api from './api.js';
 import * as shell from './shell.js';
-import { attributes, elementsOf } from './markup.js';
+import { elementsOf } from './markup.js';
+import { showFieldNote } from './dom.js';
 import { describePasswordLength, describePasswordMatch } from './rules.js';
 import { withPending } from './pending.js';
 import { notify, notifyError } from './notices.js';
@@ -50,13 +51,8 @@ function setFieldError(slot, message) {
 
 /** Validation while typing, not after submitting. The minimum is the service's rule. */
 function renderSetupNotes() {
-  const length = describePasswordLength(ui.setupPassword.value, rules.minimumPasswordLength);
-  ui.setupCount.textContent = length.text;
-  ui.setupCount.setAttribute(attributes.noteState, length.state);
-
-  const match = describePasswordMatch(ui.setupPassword.value, ui.setupConfirm.value);
-  ui.setupMatch.textContent = match.text;
-  ui.setupMatch.setAttribute(attributes.noteState, match.state);
+  showFieldNote(ui.setupCount, describePasswordLength(ui.setupPassword.value, rules.minimumPasswordLength));
+  showFieldNote(ui.setupMatch, describePasswordMatch(ui.setupPassword.value, ui.setupConfirm.value));
 }
 
 /**
