@@ -28,6 +28,15 @@ import { notify, notifyError } from './notices.js';
 const ui = elementsOf('applications');
 const picker = elementsOf('processes');
 
+/**
+ * How long the list is trusted without asking again. Every change made here reloads it anyway --
+ * that is rule 6 and it is not negotiable -- so what this covers is the other reason it was being
+ * re-read: coming back to the section. Thirty seconds is short enough that a change made outside
+ * this browser is not stale for long, and long enough that flicking between tabs costs nothing.
+ */
+const LIST_MAX_AGE = 30_000;
+
+let listReadAt = 0;
 let loaded = false;
 let processes = [];
 
@@ -69,15 +78,12 @@ function applicationRow(application, onChanged) {
 
   const remove = el('button', {
     type: 'button',
-    class: css.iconButton,
+    class: css.removeButton,
     'aria-label': `Stop blocking ${application.name}`,
   }, [icon(icons.trash)]);
 
   const cancel = el('button', { type: 'button', class: css.smallGhostButton }, ['Cancel']);
-  const confirm = el('button', { type: 'button', class: css.smallDangerButton }, [
-    el('span', { class: css.spinner, 'aria-hidden': 'true' }),
-    'Remove',
-  ]);
+  const confirm = el('button', { type: 'button', class: css.smallDangerButton }, ['Remove']);
 
   // Which attribute is doing the blocking, not a fixed label: a binary with no
   // OriginalFilename is matched by InternalName or ProductName, and saying otherwise would
@@ -221,7 +227,7 @@ async function handleAdd(submitEvent) {
     ui.name.value = '';
     notify('Windows will refuse to run it from now on.', 'ok');
 
-    await Promise.all([loadList(), loadPolicyState()]);
+    await Promise.all([reloadList(), loadPolicyState()]);
   });
 }
 
@@ -278,8 +284,8 @@ async function openPicker(control) {
   pickerOpener = control;
   // The list takes a moment to arrive, and until it does the dialog is a search box over nothing.
   // Said in the space the rows will take, like every other empty list here -- the button that
-  // opened it is behind the scrim, so its spinner is not visible from in here.
-  replace(picker.list, [el('p', { class: css.empty, text: 'Reading the running processes…' })]);
+  // opened it is behind the scrim, so what it does while busy cannot be seen from in here.
+  replace(picker.list, [el('p', { class: css.loading, text: 'Reading the running processes…' })]);
   picker.count.textContent = '';
   picker.root.hidden = false;
   document.addEventListener('keydown', handlePickerKey);
@@ -291,7 +297,12 @@ async function openPicker(control) {
 
 // --- Loading ---------------------------------------------------------------
 
-async function loadList() {
+/** @param {{force?: boolean}} options `force` after anything that changed the list. */
+async function loadList({ force = false } = {}) {
+  if (!force && Date.now() - listReadAt < LIST_MAX_AGE) {
+    return;
+  }
+
   let applications;
   try {
     applications = await api.getApplications();
@@ -300,6 +311,7 @@ async function loadList() {
     return;
   }
 
+  listReadAt = Date.now();
   confirming = null;
   shell.showApplicationCount(applications.length);
 
@@ -308,8 +320,11 @@ async function loadList() {
     return;
   }
 
-  replace(ui.list, applications.map((application) => applicationRow(application, loadList)));
+  replace(ui.list, applications.map((application) => applicationRow(application, reloadList)));
 }
+
+/** Anything that changed the list reads it back, cache or no cache. */
+const reloadList = () => loadList({ force: true });
 
 async function loadPolicyState() {
   try {

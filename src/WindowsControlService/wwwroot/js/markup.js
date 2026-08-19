@@ -131,13 +131,16 @@ export const css = Object.freeze({
   /** An access event is one line and a time, so its row carries less air than an application's. */
   historyRow: 'row row-compact',
   chip: 'chip',
-  spinner: 'spinner',
   empty: 'empty',
+  /** The same line, while what goes in its place is still being read. */
+  loading: 'empty shimmer',
   primaryButton: 'button button-primary',
   secondaryButton: 'button button-secondary',
   ghostButton: 'button button-ghost',
   dangerButton: 'button button-danger',
   iconButton: 'button button-ghost button-icon',
+  /** The one action in a row that cannot be undone, so hovering it answers in its own colour. */
+  removeButton: 'button button-ghost button-icon button-destructive',
   /** The weight below the four: an action that belongs to one row or one dialog. */
   smallSecondaryButton: 'button button-secondary button-small',
   smallGhostButton: 'button button-ghost button-small',
@@ -183,7 +186,7 @@ export const attributes = Object.freeze({
   policyState: 'data-state',
   /** On the policy strip, so the whole band follows the state rather than the section. */
   tint: 'data-tint',
-  /** Set by withPending. app.css shows the spinner inside anything carrying it. */
+  /** Set by withPending. app.css sweeps a shimmer across anything carrying it. */
   busy: 'data-busy',
   /** On the navigation links, matched against the route name. */
   navTarget: 'data-nav',

@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32"
+     role="img" aria-label="Windows Control Service">
+  <!-- The mark: a shield with four panes punched out of it, one of them lit. The panes are cut
+       with a mask rather than drawn as a second shape, so the shield stays one object at any
+       size and the holes are holes. At 16px the 1.2 gap between panes falls under one device
+       pixel and reads as a grey cross rather than as a line, which is why the panes are as large
+       as they are: it degrades to "shield with a window", not to a smudge. -->
+  <defs>
+    <linearGradient id="steel" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#F6F6F6"/>
+      <stop offset="0.55" stop-color="#D2D2D2"/>
+      <stop offset="1" stop-color="#9C9C9C"/>
+    </linearGradient>
+    <mask id="panes" maskUnits="userSpaceOnUse" x="0" y="0" width="32" height="32">
+      <path fill="#fff"
+            d="M6 4.4 H26 A1.6 1.6 0 0 1 27.6 6 V16.8 C27.6 23.2 22.8 27.6 16.8 29.6
+               A2.2 2.2 0 0 1 15.2 29.6 C9.2 27.6 4.4 23.2 4.4 16.8 V6 A1.6 1.6 0 0 1 6 4.4 Z"/>
+      <rect x="10.3" y="10.6" width="5.1" height="5.1" rx="0.8" fill="#000"/>
+      <rect x="16.6" y="10.6" width="5.1" height="5.1" rx="0.8" fill="#000"/>
+      <rect x="10.3" y="16.9" width="5.1" height="5.1" rx="0.8" fill="#000"/>
+      <rect x="16.6" y="16.9" width="5.1" height="5.1" rx="0.8" fill="#000"/>
+    </mask>
+  </defs>
+  <rect width="32" height="32" fill="url(#steel)" mask="url(#panes)"/>
+  <rect x="10.3" y="10.6" width="5.1" height="5.1" rx="0.8" fill="#4A9EEB"/>
+</svg>

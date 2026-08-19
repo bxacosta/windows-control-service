@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="dark">
   <title>Windows Control Service</title>
-  <link rel="icon" href="data:,">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/css/app.css">
 </head>
 <body>
@@ -96,7 +96,29 @@
   <header id="top-bar" class="top-bar" hidden>
     <div class="top-bar-inner">
       <div class="wordmark">
-        <svg class="icon wordmark-icon" aria-hidden="true"><use href="#i-shield"/></svg>
+        <!-- The mark itself, inline: it is the same drawing as favicon.svg, it appears exactly
+             once, and it paints itself rather than taking currentColor like every other icon
+             here. Its ids are prefixed because they share the document with the sprite. -->
+        <svg class="wordmark-mark" viewBox="0 0 32 32" aria-hidden="true" focusable="false">
+          <defs>
+            <linearGradient id="mark-steel" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#F6F6F6"/>
+              <stop offset="0.55" stop-color="#D2D2D2"/>
+              <stop offset="1" stop-color="#9C9C9C"/>
+            </linearGradient>
+            <mask id="mark-panes" maskUnits="userSpaceOnUse" x="0" y="0" width="32" height="32">
+              <path fill="#fff"
+                    d="M6 4.4 H26 A1.6 1.6 0 0 1 27.6 6 V16.8 C27.6 23.2 22.8 27.6 16.8 29.6
+                       A2.2 2.2 0 0 1 15.2 29.6 C9.2 27.6 4.4 23.2 4.4 16.8 V6 A1.6 1.6 0 0 1 6 4.4 Z"/>
+              <rect x="10.3" y="10.6" width="5.1" height="5.1" rx="0.8" fill="#000"/>
+              <rect x="16.6" y="10.6" width="5.1" height="5.1" rx="0.8" fill="#000"/>
+              <rect x="10.3" y="16.9" width="5.1" height="5.1" rx="0.8" fill="#000"/>
+              <rect x="16.6" y="16.9" width="5.1" height="5.1" rx="0.8" fill="#000"/>
+            </mask>
+          </defs>
+          <rect width="32" height="32" fill="url(#mark-steel)" mask="url(#mark-panes)"/>
+          <rect x="10.3" y="10.6" width="5.1" height="5.1" rx="0.8" fill="#4A9EEB"/>
+        </svg>
         <span>Windows Control Service</span>
       </div>
       <div class="top-bar-right">
@@ -105,7 +127,6 @@
           <span id="service-status" class="health-text">&nbsp;</span>
         </span>
         <button id="top-sign-out" type="button" class="button button-ghost button-small">
-          <span class="spinner" aria-hidden="true"></span>
           <svg class="icon icon-sm" aria-hidden="true"><use href="#i-logout"/></svg>Sign out
         </button>
       </div>
@@ -157,9 +178,7 @@
       <p id="setup-error" class="field-error" role="alert"></p>
       <div class="card-footer">
         <span class="footer-note">No recovery: forgetting it means deleting the database.</span>
-        <button id="setup-submit" type="submit" class="button button-primary">
-          <span class="spinner" aria-hidden="true"></span>Set password
-        </button>
+        <button id="setup-submit" type="submit" class="button button-primary">Set password</button>
       </div>
     </form>
 
@@ -176,9 +195,7 @@
       <p id="login-error" class="field-error" role="alert"></p>
       <div class="card-footer">
         <span class="footer-note"></span>
-        <button id="login-submit" type="submit" class="button button-primary">
-          <span class="spinner" aria-hidden="true"></span>Sign in
-        </button>
+        <button id="login-submit" type="submit" class="button button-primary">Sign in</button>
       </div>
     </form>
   </div>
@@ -195,7 +212,6 @@
         <div class="card-header">
           <h2 class="card-title">Blocked applications</h2>
           <button id="load-processes" type="button" class="button button-secondary button-small">
-            <span class="spinner" aria-hidden="true"></span>
             <svg class="icon icon-sm" aria-hidden="true"><use href="#i-list"/></svg>Running processes
           </button>
         </div>
@@ -212,7 +228,6 @@
                    placeholder="Name (optional)" aria-label="Name">
           </div>
           <button id="add-application-submit" type="submit" class="button button-primary">
-            <span class="spinner" aria-hidden="true"></span>
             <svg class="icon icon-sm" aria-hidden="true"><use href="#i-plus"/></svg>Block
           </button>
         </form>
@@ -307,9 +322,7 @@
         <p id="change-password-error" class="field-error" role="alert"></p>
         <div class="card-footer">
           <span class="footer-note">No recovery: forgetting it means deleting the database.</span>
-          <button id="change-password-submit" type="submit" class="button button-primary">
-            <span class="spinner" aria-hidden="true"></span>Change password
-          </button>
+          <button id="change-password-submit" type="submit" class="button button-primary">Change password</button>
         </div>
       </form>
 
@@ -330,7 +343,6 @@
             </div>
             <div class="row-actions">
               <button id="sign-out" type="button" class="button button-secondary button-small">
-                <span class="spinner" aria-hidden="true"></span>
                 <svg class="icon icon-sm" aria-hidden="true"><use href="#i-logout"/></svg>Sign out
               </button>
             </div>
@@ -359,7 +371,6 @@
       <div class="card-footer">
         <span id="process-count" class="footer-note">&nbsp;</span>
         <button id="process-refresh" type="button" class="button button-ghost">
-          <span class="spinner" aria-hidden="true"></span>
           <svg class="icon" aria-hidden="true"><use href="#i-refresh"/></svg>Refresh
         </button>
       </div>

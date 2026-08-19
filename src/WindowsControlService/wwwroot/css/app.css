@@ -6,7 +6,7 @@
  * design system does not have it, the design system is what gets edited.
  *
  * The one rule that is not taste: nothing here may change the cursor while something is loading.
- * A spinner already says "wait", so a busy cursor only repeats it, and a forbidden one says
+ * A busy control already says "wait", so a busy cursor only repeats it, and a forbidden one says
  * something different and false. A test enforces this, which is why the property names are not
  * spelled out even in this comment.
  */
@@ -138,6 +138,7 @@
   --state-dot-halo: 3px;
   --icon-size: 16px;
   --icon-small: 14px;
+  --mark-size: 18px;
   --icon-caret: 12px;
   --icon-stroke: 1.7;
   --icon-stroke-solid: 1.4;
@@ -147,6 +148,10 @@
   --gap-note: 5px;
   --gap-stack: 3px;
   --gap-segmented: 2px;
+
+  /* The sweep that says a control is working, and the width of its bright band. */
+  --shimmer: 1400ms;
+  --shimmer-spread: 22%;
 
   /* --- elevation -------------------------------------------------------- */
   --shadow-card:
@@ -264,7 +269,13 @@ h1, h2, p { margin: 0; }
   letter-spacing: var(--tracking-display);
 }
 
-.wordmark-icon { color: var(--signal); }
+/* The mark paints itself: it is the one drawing here that is not a stroke in currentColor, and
+   the lit pane is the one blue in the interface that identifies the product instead of a state. */
+.wordmark-mark {
+  width: var(--mark-size);
+  height: var(--mark-size);
+  flex: none;
+}
 
 .top-bar-right {
   display: flex;
@@ -646,6 +657,10 @@ h1, h2, p { margin: 0; }
 
 .button-ghost { background: transparent; color: var(--text-secondary); }
 .button-ghost:hover { background: var(--raised); color: var(--text); }
+
+/* A ghost button that removes something answers the pointer in the colour of what it does. It
+   is the one action in a row that cannot be undone, and grey on hover said nothing about that. */
+.button-destructive:hover { background: var(--denied-wash); color: var(--denied); }
 
 .button-danger { background: var(--denied); color: var(--on-denied); }
 .button-danger:hover { background: color-mix(in srgb, var(--denied) 88%, var(--primary-hover)); }
@@ -1068,28 +1083,73 @@ h1, h2, p { margin: 0; }
 
 .gate-card .form-row { grid-template-columns: auto 1fr; }
 
-/* ------------------------------------------------------------- spinner -- */
+/* --------------------------------------------------------------- busy -- */
 
-/* Out of the layout entirely when there is nothing to say. It used to be hidden with a negative
-   margin cancelling its own width, which cancelled the width but not the gap after it, so every
-   button carried one gap of dead space on its left and its label sat off centre. */
-.spinner {
-  display: none;
-  width: var(--space-4);
-  height: var(--space-4);
-  flex: none;
-  border-radius: var(--radius-full);
-  border: 2px solid color-mix(in srgb, currentColor 30%, transparent);
-  border-top-color: currentColor;
+/* A busy control shimmers rather than growing a spinner. The spinner had to appear from
+   somewhere, and wherever it came from the button changed width at the moment it was pressed and
+   again when it finished. This costs no layout at all: a band of the control's own colour sweeps
+   across it, above the label and below nothing.
+
+   `currentColor` is what makes one rule enough: on the primary button it is near-black over
+   near-white, on a ghost one near-white over near-black, and both read the same. */
+.button[data-busy] {
+  position: relative;
+  overflow: hidden;
 }
 
-[data-busy] .spinner { display: block; }
+/* A control that is working is not a control that is unavailable. withPending disables it so a
+   second click cannot land, but the 40% of a disabled control would bury the sweep and say the
+   wrong thing: the shimmer is the signal, and it needs the button at full strength to be seen. */
+.button[data-busy]:disabled { opacity: 1; }
 
-@media (prefers-reduced-motion: no-preference) {
-  [data-busy] .spinner { animation: spin 700ms linear infinite; }
+.button[data-busy]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in srgb, currentColor 20%, transparent),
+    transparent);
+  transform: translateX(-100%);
+  animation: sweep var(--shimmer) linear infinite;
 }
 
-@keyframes spin { to { transform: rotate(1turn); } }
+@keyframes sweep { to { transform: translateX(100%); } }
+
+/* The same idea on a line of text, where a band over the letters would hide them: the sweep is
+   the paint of the text itself, clipped to the glyphs. Two layers -- the moving highlight and
+   the flat colour under it -- so the words never disappear between passes. */
+.shimmer {
+  color: transparent;
+  background-image:
+    linear-gradient(
+      90deg,
+      transparent calc(50% - var(--shimmer-spread)),
+      var(--text),
+      transparent calc(50% + var(--shimmer-spread))),
+    linear-gradient(var(--text-muted), var(--text-muted));
+  background-repeat: no-repeat, padding-box;
+  background-size: 250% 100%, auto;
+  background-position: 100% center;
+  -webkit-background-clip: text;
+  background-clip: text;
+  animation: shimmer var(--shimmer) linear infinite;
+}
+
+@keyframes shimmer { to { background-position: 0% center; } }
+
+/* Under reduced motion the global rule would run these once in a millisecond and leave them
+   frozen mid-sweep, so they are turned off here rather than sped up. */
+@media (prefers-reduced-motion: reduce) {
+  .button[data-busy]::after { display: none; }
+
+  .shimmer {
+    color: var(--text-muted);
+    background-image: none;
+    animation: none;
+  }
+}
 
 /* -------------------------------------------------------- boot failure -- */
 

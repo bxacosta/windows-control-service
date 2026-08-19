@@ -178,6 +178,7 @@ components:
   wordmark-mark:
     backgroundColor: "{colors.ground-veil}"
     textColor: "{colors.signal}"
+    size: 18px
 
   # Anchored near the top rather than centred: a dialog floating in the middle of an empty page
   # has nothing to sit against, and the list inside it grows downward anyway.
@@ -297,6 +298,13 @@ components:
     backgroundColor: "{colors.surface}"
     textColor: "{colors.text-secondary}"
     typography: "{typography.control}"
+    rounded: "{rounded.md}"
+    height: 32px
+
+  # A ghost button that removes something answers the pointer in the colour of what it does.
+  button-ghost-destructive-hover:
+    backgroundColor: "{colors.denied-wash}"
+    textColor: "{colors.denied}"
     rounded: "{rounded.md}"
     height: 32px
 
@@ -765,6 +773,13 @@ press, 160ms for a modal or a toast arriving. Nothing animates on the way out ex
 which fades. Everything here is inside `prefers-reduced-motion`, and under it only the opacity
 changes remain.
 
+The one exception is the shimmer, which is not a confirmation but a state: it runs for as long as
+the thing it is on is working. On a control it is a band of that control's own `currentColor`
+sweeping across it; on a line of text it is the paint of the letters themselves. **It never
+occupies layout**, which is the point -- a spinner has to come from somewhere, and wherever it
+comes from the control changes width when it is pressed and again when it finishes. Under reduced
+motion it is switched off rather than sped up: a sweep run once in a millisecond freezes mid-pass.
+
 ## Shapes
 
 `xs` for the count on a tab; `sm` for chips and the selected segment; `md` for buttons, fields and
@@ -826,6 +841,11 @@ fixed width that leaves a short notice half empty and wraps a long one four time
 click never leaves a ring behind. It is the same ring on every control except a field, which
 answers focus in its own border as described above. Nothing removes an outline without putting one
 back.
+
+**A control that is working shimmers; it does not grow a spinner, and nothing anywhere here does.**
+The mark in the top bar is the other thing that is drawn rather than stroked: it paints itself
+from its own gradient, and the lit pane in it is the one blue in this interface that identifies
+the product rather than a state. It is the same drawing as the favicon.
 
 **A disabled control drops to 40% opacity and stops taking pointer events**, and that is the
 whole treatment: no separate grey, no change of shape. The one thing that must not happen is a
