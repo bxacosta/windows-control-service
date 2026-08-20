@@ -1101,15 +1101,19 @@ h1, h2, p { margin: 0; }
    disappears between passes. */
 .shimmer,
 .button[data-busy] .button-label {
+  /* The bright band, and the flat colour the letters keep between passes. */
+  --shimmer-ink: var(--text);
+  --shimmer-rest: color-mix(in srgb, var(--shimmer-ink) 55%, transparent);
+
   color: transparent;
   background-image:
     linear-gradient(
       90deg,
       transparent calc(50% - var(--shimmer-spread)),
-      var(--text),
+      var(--shimmer-ink),
       transparent calc(50% + var(--shimmer-spread))),
-    linear-gradient(var(--text-muted), var(--text-muted));
-  background-repeat: no-repeat, padding-box;
+    linear-gradient(var(--shimmer-rest), var(--shimmer-rest));
+  background-repeat: no-repeat, no-repeat;
   background-size: 250% 100%, auto;
   background-position: 100% center;
   -webkit-background-clip: text;
@@ -1117,19 +1121,18 @@ h1, h2, p { margin: 0; }
   animation: shimmer var(--shimmer) linear infinite;
 }
 
-/* On a filled button the two layers come from the button's own colours instead: near-black on
-   near-white is the same reading as near-white on near-black, and one rule cannot serve both. */
-.button-primary[data-busy] .button-label,
+/* On a filled button the two layers are the colour that sits on that fill: near-black on
+   near-white is the same reading as near-white on near-black, and one rule cannot serve both.
+
+   Named tokens and not `currentColor`: the rule above sets `color: transparent` so the letters
+   can be painted by the background, so currentColor at this point *is* transparent, and both
+   layers came out invisible. */
+.button-primary[data-busy] .button-label {
+  --shimmer-ink: var(--on-primary);
+}
+
 .button-danger[data-busy] .button-label {
-  background-image:
-    linear-gradient(
-      90deg,
-      transparent calc(50% - var(--shimmer-spread)),
-      currentColor,
-      transparent calc(50% + var(--shimmer-spread))),
-    linear-gradient(
-      color-mix(in srgb, currentColor 55%, transparent),
-      color-mix(in srgb, currentColor 55%, transparent));
+  --shimmer-ink: var(--on-denied);
 }
 
 @keyframes shimmer { to { background-position: 0% center; } }
@@ -1145,7 +1148,7 @@ h1, h2, p { margin: 0; }
   }
 
   .button-primary[data-busy] .button-label,
-  .button-danger[data-busy] .button-label { color: inherit; }
+  .button-danger[data-busy] .button-label { color: var(--shimmer-ink); }
 }
 
 /* -------------------------------------------------------- boot failure -- */
