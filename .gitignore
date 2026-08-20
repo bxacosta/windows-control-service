@@ -4,6 +4,11 @@ publish/
 *.user
 TestResults/
 
+# Working notes that are not part of the product: the phase plan the project was built
+# against, the verification log, the decision record and the design exploration. They are kept
+# on the machine; the repository carries the documentation of what the project is now.
+docs/internal/
+
 # Editor state. Rider and the other JetBrains IDEs write this beside the solution; VS Code
 # and Visual Studio are already covered by the two lines above.
 .idea/

@@ -23,8 +23,7 @@ colors:
   # rather than seen. It is the only translucent surface here.
   ground-veil: "rgba(3, 3, 3, 0.86)"
 
-  # Hairlines are their own ramp, from the divider inside a card to the border of a focused
-  # field. Five steps, and which one to use is decided by how much the edge has to be noticed.
+  # Their own ramp, not part of the one above. Which step to use: see Colors.
   line-soft: "#1A1A1A"
   line: "#272727"
   line-selected: "#303030"
@@ -34,15 +33,15 @@ colors:
   # Neutral light at 9%, the only thing on this palette that brightens a surface instead of
   # darkening it: the halo around a focused field.
   halo: "rgba(255, 255, 255, 0.09)"
-  # The same 9%, flattened over `ground`, for the one place it sits behind text instead of
-  # around a control: the badge on the tab you are already on. Flattened for the same reason the
-  # washes are -- text on a translucent surface cannot be checked for contrast against it.
+  # The same 9% flattened over `ground`, for the one place it sits behind text: the badge on the
+  # tab you are already on. Flattened because text on a translucent surface cannot be checked for
+  # contrast against it.
   halo-flat: "#1A1A1A"
 
   # Text.
   text: "#EDEDED"
   text-secondary: "#A6A6A6"
-  # Raised from #7D7D7D: as placeholder text on a #161616 field it measured 4.40:1, under AA.
+  # Do not darken it: as placeholder text on a #161616 field, #7D7D7D measures 4.40:1, under AA.
   text-muted: "#858585"
 
   # Control: neutral on purpose. This is the primary interactive colour.
@@ -97,8 +96,7 @@ typography:
     fontWeight: 500
     lineHeight: 1.45
 
-  # What you press or type into. 500 is the weight of a control: it holds its own against the
-  # content it sits beside without claiming to be a title.
+  # What you press. See Typography for why a control is 500.
   control:
     fontFamily: "Segoe UI Variable Text, Segoe UI, system-ui, sans-serif"
     fontSize: 13px
@@ -110,8 +108,7 @@ typography:
     fontSize: 13px
     fontWeight: 600
 
-  # Text a person typed, and the label naming it. Not `control`: 500 on the contents of a field
-  # reads as emphasis on something the interface did not write.
+  # Text a person typed, and the label naming it. Never `control`: see Typography.
   input:
     fontFamily: "Segoe UI Variable Text, Segoe UI, system-ui, sans-serif"
     fontSize: 13px
@@ -155,9 +152,12 @@ spacing:
   7: 20px
 
 components:
-  # The measurements the layout is built from. Modelled as components because the schema has no
-  # place for a bare dimension, and a number that lives only in a stylesheet is a number nobody
-  # can check against this document.
+  # Dimensions, hairlines and gaps are modelled as components because the schema has no place for
+  # a bare number, and a number that lives only in a stylesheet is a number nobody can check
+  # against this document. Where a comment below would run longer than a line, it points at the
+  # section that carries the reasoning instead of repeating it.
+
+  # The measurements the layout is built from.
   page:
     width: 900px
     padding: "0 20px"
@@ -168,8 +168,7 @@ components:
     height: 56px
     padding: "0 20px"
 
-  # The product's name, and the only blue on screen that is not a claim about the machine. See
-  # Colors: it identifies the product, which is why it is allowed to keep a hue.
+  # The product's name. Its mark keeps a hue where nothing else does: see Colors.
   wordmark:
     backgroundColor: "{colors.ground-veil}"
     textColor: "{colors.text}"
@@ -180,8 +179,7 @@ components:
     textColor: "{colors.signal}"
     size: 18px
 
-  # Anchored near the top rather than centred: a dialog floating in the middle of an empty page
-  # has nothing to sit against, and the list inside it grows downward anyway.
+  # Anchored near the top rather than centred: see Elevation & Depth.
   scrim:
     backgroundColor: "{colors.shadow}"
     padding: "80px 20px 20px"
@@ -204,10 +202,9 @@ components:
     textColor: "{colors.text-muted}"
     typography: "{typography.meta}"
 
-  # The band above the blocked applications, and the only one. It is not a header: it carries a
-  # state of the machine, not the name of a card, which is why it has an icon and a header does
-  # not. Set in text rather than display, with only the state itself at 600 -- "Policy enforced"
-  # is the claim, "2 rules" is the detail, and setting both in bold says they weigh the same.
+  # The band above the blocked applications, and the only one. A strip is not a header: see
+  # Layout. Set in text rather than display, with only the state itself at 600 -- "Policy
+  # enforced" is the claim, "2 rules" is the detail, and bolding both says they weigh the same.
   strip:
     textColor: "{colors.text}"
     typography: "{typography.input}"
@@ -277,8 +274,7 @@ components:
     backgroundColor: "{colors.primary-press}"
     textColor: "{colors.on-primary}"
 
-  # A hairline is a 1px surface. Modelled as a component because the schema has no border
-  # property, and a token no component references is a token nobody can check.
+  # A hairline is a 1px surface.
   divider:
     backgroundColor: "{colors.line-soft}"
     height: 1px
@@ -315,8 +311,7 @@ components:
     rounded: "{rounded.md}"
     height: 32px
 
-  # The weight below the four: an action that belongs to one row or one dialog rather than to
-  # the card it sits in. Same colours, one size down.
+  # An action that belongs to one row or one dialog, not to the card. See Components.
   button-small:
     backgroundColor: "{colors.raised}"
     textColor: "{colors.text}"
@@ -346,8 +341,7 @@ components:
     backgroundColor: "{colors.raised}"
     textColor: "{colors.text-muted}"
 
-  # The two edges a field draws on itself. Hairlines, so they are components for the same reason
-  # `divider` is one: the schema has no border property.
+  # The two edges a field draws on itself. See Components.
   field-border-hover:
     backgroundColor: "{colors.line-strong}"
     height: 1px
@@ -408,8 +402,6 @@ components:
     width: 38px
     height: 22px
 
-  # Both thumbs are geometrically 16. The one on a light track is drawn a point larger because a
-  # dark shape on a light field reads smaller than the reverse. See Do's and Don'ts.
   # Asked for and not answered yet: neither of the two settled colours, so what is on screen
   # reads as the request rather than as the state of the machine.
   switch-pending:
@@ -419,6 +411,7 @@ components:
     width: 38px
     height: 22px
 
+  # Both are geometrically 16. The dark one is drawn a point larger on purpose: see Components.
   switch-thumb:
     backgroundColor: "{colors.text-secondary}"
     rounded: "{rounded.full}"
@@ -440,8 +433,7 @@ components:
     backgroundColor: "{colors.ground}"
     textColor: "{colors.text}"
 
-  # The 2px rule under the active tab. A component, not a border, for the same reason `divider`
-  # is one: the schema has no border property.
+  # The 2px rule under the active tab. See Layout for where it sits.
   tab-underline:
     backgroundColor: "{colors.primary}"
     height: 2px
@@ -543,8 +535,7 @@ components:
   icon-small:
     size: 14px
 
-  # The direction mark in Activity. Bigger than the icons around it because it is a filled shape
-  # with no interior: at 16px a solid caret reads smaller than a drawn outline of the same box.
+  # The direction mark in Activity, bigger than the icons around it. See Components.
   icon-caret:
     size: 12px
 
@@ -564,8 +555,7 @@ components:
     height: 26px
     width: 26px
 
-  # Gaps. Components for the same reason `page` is one: a number that lives only in a stylesheet
-  # is a number nobody can check against this document.
+  # Gaps.
   gap-control:
     size: 7px
 
@@ -578,8 +568,7 @@ components:
   gap-segmented:
     size: 2px
 
-  # A toast is as wide as its message needs, between these two. A fixed width leaves a short
-  # notice mostly empty and breaks a long one over four lines.
+  # A toast is as wide as its message needs, between these two. See Components.
   toast:
     backgroundColor: "{colors.raised}"
     textColor: "{colors.text}"
@@ -617,6 +606,10 @@ to whatever executes an action.
 The interface is dense on purpose. It has no explanatory paragraphs, no lead-ins under headings,
 and no captions describing what a control does. Where a caveat genuinely has to be shown -- that
 there is no password recovery -- it is one line of `meta` in a card footer, not prose.
+
+**How to read this.** The front matter carries the values; the sections below carry the reasoning,
+once each. A comment beside a token says what the token is and, when the reasoning runs longer
+than a line, points at the section that has it rather than repeating it.
 
 ## Colors
 
@@ -671,10 +664,10 @@ the wordmark, `title` for card headings, `body` and `body-strong` for rows and r
 and uppercase eyebrows, `mono` for every value that came from the machine -- executable paths, IP
 addresses, match attributes, version strings.
 
-**The wordmark is 14px, not the largest thing on screen.** It was 20px, and at that size it
-dominated the top bar and made the tab rail under it read as a footnote. The name of the product
-is the one thing on this page nobody needs to read: what matters is the sections and what they
-say about the machine. The hierarchy runs the other way round on purpose.
+**The wordmark is 14px, not the largest thing on screen.** At 20px it dominates the top bar and
+makes the tab rail under it read as a footnote. The name of the product is the one thing on this
+page nobody needs to read: what matters is the sections and what they say about the machine. The
+hierarchy runs the other way round on purpose.
 
 **500 is the weight of a control.** A tab, a button, a segment and the name of a row are set in
 it: heavy enough to hold their own beside the content they sit next to, and short of the 600 that
@@ -842,10 +835,9 @@ click never leaves a ring behind. It is the same ring on every control except a 
 answers focus in its own border as described above. Nothing removes an outline without putting one
 back.
 
-**A control that is working shimmers; it does not grow a spinner, and nothing anywhere here does.**
-The mark in the top bar is the other thing that is drawn rather than stroked: it paints itself
-from its own gradient, and the lit pane in it is the one blue in this interface that identifies
-the product rather than a state. It is the same drawing as the favicon.
+**The mark in the top bar is drawn, not stroked.** It is the one graphic here that paints itself
+from its own gradient instead of taking `currentColor` like every icon, and it is the same drawing
+as the favicon. If one of the two changes, both are wrong.
 
 **A disabled control drops to 40% opacity and stops taking pointer events**, and that is the
 whole treatment: no separate grey, no change of shape. The one thing that must not happen is a
@@ -869,6 +861,8 @@ is `sliders`, not a gear: a gear is the most generic icon there is and says only
 Applications is a `grid` of four squares. A card header carries no icon at all.
 
 ## Do's and Don'ts
+
+A summary of the rules above, written as the mistake someone will actually make.
 
 **Do** pick a surface by how far it should sit from the page, and a hairline by how much its edge
 has to be noticed.
