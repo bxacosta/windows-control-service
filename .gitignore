@@ -4,6 +4,11 @@ publish/
 *.user
 TestResults/
 
+# Editor state. Rider and the other JetBrains IDEs write this beside the solution; VS Code
+# and Visual Studio are already covered by the two lines above.
+.idea/
+.vs/
+
 # What a Development run leaves in the project directory: the service creates its data
 # directory beside the binary when no --data-dir is given.
 logs/
