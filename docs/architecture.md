@@ -29,6 +29,13 @@ src/WindowsControlService/
 │   └── Results/              Result, Error, and the single mapping to HTTP
 ├── wwwroot/                  the interface (see web-interface.md)
 └── Program.cs
+
+tests/
+├── WindowsControlService.UnitTests/
+├── WindowsControlService.IntegrationTests/
+└── interface/                the interface rules, run by node --test
+scripts/                      build, install, update, uninstall, status, validation, the DOM harness
+docs/
 ```
 
 A file belongs to the folder of the feature it talks about, not to the folder of the kind of

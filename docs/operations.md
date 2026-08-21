@@ -37,7 +37,7 @@ running legitimate programs, and a policy left behind survives the uninstall.
 | Risk                   | Consequence                                                          | Mitigation                                                                                           |
 |------------------------|----------------------------------------------------------------------|------------------------------------------------------------------------------------------------------|
 | Malformed WDAC policy  | A deny-only policy behaves as an allowlist and blocks everything     | The XML is validated against the XSD before deployment, and every policy carries the two allow rules |
-| Orphaned policy        | Applications blocked with nothing explaining it, surviving uninstall | `uninstall.ps1` removes it and verifies the removal; `-Force` is the catch-all                       |
+| Orphaned policy        | Applications blocked with nothing explaining it, surviving uninstall | `uninstall.ps1` removes it first and verifies with `CiTool`; a failure exits with an error           |
 | `USBSTOR` left at `4`  | No USB storage mounts again                                          | Restore with `Start = 3`                                                                             |
 | Half-installed service | A registered name with no binary, or a binary in use                 | `uninstall.ps1 -Force`                                                                               |
 
