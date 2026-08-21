@@ -8,7 +8,7 @@ namespace WindowsControlService.UnitTests.Features.Authentication;
 
 public sealed class PasswordServiceTests
 {
-    private const string Password = "una-contrasena-larga-2026";
+    private const string Password = "a-long-test-password-2026";
 
     private readonly FakeSettingsRepository _settings = new();
 
@@ -70,7 +70,7 @@ public sealed class PasswordServiceTests
     {
         await Service.ConfigureAsync(Password, CancellationToken.None);
 
-        var second = await Service.ConfigureAsync("otra-contrasena-2026-larga", CancellationToken.None);
+        var second = await Service.ConfigureAsync("another-test-password-2026", CancellationToken.None);
 
         Assert.Equal(ErrorCode.Conflict, second.Error.Code);
     }
@@ -99,7 +99,7 @@ public sealed class PasswordServiceTests
     }
 
     [Theory]
-    [InlineData("no-es-la-buena")]
+    [InlineData("not-the-right-one-2026")]
     [InlineData("")]
     [InlineData(null)]
     public async Task AWrongOrMissingPasswordIsAFailedLoginNotAnException(string? candidate)
@@ -126,13 +126,13 @@ public sealed class PasswordServiceTests
         await Service.ConfigureAsync(Password, CancellationToken.None);
         var before = _settings.Values[PasswordService.SecurityStampKey];
 
-        var result = await Service.ChangeAsync(Password, "otra-contrasena-2026-larga", CancellationToken.None);
+        var result = await Service.ChangeAsync(Password, "another-test-password-2026", CancellationToken.None);
 
         Assert.True(result.IsSuccess);
 
         // The rotation is what signs out every open session, including the one that changed it.
         Assert.NotEqual(before, _settings.Values[PasswordService.SecurityStampKey]);
-        Assert.True((await Service.ValidateAsync("otra-contrasena-2026-larga", CancellationToken.None)).IsSuccess);
+        Assert.True((await Service.ValidateAsync("another-test-password-2026", CancellationToken.None)).IsSuccess);
     }
 
     [Fact]
@@ -141,7 +141,7 @@ public sealed class PasswordServiceTests
         await Service.ConfigureAsync(Password, CancellationToken.None);
         var before = _settings.Values[PasswordService.HashKey];
 
-        var result = await Service.ChangeAsync("no-es-la-buena", "otra-contrasena-2026-larga", CancellationToken.None);
+        var result = await Service.ChangeAsync("not-the-right-one-2026", "another-test-password-2026", CancellationToken.None);
 
         Assert.Equal(ErrorCode.Unauthorized, result.Error.Code);
         Assert.Equal(before, _settings.Values[PasswordService.HashKey]);

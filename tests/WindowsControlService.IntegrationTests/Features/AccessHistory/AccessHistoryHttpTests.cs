@@ -7,7 +7,7 @@ namespace WindowsControlService.IntegrationTests.Features.AccessHistory;
 
 public sealed class AccessHistoryHttpTests : IDisposable
 {
-    private const string Password = "una-contrasena-larga-2026";
+    private const string Password = "a-long-test-password-2026";
     private static readonly DateTime Base = new(2026, 8, 17, 9, 0, 0, DateTimeKind.Utc);
 
     private readonly ServiceApplicationFactory _factory;

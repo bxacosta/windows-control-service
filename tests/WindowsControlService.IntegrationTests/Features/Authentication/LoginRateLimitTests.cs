@@ -10,7 +10,7 @@ namespace WindowsControlService.IntegrationTests.Features.Authentication;
 /// </summary>
 public sealed class LoginRateLimitTests : IDisposable
 {
-    private const string Password = "una-contrasena-larga-2026";
+    private const string Password = "a-long-test-password-2026";
 
     private readonly ServiceApplicationFactory _factory = new();
 
@@ -27,7 +27,7 @@ public sealed class LoginRateLimitTests : IDisposable
         {
             var response = await client.PostAsJsonAsync(
                 "/api/auth/login",
-                new { password = "no-es-la-buena" },
+                new { password = "not-the-right-one-2026" },
                 CancellationToken.None);
 
             codes.Add(response.StatusCode);

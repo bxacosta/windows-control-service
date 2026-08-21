@@ -11,7 +11,7 @@ namespace WindowsControlService.IntegrationTests.Features.Authentication;
 /// </summary>
 public sealed class AuthenticationHttpTests : IDisposable
 {
-    private const string Password = "una-contrasena-larga-2026";
+    private const string Password = "a-long-test-password-2026";
 
     private readonly ServiceApplicationFactory _factory = new ServiceApplicationFactory().WithGenerousLoginLimit();
 
@@ -110,7 +110,7 @@ public sealed class AuthenticationHttpTests : IDisposable
         using var client = _factory.CreateClient();
         await client.PostAsJsonAsync("/api/auth/password", new { password = Password }, CancellationToken.None);
 
-        var second = await client.PostAsJsonAsync("/api/auth/password", new { password = "otra-contrasena-2026" }, CancellationToken.None);
+        var second = await client.PostAsJsonAsync("/api/auth/password", new { password = "another-test-password-2026" }, CancellationToken.None);
 
         Assert.Equal(HttpStatusCode.Conflict, second.StatusCode);
     }
@@ -121,7 +121,7 @@ public sealed class AuthenticationHttpTests : IDisposable
         using var client = _factory.CreateClient();
         await client.PostAsJsonAsync("/api/auth/password", new { password = Password }, CancellationToken.None);
 
-        var response = await client.PostAsJsonAsync("/api/auth/login", new { password = "no-es-la-buena" }, CancellationToken.None);
+        var response = await client.PostAsJsonAsync("/api/auth/login", new { password = "not-the-right-one-2026" }, CancellationToken.None);
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
         Assert.DoesNotContain(SetCookieValues(response), value => value.Contains("wcs_session", StringComparison.Ordinal));
@@ -160,7 +160,7 @@ public sealed class AuthenticationHttpTests : IDisposable
 
         var response = await client.PutAsJsonAsync(
             "/api/auth/password",
-            new { currentPassword = "no-es-la-buena", newPassword = "otra-contrasena-2026-larga" },
+            new { currentPassword = "not-the-right-one-2026", newPassword = "another-test-password-2026" },
             CancellationToken.None);
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
@@ -173,7 +173,7 @@ public sealed class AuthenticationHttpTests : IDisposable
 
         var change = await client.PutAsJsonAsync(
             "/api/auth/password",
-            new { currentPassword = Password, newPassword = "otra-contrasena-2026-larga" },
+            new { currentPassword = Password, newPassword = "another-test-password-2026" },
             CancellationToken.None);
         Assert.Equal(HttpStatusCode.OK, change.StatusCode);
 

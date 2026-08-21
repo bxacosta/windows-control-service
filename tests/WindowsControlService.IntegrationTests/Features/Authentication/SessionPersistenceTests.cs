@@ -6,7 +6,7 @@ namespace WindowsControlService.IntegrationTests.Features.Authentication;
 
 public sealed class SessionPersistenceTests : IDisposable
 {
-    private const string Password = "una-contrasena-larga-2026";
+    private const string Password = "a-long-test-password-2026";
 
     private readonly string _dataDirectory = Path.Combine(
         Path.GetTempPath(),
