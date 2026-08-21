@@ -11,10 +11,18 @@
 .PARAMETER RemoveData
     Also delete the data directory, which holds the password and the access history. Without
     this flag the script asks before touching it.
+
+.PARAMETER Force
+    Emergency cleanup: ask nothing, keep nothing, and sweep what a validation run may have left
+    behind. Implies -RemoveData. This is the mode for a machine where something stopped half way
+    -- an install that failed, a validation that crashed, a service deleted by hand with its
+    policy still in force -- and it is idempotent: on a machine that never had the service it
+    does nothing and says so.
 #>
 [CmdletBinding()]
 param(
-    [switch] $RemoveData
+    [switch] $RemoveData,
+    [switch] $Force
 )
 
 Set-StrictMode -Version Latest
@@ -25,6 +33,10 @@ Assert-WcsAdministrator
 
 $paths = Get-WcsPaths
 $policyRemoved = $true
+
+if ($Force) {
+    $RemoveData = $true
+}
 
 # 1. Stop the service and really wait for it.
 $service = Get-Service $paths.ServiceName -ErrorAction SilentlyContinue
@@ -71,11 +83,18 @@ if ([System.Diagnostics.EventLog]::SourceExists($paths.ServiceName)) {
     Write-WcsStep 'event log source removed' -Level Ok
 }
 
-# 5. Binaries.
+# 5. Binaries, and under -Force whatever a validation run left in TEMP. validate-blocking.ps1
+#    clears its own working directories in a finally block; this covers the run that died before
+#    reaching it.
 if (Test-Path $paths.InstallPath) {
     Write-WcsStep 'Deleting the binaries'
     Remove-Item $paths.InstallPath -Recurse -Force -ErrorAction SilentlyContinue
     Write-WcsStep $paths.InstallPath -Level Ok
+}
+
+if ($Force) {
+    Remove-Item (Join-Path $env:TEMP 'wcs-blocking-validation') -Recurse -Force -ErrorAction SilentlyContinue
+    Remove-Item (Join-Path $env:TEMP 'wcs-blocking-validation-data') -Recurse -Force -ErrorAction SilentlyContinue
 }
 
 # 6. Data, only when asked. The password and the whole access history live there.

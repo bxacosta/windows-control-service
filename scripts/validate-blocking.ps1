@@ -36,7 +36,7 @@ Assert-WcsAdministrator
 $repositoryRoot = Split-Path $PSScriptRoot -Parent
 $work = Join-Path $env:TEMP 'wcs-blocking-validation'
 $data = Join-Path $env:TEMP 'wcs-blocking-validation-data'
-$password = 'una-contrasena-larga-de-validacion'
+$password = 'validation2026'   # letters and digits: the service refuses anything else
 
 Remove-Item $work, $data -Recurse -Force -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Force -Path $work | Out-Null
