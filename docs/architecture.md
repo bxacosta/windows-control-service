@@ -34,7 +34,7 @@ tests/
 ├── WindowsControlService.UnitTests/
 ├── WindowsControlService.IntegrationTests/
 └── interface/                the interface rules, run by node --test
-scripts/                      build, install, update, uninstall, status, validation, the DOM harness
+scripts/                      build, install, update, uninstall, status, restore point, validation, the DOM harness
 docs/
 ```
 

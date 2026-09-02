@@ -44,17 +44,33 @@ running legitimate programs, and a policy left behind survives the uninstall.
 Create a restore point first:
 
 ```powershell
-Enable-ComputerRestore -Drive "C:\"
-Checkpoint-Computer -Description "Before installing WindowsControlService" `
-                    -RestorePointType MODIFY_SETTINGS
+.\scripts\restore-point.ps1          # -Force to get one within 24 hours of the last
 ```
 
-Windows allows one automatic point every 24 hours. To force one now:
+**The net is for WDAC, and only for WDAC.** A policy built wrong can leave this machine refusing
+to run applications, including whatever you would reach for to undo it, and no script here can
+promise to talk its way out of that. It is not the net for a registry change: the USB tests write
+two DWORDs and put them back in a `finally`, and the recovery when that fails is one
+`Set-ItemProperty`, not a rollback of the whole machine. Run this before anything that applies a
+policy; skip it for the registry tests.
 
-```powershell
-New-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\SystemRestore" `
-  -Name "SystemRestorePointCreationFrequency" -Value 0 -PropertyType DWord -Force
+The point is created under one fixed description, `WindowsControlService checkpoint`, so
+`status.ps1` can tell one made for a validation apart from the ones Windows makes before its own
+updates:
+
 ```
+==> Restore point
+    WindowsControlService checkpoint: 2026-09-02 02:36 (0 h ago)
+```
+
+Windows refuses to create a second point within 24 hours of the last, and **it refuses
+silently** — `Checkpoint-Computer` reports success for a call that was thrown away. The script
+reads the newest point of ours before and after and says which actually happened. `-Force` lifts
+the throttle for that one call by setting `SystemRestorePointCreationFrequency` to 0 and putting
+the original back in a `finally`, rather than leaving the machine with the throttle off forever.
+
+If system protection is off, no point can exist and the script says so instead of failing
+obscurely; turn it on with `Enable-ComputerRestore -Drive $env:SystemDrive`.
 
 The policy deliberately enables `Enabled:Advanced Boot Options Menu`, so the advanced startup
 menu remains reachable and leads to the restore point.
@@ -141,6 +157,13 @@ included, which would install a service that answers the API and serves no inter
 does not report success until `GET /api/health` answers. Running is not serving: the Service
 Control Manager reports it as soon as the process is up, before Kestrel listens and before the
 migrations have run.
+
+**Re-running it is the recovery for an update that failed part way through.** It empties the
+install directory before copying, so a copy that dies half way leaves a registered service with
+no binary and `Start-Service` failing — and the fix is to run the same command again, not to
+uninstall. Verified by emptying `C:\Program Files\WindowsControlService` completely and running
+it: it stops nothing, replaces everything, starts, and answers. The data directory is never in
+the blast radius.
 
 ## Uninstall
 

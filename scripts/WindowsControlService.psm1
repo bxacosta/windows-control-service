@@ -38,6 +38,10 @@ function Get-WcsPaths {
         # never mistaken for ours.
         PolicyId     = '9E9BB70B-2BD8-4EE9-9031-30476FCF1FF3'
 
+        # The description every restore point this project creates carries, so that one made
+        # for a validation can be told apart from Windows' own scheduled checkpoints.
+        RestorePointName = 'WindowsControlService checkpoint'
+
         CiToolPath   = Join-Path $env:SystemRoot 'System32\CiTool.exe'
         UsbStorKey   = 'HKLM:\SYSTEM\CurrentControlSet\Services\USBSTOR'
         StoragePolicyKey = 'HKLM:\SYSTEM\CurrentControlSet\Control\StorageDevicePolicies'
@@ -225,6 +229,78 @@ function Wait-WcsHealth {
     return $false
 }
 
+function Test-WcsSystemProtection {
+    <#
+    .SYNOPSIS
+        Whether System Protection is on, which decides whether a restore point can exist at all.
+
+    .DESCRIPTION
+        RPSessionInterval is 0 when protection is off. Asked rather than assumed: on a machine
+        with it disabled, Checkpoint-Computer fails with a message about the service, and the
+        useful thing to say is that protection is off and how to turn it on.
+    #>
+    [CmdletBinding()]
+    param()
+
+    $configuration = Get-ItemProperty `
+        'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\SystemRestore' `
+        -ErrorAction SilentlyContinue
+
+    if (-not $configuration) { return $false }
+    if ($configuration.PSObject.Properties.Name -contains 'DisableSR' -and $configuration.DisableSR -eq 1) { return $false }
+
+    return $configuration.RPSessionInterval -ne 0
+}
+
+function Get-WcsRestorePoint {
+    <#
+    .SYNOPSIS
+        The newest restore point this project created, or $null.
+
+    .DESCRIPTION
+        Matched on the description rather than on being the newest point of any kind: Windows
+        makes its own before updates, and one of those is not evidence that anybody prepared for
+        a validation.
+
+        CreationTime comes back in WMI's own format, yyyyMMddHHmmss.ffffffsUUU, and is parsed by
+        its fixed prefix. The alternative is ManagementDateTimeConverter, which drags in an
+        assembly that is not loaded in PowerShell 7 by default.
+
+        That trailing sUUU is the offset from UTC in minutes, and on restore points it is -000:
+        the stamp is UTC, not local. Parsing it as local time and subtracting it from Get-Date
+        gave "-5 h ago" on a machine five hours behind UTC -- an age in the future for a point
+        created one second earlier. Both sides of the subtraction are UTC here, and only the
+        value handed back for display is converted.
+    #>
+    [CmdletBinding()]
+    param()
+
+    $name = (Get-WcsPaths).RestorePointName
+
+    $points = @(Get-CimInstance -Namespace root/default -ClassName SystemRestore -ErrorAction SilentlyContinue |
+        Where-Object { $_.Description -eq $name })
+
+    if (-not $points) { return $null }
+
+    $asUtc = {
+        [datetime]::SpecifyKind(
+            [datetime]::ParseExact($args[0].Substring(0, 14), 'yyyyMMddHHmmss', $null),
+            [DateTimeKind]::Utc)
+    }
+
+    $newest = $points |
+        Sort-Object { & $asUtc $_.CreationTime } |
+        Select-Object -Last 1
+
+    $createdAtUtc = & $asUtc $newest.CreationTime
+
+    [PSCustomObject]@{
+        SequenceNumber = $newest.SequenceNumber
+        CreatedAt      = $createdAtUtc.ToLocalTime()
+        Age            = [datetime]::UtcNow - $createdAtUtc
+    }
+}
+
 function Get-WcsUsbStart {
     [CmdletBinding()]
     param()
@@ -234,4 +310,4 @@ function Get-WcsUsbStart {
 
 Export-ModuleMember -Function Get-WcsPaths, Write-WcsStep, Assert-WcsAdministrator,
     Assert-WcsArtifact, Wait-WcsServiceStatus, Wait-WcsHealth, Get-WcsPolicyState,
-    Remove-WcsPolicy, Get-WcsUsbStart
+    Remove-WcsPolicy, Get-WcsUsbStart, Test-WcsSystemProtection, Get-WcsRestorePoint

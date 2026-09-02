@@ -63,6 +63,24 @@ switch ($start) {
     default { Write-WcsStep "USBSTOR Start = $start (unexpected)" -Level Warn }
 }
 
+# Shown here because the question it answers is asked before a validation, not after: is there
+# a net if the next WDAC policy goes wrong. Ours only, matched by description -- Windows makes
+# its own before updates, and one of those is not evidence that anybody prepared.
+Write-WcsStep 'Restore point'
+if (-not (Test-WcsSystemProtection)) {
+    Write-WcsStep 'system protection is OFF, so none can be created' -Level Warn
+}
+else {
+    $point = Get-WcsRestorePoint
+    if ($point) {
+        $age = if ($point.Age.TotalHours -lt 48) { "$([int]$point.Age.TotalHours) h ago" } else { "$([int]$point.Age.TotalDays) d ago" }
+        Write-WcsStep "$($paths.RestorePointName): $($point.CreatedAt.ToString('yyyy-MM-dd HH:mm')) ($age)" -Level Ok
+    }
+    else {
+        Write-WcsStep 'none of ours. Create one with .\scripts\restore-point.ps1 before applying a policy.' -Level Info
+    }
+}
+
 Write-WcsStep 'Database'
 $database = Join-Path $paths.DataPath 'windows-control-service.db'
 if (Test-Path $database) {
