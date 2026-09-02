@@ -20,6 +20,10 @@ function Get-WcsPaths {
 
     $installPath = Join-Path $env:ProgramFiles 'WindowsControlService'
 
+    # The default in ServiceConstants.DefaultUrl. Written once here and derived from, so
+    # that a diagnostic cannot end up watching a different port from the one it curls.
+    $port = 5150
+
     [PSCustomObject]@{
         ServiceName  = 'WindowsControlService'
         DisplayName  = 'Windows Control Service'
@@ -37,7 +41,8 @@ function Get-WcsPaths {
         CiToolPath   = Join-Path $env:SystemRoot 'System32\CiTool.exe'
         UsbStorKey   = 'HKLM:\SYSTEM\CurrentControlSet\Services\USBSTOR'
         StoragePolicyKey = 'HKLM:\SYSTEM\CurrentControlSet\Control\StorageDevicePolicies'
-        HealthUrl    = 'http://localhost:5150/api/health'
+        Port         = $port
+        HealthUrl    = "http://localhost:$port/api/health"
     }
 }
 
@@ -164,6 +169,62 @@ function Remove-WcsPolicy {
     return -not (Get-WcsPolicyState).Present
 }
 
+function Assert-WcsArtifact {
+    <#
+    .SYNOPSIS
+        Refuses a folder that is not a build of this service.
+
+    .DESCRIPTION
+        The interface is part of the artefact, not an extra. Checking only for the .exe is how a
+        publish that silently dropped wwwroot becomes an installed service that answers the API
+        and serves nothing -- build.ps1 already refuses to produce one, and this is what stops a
+        folder that never came from build.ps1 being deployed instead.
+    #>
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string] $Path)
+
+    if (-not (Test-Path $Path)) {
+        throw "'$Path' does not exist. Run .\scripts\build.ps1 first; the deploy scripts do not compile."
+    }
+
+    if (-not (Test-Path (Join-Path $Path 'WindowsControlService.exe'))) {
+        throw "'$Path' contains no WindowsControlService.exe. Run .\scripts\build.ps1 first."
+    }
+
+    if (-not (Test-Path (Join-Path $Path 'wwwroot\index.html'))) {
+        throw "'$Path' contains no wwwroot\index.html. That build would answer the API and serve no interface."
+    }
+}
+
+function Wait-WcsHealth {
+    <#
+    .SYNOPSIS
+        Waits for the installed service to actually answer, not merely to report Running.
+
+    .DESCRIPTION
+        The Service Control Manager says Running as soon as the process is up, which is before
+        Kestrel is listening and before the migrations have finished. A deploy that stops at
+        Running reports success for a service that cannot serve a request.
+    #>
+    [CmdletBinding()]
+    param([int] $TimeoutSeconds = 30)
+
+    $url = (Get-WcsPaths).HealthUrl
+    $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+
+    while ((Get-Date) -lt $deadline) {
+        try {
+            Invoke-WebRequest $url -UseBasicParsing -TimeoutSec 2 | Out-Null
+            return $true
+        }
+        catch {
+            Start-Sleep -Milliseconds 500
+        }
+    }
+
+    return $false
+}
+
 function Get-WcsUsbStart {
     [CmdletBinding()]
     param()
@@ -172,4 +233,5 @@ function Get-WcsUsbStart {
 }
 
 Export-ModuleMember -Function Get-WcsPaths, Write-WcsStep, Assert-WcsAdministrator,
-    Wait-WcsServiceStatus, Get-WcsPolicyState, Remove-WcsPolicy, Get-WcsUsbStart
+    Assert-WcsArtifact, Wait-WcsServiceStatus, Wait-WcsHealth, Get-WcsPolicyState,
+    Remove-WcsPolicy, Get-WcsUsbStart

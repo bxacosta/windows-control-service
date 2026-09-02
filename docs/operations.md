@@ -136,6 +136,12 @@ history. The script waits for the service to actually stop before overwriting th
 With `ShutdownTimeout` at 70 seconds, sleeping two is not enough and the symptom is `Copy-Item`
 failing on a file in use.
 
+It refuses a folder that is not a build of this service -- one without `wwwroot\index.html`
+included, which would install a service that answers the API and serves no interface -- and it
+does not report success until `GET /api/health` answers. Running is not serving: the Service
+Control Manager reports it as soon as the process is up, before Kestrel listens and before the
+migrations have run.
+
 ## Uninstall
 
 ```powershell

@@ -24,12 +24,12 @@ else {
 }
 
 Write-WcsStep 'Listening port'
-$listening = Get-NetTCPConnection -LocalPort 5150 -State Listen -ErrorAction SilentlyContinue
+$listening = Get-NetTCPConnection -LocalPort $paths.Port -State Listen -ErrorAction SilentlyContinue
 if ($listening) {
-    Write-WcsStep '5150 is listening' -Level Ok
+    Write-WcsStep "$($paths.Port) is listening" -Level Ok
 }
 else {
-    Write-WcsStep '5150 is not listening' -Level Info
+    Write-WcsStep "$($paths.Port) is not listening" -Level Info
 }
 
 Write-WcsStep 'Health endpoint'

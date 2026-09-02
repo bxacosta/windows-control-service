@@ -20,9 +20,7 @@ Assert-WcsAdministrator
 
 $paths = Get-WcsPaths
 
-if (-not (Test-Path (Join-Path $From 'WindowsControlService.exe'))) {
-    throw "'$From' contains no WindowsControlService.exe. Run .\scripts\build.ps1 first."
-}
+Assert-WcsArtifact -Path $From
 
 if (-not (Get-Service $paths.ServiceName -ErrorAction SilentlyContinue)) {
     throw "$($paths.ServiceName) is not installed. Use install.ps1."
@@ -74,4 +72,13 @@ if (-not (Wait-WcsServiceStatus -Name $paths.ServiceName -Status Running)) {
     throw "$($paths.ServiceName) did not reach Running after the update. Check $($paths.LogPath)."
 }
 
-Write-WcsStep 'updated and running' -Level Ok
+# Running is not serving. The Service Control Manager reports it as soon as the process is up,
+# which is before Kestrel listens and before the migrations have run, so an update that stops at
+# Running reports success for a service that cannot answer a request. install.ps1 has always
+# waited for this; an update is the deploy more likely to need it, not less.
+if (Wait-WcsHealth) {
+    Write-WcsStep "updated, running, and $($paths.HealthUrl) answers" -Level Ok
+}
+else {
+    throw "$($paths.ServiceName) is Running but $($paths.HealthUrl) did not answer within 30 seconds. Check $($paths.LogPath)."
+}

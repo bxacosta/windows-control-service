@@ -22,14 +22,7 @@ Assert-WcsAdministrator
 
 $paths = Get-WcsPaths
 
-if (-not (Test-Path $From)) {
-    throw "'$From' does not exist. Run .\scripts\build.ps1 first; this script does not compile."
-}
-
-$source = Join-Path $From 'WindowsControlService.exe'
-if (-not (Test-Path $source)) {
-    throw "'$From' contains no WindowsControlService.exe. Run .\scripts\build.ps1 first."
-}
+Assert-WcsArtifact -Path $From
 
 if (Get-Service $paths.ServiceName -ErrorAction SilentlyContinue) {
     throw "$($paths.ServiceName) is already installed. Use update.ps1 to deploy over it, or uninstall.ps1 first."
@@ -79,19 +72,7 @@ if (-not (Wait-WcsServiceStatus -Name $paths.ServiceName -Status Running)) {
     throw "$($paths.ServiceName) did not reach Running. Check $($paths.LogPath)."
 }
 
-$healthy = $false
-for ($attempt = 0; $attempt -lt 60; $attempt++) {
-    try {
-        Invoke-WebRequest $paths.HealthUrl -UseBasicParsing -TimeoutSec 2 | Out-Null
-        $healthy = $true
-        break
-    }
-    catch {
-        Start-Sleep -Milliseconds 500
-    }
-}
-
-if ($healthy) {
+if (Wait-WcsHealth) {
     Write-WcsStep "running, and $($paths.HealthUrl) answers" -Level Ok
 }
 else {

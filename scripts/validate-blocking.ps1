@@ -36,7 +36,16 @@ Assert-WcsAdministrator
 $repositoryRoot = Split-Path $PSScriptRoot -Parent
 $work = Join-Path $env:TEMP 'wcs-blocking-validation'
 $data = Join-Path $env:TEMP 'wcs-blocking-validation-data'
-$password = 'validation2026'   # letters and digits: the service refuses anything else
+# Generated per run rather than written here. The instance and its database are thrown away in
+# the finally block, and a password literal in a repository is a password literal whatever it
+# guards. Letters and digits, because the service refuses anything else.
+$password = 'v' + [Guid]::NewGuid().ToString('N').Substring(0, 15)
+
+# Declared before the try, because the finally block uses it. Under Set-StrictMode -Version
+# Latest, reading a variable that was never assigned is a terminating error -- so if the service
+# failed to come up, the finally that exists to guarantee no policy is left behind would itself
+# throw on line one and hide the failure that caused it.
+$session = $null
 
 Remove-Item $work, $data -Recurse -Force -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Force -Path $work | Out-Null
@@ -47,7 +56,14 @@ Push-Location $work
 dotnet new console -n wcs-test-target --force | Out-Null
 Set-Content (Join-Path $work 'wcs-test-target\Program.cs') 'Console.WriteLine("wcs-test-target running");'
 dotnet publish (Join-Path $work 'wcs-test-target') -c Release -o (Join-Path $work 'a') --nologo -v q | Out-Null
+$publishExitCode = $LASTEXITCODE
 Pop-Location
+
+# Checked here rather than left to surface as a missing-file error further down, where it would
+# read as a WDAC problem instead of a build problem.
+if ($publishExitCode -ne 0) {
+    throw "Could not build the test target (dotnet publish exit $publishExitCode). Nothing was applied to this machine."
+}
 
 $variantA = Join-Path $work 'a\wcs-test-target.exe'
 $variantB = Join-Path $work 'b\wcs-test-target-bare.exe'
@@ -88,9 +104,21 @@ $service = Start-Process 'dotnet' `
 
 try {
     Write-WcsStep "Waiting for the temporary instance on port $Port"
+    $up = $false
     foreach ($attempt in 1..90) {
         Start-Sleep -Seconds 1
-        try { Invoke-WebRequest "http://localhost:$Port/api/health" -UseBasicParsing -TimeoutSec 2 | Out-Null; break } catch { }
+        try {
+            Invoke-WebRequest "http://localhost:$Port/api/health" -UseBasicParsing -TimeoutSec 2 | Out-Null
+            $up = $true
+            break
+        }
+        catch { }
+    }
+
+    # Said here rather than left to fail on the next call. A service that never came up produced
+    # a 'cannot connect' on the password POST, which reads as an authentication fault.
+    if (-not $up) {
+        throw "The temporary instance never answered on port $Port. See $(Join-Path $work 'service-err.log')."
     }
 
     $session = New-Object Microsoft.PowerShell.Commands.WebRequestSession
@@ -131,14 +159,19 @@ try {
 finally {
     Write-WcsStep 'Teardown'
 
-    try {
-        $blocked = (Invoke-WebRequest "http://localhost:$Port/api/applications" -WebSession $session -UseBasicParsing).Content | ConvertFrom-Json
-        foreach ($entry in $blocked) {
-            Invoke-WebRequest "http://localhost:$Port/api/applications/$($entry.id)" -Method Delete -WebSession $session -UseBasicParsing | Out-Null
+    # Only worth trying if there was ever a session. Removing the policy directly, below, is the
+    # step that actually guarantees the machine is left alone; unblocking through the API is the
+    # tidier route when it is available.
+    if ($session) {
+        try {
+            $blocked = (Invoke-WebRequest "http://localhost:$Port/api/applications" -WebSession $session -UseBasicParsing).Content | ConvertFrom-Json
+            foreach ($entry in $blocked) {
+                Invoke-WebRequest "http://localhost:$Port/api/applications/$($entry.id)" -Method Delete -WebSession $session -UseBasicParsing | Out-Null
+            }
         }
-    }
-    catch {
-        Write-WcsStep "Could not unblock through the API, falling back to removing the policy directly." -Level Error
+        catch {
+            Write-WcsStep 'Could not unblock through the API, falling back to removing the policy directly.' -Level Error
+        }
     }
 
     if ($service -and -not $service.HasExited) { Stop-Process -Id $service.Id -Force }
