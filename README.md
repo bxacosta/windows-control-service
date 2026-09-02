@@ -1,7 +1,15 @@
+<p align="center">
+  <img src="banner/banner.png" alt="Windows Control Service — the Applications and Activity sections of the interface" width="900">
+</p>
+
 # WindowsControlService
 
 A Windows service that blocks applications with WDAC, blocks USB storage, and records when the machine was signed into.
 One machine, one password, a web interface on `localhost`.
+
+> That is the real interface, rendered by `banner/generate.mjs` against a simulated machine.
+> Nothing in it is read from a real computer: the blocked applications are an example, and the
+> addresses come from the ranges reserved for documentation.
 
 ## What it is
 

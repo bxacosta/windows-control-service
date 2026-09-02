@@ -14,13 +14,11 @@
 //   node scripts/interface-dom.mjs --out=after.txt
 //   git diff --no-index before.txt after.txt
 
-import { spawn } from 'node:child_process';
-import { readFile } from 'node:fs/promises';
-import { createServer } from 'node:http';
-import { extname, join, normalize, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { writeFileSync } from 'node:fs';
-import { setTimeout as delay } from 'node:timers/promises';
+import { normalize } from 'node:path';
+
+import { DEFAULT_BROWSER, openBrowser, serveDirectory } from './lib/browser.mjs';
 
 const args = Object.fromEntries(
   process.argv.slice(2).map((argument) => {
@@ -39,42 +37,15 @@ const webRoot = normalize(args.serve ?? fileURLToPath(new URL('../src/WindowsCon
 const outputPath = args.out ?? 'interface-dom.txt';
 const port = Number(args.port ?? 9334);
 
-const CONTENT_TYPES = {
-  '.html': 'text/html; charset=utf-8',
-  '.js': 'text/javascript; charset=utf-8',
-  '.mjs': 'text/javascript; charset=utf-8',
-  '.css': 'text/css; charset=utf-8',
-  '.svg': 'image/svg+xml',
-  '.json': 'application/json; charset=utf-8',
-};
-
 let origin = args.origin;
 let files = null;
 
 if (!origin) {
-  files = createServer(async (request, response) => {
-    const path = new URL(request.url, 'http://x').pathname;
-    // Normalised and re-checked against the root: a served directory is a served directory.
-    const target = normalize(join(webRoot, path === '/' ? 'index.html' : path));
-
-    if (!target.startsWith(webRoot + sep)) {
-      response.writeHead(403).end();
-      return;
-    }
-
-    try {
-      const body = await readFile(target);
-      response.writeHead(200, { 'content-type': CONTENT_TYPES[extname(target)] ?? 'application/octet-stream' });
-      response.end(body);
-    } catch {
-      response.writeHead(404).end();
-    }
-  });
-
-  await new Promise((resolve) => files.listen(0, '127.0.0.1', resolve));
-  origin = `http://127.0.0.1:${files.address().port}`;
+  files = await serveDirectory(webRoot);
+  origin = files.origin;
 }
-const browserPath = args.browser ?? 'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe';
+
+const browserPath = args.browser ?? DEFAULT_BROWSER;
 
 // Frozen, so "checked 40 s ago" is a constant. Every timestamp below is relative to it.
 const NOW = Date.parse('2026-08-19T12:00:00Z');
@@ -1061,97 +1032,22 @@ const bootstrap = (responses) => `
 })();
 `;
 
-const browser = spawn(browserPath, [
-  '--headless=old',
-  '--disable-gpu',
-  '--no-sandbox',
-  '--no-first-run',
-  `--remote-debugging-port=${port}`,
-  `--user-data-dir=${args.profile ?? 'C:\\Windows\\Temp\\wcs-dom-profile'}`,
-  '--window-size=1200,1400',
-  'about:blank',
-], { stdio: 'ignore' });
-
-let socketUrl = null;
-for (let attempt = 0; attempt < 60 && !socketUrl; attempt++) {
-  await delay(500);
-  try {
-    socketUrl = (await (await fetch(`http://127.0.0.1:${port}/json/version`)).json()).webSocketDebuggerUrl;
-  } catch {
-    // Not listening yet.
-  }
-}
-
-if (!socketUrl) {
-  browser.kill();
-  throw new Error('The browser never opened its debugging port.');
-}
-
-const socket = new WebSocket(socketUrl);
-await new Promise((resolve, reject) => {
-  socket.addEventListener('open', resolve, { once: true });
-  socket.addEventListener('error', reject, { once: true });
+const page = await openBrowser({
+  browserPath,
+  port,
+  profile: args.profile ?? 'C:\Windows\Temp\wcs-dom-profile',
+  windowSize: '1200,1400',
 });
 
-let nextId = 0;
-const waiting = new Map();
-let onLoad = null;
-
-socket.addEventListener('message', (message) => {
-  const payload = JSON.parse(message.data);
-  if (payload.method === 'Page.loadEventFired') {
-    onLoad?.();
-    return;
-  }
-
-  const pending = waiting.get(payload.id);
-  if (pending) {
-    waiting.delete(payload.id);
-    pending(payload);
-  }
-});
-
-const send = (method, params = {}, sessionId) =>
-  new Promise((resolve) => {
-    const id = ++nextId;
-    waiting.set(id, resolve);
-    socket.send(JSON.stringify({ id, method, params, sessionId }));
-  });
-
-const { result: target } = await send('Target.createTarget', { url: 'about:blank' });
-const { result: attached } = await send('Target.attachToTarget', { targetId: target.targetId, flatten: true });
-const session = attached.sessionId;
-
-await send('Page.enable', {}, session);
-await send('Runtime.enable', {}, session);
-
-const evaluate = async (expression) => {
-  const answer = await send('Runtime.evaluate', {
-    expression: `(async () => { ${expression} })()`,
-    awaitPromise: true,
-    returnByValue: true,
-  }, session);
-
-  const details = answer.result.exceptionDetails;
-  if (details) {
-    throw new Error(`${expression}\n  -> ${details.exception?.description ?? details.text}`);
-  }
-
-  return answer.result.result.value;
-};
+const { send, evaluate } = page;
 
 const blocks = [];
 const counts = { markup: 0, check: 0 };
 
 for (const scenario of scenarios) {
-  const injected = await send(
-    'Page.addScriptToEvaluateOnNewDocument',
-    { source: bootstrap(scenario.responses) },
-    session);
+  const injected = await send('Page.addScriptToEvaluateOnNewDocument', { source: bootstrap(scenario.responses) });
 
-  const navigated = new Promise((resolve) => { onLoad = resolve; });
-  await send('Page.navigate', { url: `${origin}/${scenario.hash ?? ''}` }, session);
-  await navigated;
+  await page.navigate(`${origin}/${scenario.hash ?? ''}`);
 
   // The first paint goes through the same stub, so waiting on it is enough.
   await evaluate('await window.__wcs.settle();');
@@ -1174,13 +1070,12 @@ for (const scenario of scenarios) {
   blocks.push(`### ${scenario.name}\n${captured.join('\n')}`);
   process.stdout.write(`${scenario.name}\n`);
 
-  await send('Page.removeScriptToEvaluateOnNewDocument', { identifier: injected.result.identifier }, session);
-  await send('Page.navigate', { url: 'about:blank' }, session);
+  await send('Page.removeScriptToEvaluateOnNewDocument', { identifier: injected.result.identifier });
+  await page.blank();
 }
 
 writeFileSync(outputPath, `${blocks.join('\n\n')}\n`, 'utf8');
-socket.close();
-browser.kill();
+await page.close();
 files?.close();
 
 process.stdout.write(
