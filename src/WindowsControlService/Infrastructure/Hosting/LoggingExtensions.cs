@@ -15,6 +15,12 @@ public static class LoggingExtensions
         "{Message:lj}{NewLine}{NewLine}Source context: {SourceContext}{NewLine}UTC: {UtcTimestamp:o}{NewLine}{Exception}";
 
     /// <summary>
+    /// Set to <c>false</c> to keep this process out of the machine's Application log. The
+    /// integration tests set it; nothing else should.
+    /// </summary>
+    public const string EventLogEnabledKey = "Logging:EventLog:Enabled";
+
+    /// <summary>
     /// Two destinations: a rolling file in the data directory, and the Windows Event Log from
     /// <see cref="LogEventLevel.Warning"/> up.
     /// </summary>
@@ -36,12 +42,6 @@ public static class LoggingExtensions
     /// the picture either way.
     /// </para>
     /// </remarks>
-    /// <summary>
-    /// Set to <c>false</c> to keep this process out of the machine's Application log. The
-    /// integration tests set it; nothing else should.
-    /// </summary>
-    public const string EventLogEnabledKey = "Logging:EventLog:Enabled";
-
     public static void ConfigureLogging(this WebApplicationBuilder builder, DataDirectory dataDirectory)
     {
         ArgumentNullException.ThrowIfNull(builder);

@@ -247,7 +247,18 @@ function Test-WcsSystemProtection {
         -ErrorAction SilentlyContinue
 
     if (-not $configuration) { return $false }
-    if ($configuration.PSObject.Properties.Name -contains 'DisableSR' -and $configuration.DisableSR -eq 1) { return $false }
+
+    $has = { param($name) $configuration.PSObject.Properties.Name -contains $name }
+
+    if ((& $has 'DisableSR') -and $configuration.DisableSR -eq 1) { return $false }
+
+    # Guarded like DisableSR above, and for the same reason. Without it, a SystemRestore key that
+    # carries no RPSessionInterval -- one where only DisableSR was ever written by policy -- either
+    # throws under Set-StrictMode or, worse, answers $null -ne 0 as $true. Both end with the caller
+    # believing protection is on: restore-point.ps1 skips its "protection is off, here is how to
+    # turn it on" message and Checkpoint-Computer fails with the obscure one instead, and
+    # status.ps1 reads "none of ours" as "you simply have not made one yet".
+    if (-not (& $has 'RPSessionInterval')) { return $false }
 
     return $configuration.RPSessionInterval -ne 0
 }

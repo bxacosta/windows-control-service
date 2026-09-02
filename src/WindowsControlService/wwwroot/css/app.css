@@ -1222,8 +1222,16 @@ h1, h2, p { margin: 0; }
 
 .button-gate { height: var(--gate-field-height); border-radius: var(--radius-lg); }
 
-/* The error slot is always in the layout, so showing one moves nothing. */
-.gate-error { padding: 0; }
+/* The error slot is always in the layout, so showing one moves nothing -- and that takes both
+   of these. Zeroing the padding was not enough: `.field-error:empty` removes the element from
+   the flow entirely, and on the first-run form the slot sits between the fields and the button,
+   so an error appearing pushed the button down under the cursor about to press it. */
+.gate-error {
+  padding: 0;
+  min-height: calc(var(--size-meta) * var(--leading-body));
+}
+
+.gate-error:empty { display: block; }
 
 .gate-note {
   color: var(--text-muted);
@@ -1308,7 +1316,24 @@ h1, h2, p { margin: 0; }
   --shimmer-ink: var(--on-denied);
 }
 
+/* An icon cannot be clipped to letters. `background-clip: text` has no glyphs to clip to when
+   the label is a single <svg>, and the `color: transparent` above erases a stroke drawn in
+   currentColor -- so the sign-in button, whose whole label is an arrow, went blank for the
+   length of the round trip. That is the dead click `pending.js` exists to prevent, arrived at
+   from the other side. The icon keeps a real colour and says it is working by breathing on the
+   shimmer's own beat. Both tokens are the ones the variant already set, so a filled button
+   breathes in its own ink. */
+.button[data-busy] .button-label .icon {
+  stroke: var(--shimmer-rest);
+  animation: icon-busy var(--shimmer) ease-in-out infinite;
+}
+
 @keyframes shimmer { to { background-position: 0% center; } }
+
+@keyframes icon-busy {
+  0%, 100% { opacity: 0.45; }
+  50% { opacity: 1; }
+}
 
 /* Under reduced motion the global rule would run these once in a millisecond and leave them
    frozen mid-sweep, so they are turned off here rather than sped up. */
@@ -1322,6 +1347,12 @@ h1, h2, p { margin: 0; }
 
   .button-primary[data-busy] .button-label,
   .button-danger[data-busy] .button-label { color: var(--shimmer-ink); }
+
+  .button[data-busy] .button-label .icon {
+    stroke: var(--shimmer-ink);
+    opacity: 1;
+    animation: none;
+  }
 }
 
 /* -------------------------------------------------------- boot failure -- */

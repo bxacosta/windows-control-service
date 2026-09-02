@@ -4,27 +4,34 @@ namespace WindowsControlService.Features.Health;
 /// The instant this process began serving, stamped once.
 /// </summary>
 /// <remarks>
-/// A hosted service rather than a constructor, and this is the whole point of the type: a
-/// singleton is built the first time something asks for it, so a stamp taken in its constructor
-/// would record the first request to <c>/api/health</c> and not the start of the service. The
-/// host runs <see cref="StartAsync"/> before the server accepts anything, so by the time any
-/// caller can read <see cref="StartedAt"/> it is already the right instant.
-///
+/// <para>
+/// Stamped in the constructor, and registered as an <see cref="IHostedService"/> only to decide
+/// <em>when</em> that constructor runs. A singleton is otherwise built the first time something
+/// asks for it, which would record the first request to <c>/api/health</c> rather than the start
+/// of the service: an uptime reading as nothing however long the service had really been up, and
+/// only on a machine where nobody had opened the page yet.
+/// </para>
+/// <para>
+/// Not in <c>StartAsync</c>, which was the first attempt and was wrong. The host materialises
+/// every hosted service before starting any of them, but it then starts them in registration
+/// order -- and <c>GenericWebHostService</c>, which is Kestrel, is registered while the builder
+/// is being constructed, long before <c>AddHealth</c>. So a <c>StartAsync</c> stamp happens after
+/// the port is already accepting connections, and a request landing in that window would read
+/// <see cref="DateTime"/>.MinValue and be rendered as an uptime of some seven hundred thousand
+/// days. Construction happens before any of them start, so there is no such window.
+/// </para>
+/// <para>
 /// The clock is injected, like everywhere else here: a service that reads
 /// <see cref="DateTime"/>.UtcNow cannot be tested against an uptime that is not the age of the
 /// test run.
+/// </para>
 /// </remarks>
 public sealed class ServiceStartTime(TimeProvider clock) : IHostedService
 {
     /// <summary>UTC, like every timestamp this API produces.</summary>
-    public DateTime StartedAt { get; private set; }
+    public DateTime StartedAt { get; } = clock.GetUtcNow().UtcDateTime;
 
-    public Task StartAsync(CancellationToken cancellationToken)
-    {
-        StartedAt = clock.GetUtcNow().UtcDateTime;
-
-        return Task.CompletedTask;
-    }
+    public Task StartAsync(CancellationToken cancellationToken) => Task.CompletedTask;
 
     public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
 }
