@@ -64,9 +64,31 @@ instance. The address is read once, in `Program.cs`, from `builder.Configuration
 **No mocking framework.** Doubles are hand-written `Fake*` classes in the test project: there
 are few of them, they are explicit, and their failures read better.
 
-Tests that write to the registry capture the original value first and restore it in a `finally`,
-even when the test fails. Tests that touch WDAC use a purpose-built harmless executable, never a
-real application.
+**The suite runs on the machine it is testing, and has to leave it exactly as it found it.**
+There is no isolated Windows to run against: what is under test is the effect on the real
+registry, the real event log and the real `CiTool`, and a double would only prove the double
+works. So every test that changes anything captures the original first and restores it in a
+`finally`, whatever it found and whether or not the test passes -- including the case where USB
+storage was already blocked, where the original value is put back rather than the one the test
+would prefer. Tests that touch WDAC use a purpose-built harmless executable, never a real
+application.
+
+Two things that "restore the value" did not cover, and both are now part of the rule:
+
+- **Keys the tests invent.** `Block()` reaches `StorageDevicePolicies` with `CreateSubKey`, so on
+  a machine that never had that key -- the normal case on Windows 11 -- putting the value back
+  still left an empty key behind for good. `UsbStorageSwitchWriteTests` captures whether the key
+  existed and deletes it again when it did not.
+- **The machine's Application log.** A test host booting where the service is installed finds the
+  Event Log source registered and writes into the operator's own log, under the service's name,
+  about temp directories that were never the service's. One afternoon of runs put 315 warnings
+  there. `ServiceApplicationFactory` sets `Logging:EventLog:Enabled` to `false`; the file sink
+  still records everything, into the throwaway data directory.
+
+The check that this holds is to read the machine before and after a full run: `USBSTOR Start`,
+whether `StorageDevicePolicies` exists, the service status, the number of entries under the
+`WindowsControlService` event source, and the number of installed WDAC policies. All five must be
+unchanged.
 
 `InterfaceRuleTests` shells out to `node --test` so that `dotnet test` stays the single answer to
 "is the tree green". It fails rather than passing quietly when Node is missing.

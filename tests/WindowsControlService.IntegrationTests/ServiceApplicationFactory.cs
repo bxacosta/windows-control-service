@@ -68,6 +68,12 @@ public sealed class ServiceApplicationFactory : WebApplicationFactory<Program>
 
         builder.UseSetting(DataDirectoryExtensions.ConfigurationKey, _dataDirectory);
 
+        // These tests run on the machine the service is installed on, so the Event Log source
+        // exists and the host would write into the operator's own Application log -- under the
+        // service's name, about temp directories that were never the service's. The file sink
+        // still records everything, into the throwaway data directory above.
+        builder.UseSetting(LoggingExtensions.EventLogEnabledKey, "false");
+
         // Port 0: the test server never actually listens, but UseUrls in Program.cs would
         // otherwise pin every instance to 5150.
         builder.UseSetting("urls", "http://127.0.0.1:0");

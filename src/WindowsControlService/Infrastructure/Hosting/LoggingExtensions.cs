@@ -36,6 +36,12 @@ public static class LoggingExtensions
     /// the picture either way.
     /// </para>
     /// </remarks>
+    /// <summary>
+    /// Set to <c>false</c> to keep this process out of the machine's Application log. The
+    /// integration tests set it; nothing else should.
+    /// </summary>
+    public const string EventLogEnabledKey = "Logging:EventLog:Enabled";
+
     public static void ConfigureLogging(this WebApplicationBuilder builder, DataDirectory dataDirectory)
     {
         ArgumentNullException.ThrowIfNull(builder);
@@ -58,7 +64,16 @@ public static class LoggingExtensions
                 retainedFileCountLimit: 31,
                 shared: true);
 
-        if (EventSourceExists(ServiceConstants.Name))
+        // The Event Log sink belongs to the installed service and to nothing else. On by default,
+        // so a real deployment cannot lose it by omission -- and turned off by the integration
+        // tests, because a test host booting on a machine where the service is installed finds
+        // the source registered and writes into the operator's own Application log under the
+        // service's name. Measured: an afternoon of test runs put 315 warnings there, describing
+        // temp directories that were never the service's, in the same list an operator reads to
+        // find out what the service did.
+        var eventLogEnabled = builder.Configuration.GetValue(EventLogEnabledKey, defaultValue: true);
+
+        if (eventLogEnabled && EventSourceExists(ServiceConstants.Name))
         {
             // Event Viewer is for what an operator has to act on, not a trace of every request.
             configuration.WriteTo.EventLog(
