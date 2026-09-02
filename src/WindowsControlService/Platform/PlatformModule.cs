@@ -25,6 +25,7 @@ public static class PlatformModule
         services.AddSingleton<IUsbStorageSwitch, UsbStorageSwitch>();
         services.AddSingleton<IProcessInventory, ProcessInventory>();
         services.AddSingleton<ILogonEventSource, LogonEventSource>();
+        services.AddSingleton<IMachineIdentity, MachineIdentity>();
 
         return services;
     }

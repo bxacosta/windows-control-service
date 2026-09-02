@@ -19,6 +19,7 @@ import {
   describeProcessCount,
   describeProcessEmptiness,
   describeRemoval,
+  describeServiceHealth,
   describeSessionExpiry,
   describeToggle,
   describeUsbChange,
@@ -29,6 +30,7 @@ import {
   pageNumbers,
   pagerState,
 } from '../../src/WindowsControlService/wwwroot/js/rules.js';
+import { formatUptime } from '../../src/WindowsControlService/wwwroot/js/format.js';
 
 // --- Rule 3: three policy states, and Unknown is not "nothing is blocked" ---
 
@@ -402,4 +404,55 @@ test('the session card says when the session ends, and nothing when it cannot', 
   assert.equal(describeSessionExpiry(30), 'Ends after 30 minutes of inactivity.');
   // Before the first answer arrives there is no number, and a guess would be worse than silence.
   assert.equal(describeSessionExpiry(0), '');
+});
+
+// --- The health indicator: a duration, computed here from the instant the service sent --------
+
+// The clock every case below is read against. Fixed, because "how long ago" measured from
+// Date.now() is a test that passes for a different reason every time it runs.
+const NOW = Date.parse('2026-09-02T12:00:00Z');
+const STARTED = (seconds) => new Date(NOW - seconds * 1000).toISOString();
+
+test('the uptime pads every unit after the first, and only the first is left bare', () => {
+  // The shape the format exists for: one measurement, not three adjacent numbers.
+  assert.equal(formatUptime(STARTED(4 * 86400 + 6 * 3600 + 12 * 60), NOW), '4d 06h 12m');
+  assert.equal(formatUptime(STARTED(6 * 3600 + 2 * 60), NOW), '6h 02m');
+  assert.equal(formatUptime(STARTED(12 * 60), NOW), '12m');
+});
+
+test('a unit is dropped only while nothing larger has been shown', () => {
+  // Zero hours between days and minutes is information: dropping it would turn four days and
+  // twelve minutes into "4d 12m", which is a different and much shorter duration.
+  assert.equal(formatUptime(STARTED(4 * 86400 + 12 * 60), NOW), '4d 00h 12m');
+  assert.equal(formatUptime(STARTED(4 * 86400), NOW), '4d 00h 00m');
+  // Nothing larger than minutes has been shown, so there is nothing to keep the place of.
+  assert.equal(formatUptime(STARTED(3 * 60), NOW), '3m');
+});
+
+test('an uptime under a minute says so instead of rounding to zero', () => {
+  assert.equal(formatUptime(STARTED(41), NOW), '<1m');
+  // Clamped rather than allowed to go negative: the only way to get here is a clock that moved
+  // under both the service and this page, and "-1m" would be a reading nobody can act on.
+  assert.equal(formatUptime(STARTED(-90), NOW), '<1m');
+});
+
+test('the health line reads as a duration and keeps the version a hover away', () => {
+  const described = describeServiceHealth({
+    status: 'running',
+    version: '1.0.0+0123456789abcdef0123456789abcdef01234567',
+    machineName: 'DESKTOP-7K2M1',
+    startedAt: STARTED(4 * 86400 + 6 * 3600 + 12 * 60),
+  }, NOW);
+
+  // The service's own word, printed and not interpreted: comparing `status` against a word this
+  // file chose is how the dot spent months never going green.
+  assert.equal(described.text, 'running 4d 06h 12m');
+  // The version is not lost, and the commit after the plus sign does not come with it.
+  assert.match(described.title, /^Started .+ · version 1\.0\.0$/);
+});
+
+test('the health line says nothing before the service has answered', () => {
+  // Not "running 0m": before the first answer there is no reading, and inventing one would put
+  // a claim about the service next to a dot that does not know either.
+  assert.deepEqual(describeServiceHealth(null, NOW), { text: '', title: '' });
 });

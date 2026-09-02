@@ -23,6 +23,9 @@ export const ids = Object.freeze({
   }),
   gate: Object.freeze({
     root: 'gate',
+    machineName: 'gate-machine',
+    machineStatus: 'gate-status',
+    machineDot: 'gate-dot',
     setupForm: 'setup-form',
     setupPassword: 'setup-password',
     setupCount: 'setup-count',

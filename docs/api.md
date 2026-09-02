@@ -50,11 +50,28 @@ All timestamps are UTC in ISO 8601.
 ### `GET /api/health` · public
 
 ```json
-{ "status": "running", "version": "1.0.0+<commit>", "timestamp": "2026-08-17T10:30:00Z" }
+{
+  "status": "running",
+  "version": "1.0.0+<commit>",
+  "machineName": "DESKTOP-7K2M1",
+  "startedAt": "2026-08-13T04:48:00Z",
+  "timestamp": "2026-08-17T10:30:00Z"
+}
 ```
 
 `status` is a constant. The endpoint answering at all is the information; the value is not a
 health assessment and must not be compared against.
+
+`startedAt` is when the service started, not how long it has been up. A duration would be stale
+by the time it was painted and the client would have to ask again every minute to keep it
+current; the instant is a fact that does not decay, and the subtraction belongs to whoever is
+displaying it.
+
+**This endpoint is public, and that decides what may be in it.** The sign-in screen reads it
+before there is a session, so everything here is visible to anyone who can reach the port: the
+machine's name, how long its service has been up, and the version. What the machine is
+*configured* to block is not in that list and must not be added to it — the policy state, the
+blocked applications and the USB setting all live behind a session.
 
 ---
 

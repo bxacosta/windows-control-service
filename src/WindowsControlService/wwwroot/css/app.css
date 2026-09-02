@@ -125,6 +125,16 @@
   --modal-list-height: 330px;
   --scrim-top: 80px;
   --gate-width: 380px;
+  --gate-field-height: 44px;
+  --gate-mark-size: 46px;
+  --gate-gap: 34px;
+  /* The lattice behind the sign-in screen. The pitch is the layout's own 56px; the two paints
+     are the only greys here that are not on either ramp, because they are not surfaces and not
+     edges -- they are light on the page. */
+  --lattice-pitch: 56px;
+  --lattice: rgba(255, 255, 255, 0.032);
+  --lattice-lift: rgba(255, 255, 255, 0.026);
+  --lattice-fade: radial-gradient(96% 78% at 50% 42%, #000 0%, transparent 74%);
   --toast-min: 260px;
   --toast-max: 380px;
   --button-small-height: 27px;
@@ -188,7 +198,18 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-.sprite { display: none; }
+/* Out of the layout, and deliberately NOT display:none. A paint server or a mask defined inside
+   a display:none subtree does not resolve when it is instanced through <use>: the mark came out
+   as its blue pane alone, with the steel shield and the four holes silently missing, while every
+   stroked icon beside it was fine -- currentColor is not a reference and has nothing to resolve.
+   Measured on this machine, in Edge: the same symbol renders correctly with the sprite hidden by
+   size and not at all with it hidden by display. */
+.sprite {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+}
 
 [hidden] { display: none !important; }
 
@@ -1076,17 +1097,169 @@ h1, h2, p { margin: 0; }
 
 /* ---------------------------------------------------------------- gate -- */
 
+/* The screen is the composition, not a card floating on it. A card here was a box with a
+   heading that repeated its own button, a label naming the only field on screen, and a footer
+   whose one job was to hold that button -- three pieces of chrome for one password.
+
+   The lattice is the only decoration in the interface and it is deliberately almost invisible:
+   hairlines on the same 56px pitch the layout is built from, at 3.2% of white, put out by a
+   radial mask before they reach an edge. It is drawn on ::before rather than on the element so
+   the mask cannot take the content down with it. */
 .gate {
+  position: relative;
   min-height: 100vh;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: var(--page-pad);
+  overflow: hidden;
 }
 
-.gate-card { width: 100%; max-width: var(--gate-width); }
+.gate::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    repeating-linear-gradient(0deg, var(--lattice) 0 1px, transparent 1px var(--lattice-pitch)),
+    repeating-linear-gradient(90deg, var(--lattice) 0 1px, transparent 1px var(--lattice-pitch));
+  -webkit-mask-image: var(--lattice-fade);
+  mask-image: var(--lattice-fade);
+  pointer-events: none;
+}
 
-.gate-card .form-row { grid-template-columns: auto 1fr; }
+/* The faint lift under the composition, so the middle of the screen is not the same value as
+   its corners. Neutral: a hue here would be the only colour on this interface that claims
+   nothing. */
+.gate::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(84% 66% at 50% 40%, var(--lattice-lift), transparent 70%);
+  pointer-events: none;
+}
+
+.gate-column {
+  position: relative;
+  width: 100%;
+  max-width: var(--gate-width);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.gate-identity {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: var(--gate-gap);
+}
+
+/* Larger than in the bar, and the one place it is: there the name of the product is the thing
+   nobody needs to read, and here it is the only thing identifying what is asking. */
+.gate-mark {
+  width: var(--gate-mark-size);
+  height: var(--gate-mark-size);
+  margin-bottom: var(--space-6);
+}
+
+.gate-name {
+  font-family: var(--font-display);
+  font-size: var(--size-display);
+  font-weight: var(--weight-display);
+  letter-spacing: var(--tracking-display);
+}
+
+/* The machine, in mono like every other value that came from the service. Empty until the
+   health answers, and it keeps its height so nothing moves when it arrives. */
+.gate-machine {
+  min-height: calc(var(--size-mono) * var(--leading-body));
+  margin-top: var(--gap-note);
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: var(--size-mono);
+  letter-spacing: var(--tracking-mono);
+}
+
+.gate-form {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.gate-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.gate-label {
+  color: var(--text-secondary);
+  font-size: var(--size-label);
+  font-weight: var(--weight-label);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+}
+
+/* Taller than a field inside a card: this one is the only control on the screen, and 34px in
+   the middle of an empty viewport reads as a leftover. */
+.field-gate { height: var(--gate-field-height); border-radius: var(--radius-lg); }
+
+/* Room for the submit sitting inside the field. */
+.field-with-submit { padding-right: calc(var(--control-height) + var(--space-4)); }
+
+.gate-single { width: 100%; }
+
+/* The primary button, shrunk to the square that fits inside the field with 6px of air. It is
+   still the same control: same fill, same weights, same shimmer while it works. */
+.button-submit {
+  position: absolute;
+  right: var(--space-2);
+  width: var(--control-height);
+  padding-inline: 0;
+  border-radius: var(--radius-sm);
+}
+
+.button-gate { height: var(--gate-field-height); border-radius: var(--radius-lg); }
+
+/* The error slot is always in the layout, so showing one moves nothing. */
+.gate-error { padding: 0; }
+
+.gate-note {
+  color: var(--text-muted);
+  font-size: var(--size-meta);
+  text-align: center;
+}
+
+/* What the sign-in screen says about the machine, in the same words the bar uses once you are
+   in. Far enough below the form that it reads as a footnote and not as a field's own note. */
+.gate-service {
+  display: flex;
+  align-items: center;
+  gap: var(--gap-control);
+  margin-top: var(--gate-gap);
+  min-height: var(--space-6);
+}
+
+.gate-status {
+  color: var(--text-muted);
+  font-size: var(--size-meta);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Present for a screen reader, absent for everyone else: the sign-in field is named by its
+   placeholder, and a placeholder is not a label. */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
 
 /* --------------------------------------------------------------- busy -- */
 

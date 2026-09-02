@@ -6,6 +6,7 @@
  */
 
 import { attributes, elementsOf } from './markup.js';
+import { describeServiceHealth } from './rules.js';
 
 const ui = elementsOf('shell');
 
@@ -16,20 +17,26 @@ export function showApplication(visible) {
   ui.main.hidden = !visible;
 }
 
-/** The service's own words, printed rather than interpreted. */
-export function showHealth(health) {
-  // The informational version carries the commit after a plus sign. The top bar is not the
-  // place for a forty character hash.
-  ui.serviceStatus.textContent = `${health.status} · ${String(health.version).split('+')[0]}`;
+/**
+ * The service's own words, printed rather than interpreted. What they say is decided in
+ * `rules.js`; this only hangs it on the two places it goes -- the line, and the exact instant on
+ * its title.
+ */
+export function showHealth(health, now = Date.now()) {
+  const described = describeServiceHealth(health, now);
+
+  ui.serviceStatus.textContent = described.text;
+  ui.serviceStatus.title = described.title;
 }
 
 /**
  * The words beside the dot, when there is no service to quote. Kept in step with the dot rather
- * than only written at boot: leaving "running · 1.0.0" up next to a red dot states a version of
- * something that stopped answering.
+ * than only written at boot: leaving "running 4d 06h 12m" up next to a red dot states an uptime
+ * for something that stopped answering. The title goes with it for the same reason.
  */
 export function showUnreachable() {
   ui.serviceStatus.textContent = 'unreachable';
+  ui.serviceStatus.title = '';
 }
 
 /**

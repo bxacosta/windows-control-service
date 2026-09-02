@@ -89,3 +89,38 @@ export function formatDuration(seconds) {
   const hours = Math.floor(minutes / 60);
   return hours < 24 ? `${hours} h ${minutes % 60} min` : `${Math.floor(hours / 24)} d ${hours % 24} h`;
 }
+
+/**
+ * How long the service has been up, from the instant it started.
+ *
+ * The first unit shown is not padded and every unit after it is two digits: "4d 06h 12m" reads
+ * as one measurement, where "4d 6h 12m" reads as three numbers that happen to be adjacent.
+ *
+ * A unit is dropped only while nothing larger has been shown. Zero hours between days and
+ * minutes is information, and dropping it would turn four days and twelve minutes into
+ * "4d 12m" -- which is a different, much shorter, duration.
+ */
+export function formatUptime(iso, now = Date.now()) {
+  const parsed = parse(iso);
+  if (parsed === null) {
+    return '—';
+  }
+
+  // Clamped rather than allowed to go negative. The service and this page run on one machine and
+  // read one clock, so the only way to get here is a clock that moved under both of them.
+  const totalMinutes = Math.floor(Math.max(0, now - parsed.getTime()) / 60000);
+  if (totalMinutes < 1) {
+    return '<1m';
+  }
+
+  const days = Math.floor(totalMinutes / 1440);
+  const hours = Math.floor(totalMinutes / 60) % 24;
+  const minutes = totalMinutes % 60;
+  const pad = (value) => String(value).padStart(2, '0');
+
+  if (days > 0) {
+    return `${days}d ${pad(hours)}h ${pad(minutes)}m`;
+  }
+
+  return hours > 0 ? `${hours}h ${pad(minutes)}m` : `${minutes}m`;
+}

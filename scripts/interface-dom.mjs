@@ -85,7 +85,14 @@ const ISO = (secondsAgo) => new Date(NOW - secondsAgo * 1000).toISOString();
 // "running" because that is the only value the endpoint can return -- it is a literal in
 // HealthEndpoints. The mock used to say "healthy", a value the service cannot produce, and that
 // is exactly why 56 scenarios passed with the indicator broken.
-const HEALTH = { status: 'running', version: '1.0.0+0123456789abcdef0123456789abcdef01234567' };
+const HEALTH = {
+  status: 'running',
+  version: '1.0.0+0123456789abcdef0123456789abcdef01234567',
+  machineName: 'DESKTOP-7K2M1',
+  // Four days, six hours and twelve minutes before the frozen clock, so the capture reads
+  // "running 4d 06h 12m" and covers the padding as well as the units.
+  startedAt: ISO(4 * 86400 + 6 * 3600 + 12 * 60),
+};
 
 /** Not an error status: a request that never arrives. */
 const OFFLINE = { offline: true };

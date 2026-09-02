@@ -72,6 +72,11 @@ colors:
   # a card has to be darker than the page the card sits on, or it is not a shadow.
   shadow: "#000000"
 
+  # The two paints of the sign-in screen's lattice, and the only greys here that are on neither
+  # ramp: they are not a surface and not an edge, they are light on the page. See Layout.
+  lattice: "rgba(255, 255, 255, 0.032)"
+  lattice-lift: "rgba(255, 255, 255, 0.026)"
+
 typography:
   # The wordmark, and nothing else. Small on purpose: see Typography.
   display:
@@ -183,6 +188,49 @@ components:
   scrim:
     backgroundColor: "{colors.shadow}"
     padding: "80px 20px 20px"
+
+  # The sign-in screen. Not a card: see Layout for why it stopped being one.
+  gate:
+    backgroundColor: "{colors.ground}"
+    width: 380px
+
+  # The lattice behind it. The pitch is the layout's own 56px, and the mask is what keeps it from
+  # reaching an edge -- a grid that runs to the corners is a background, not a light.
+  gate-lattice:
+    backgroundColor: "{colors.lattice}"
+    height: 1px
+    pitch: 56px
+
+  gate-lattice-lift:
+    backgroundColor: "{colors.lattice-lift}"
+
+  # Larger than the mark in the bar, and the one place it is. In the bar the product's name is
+  # the thing nobody needs to read; here it is the only thing identifying what is asking.
+  gate-mark:
+    size: 46px
+
+  # The gap above the form and below it, both. The two things it separates -- who is asking, and
+  # what is answering -- are further apart than any two rows of a form.
+  gate-gap:
+    size: 34px
+
+  # The only control on an otherwise empty viewport, so it is taller than a field inside a card
+  # and takes the card's radius rather than a button's.
+  gate-field:
+    backgroundColor: "{colors.raised}"
+    textColor: "{colors.text}"
+    typography: "{typography.input}"
+    rounded: "{rounded.lg}"
+    height: 44px
+    padding: "0 13px"
+
+  # The primary button, shrunk to the square that fits inside that field with 6px of air. Same
+  # fill and same shimmer: it is the same control, not a new one.
+  gate-submit:
+    backgroundColor: "{colors.primary}"
+    textColor: "{colors.on-primary}"
+    rounded: "{rounded.sm}"
+    size: 32px
 
   card:
     backgroundColor: "{colors.surface}"
@@ -724,11 +772,29 @@ Below it they stack, the button goes full width, and a form row puts its label a
 instead of beside it. Nothing else reflows: a column that is already one column does not need a
 second layout.
 
-**The sign-in and first-run screens are one card, 380px wide, centred in the viewport**, with no
-top bar and no tabs: there is nothing to navigate to until there is a session. It is the same
-card, the same field and the same primary button as everything else, which is the point -- a
-sign-in screen that looks like a different product is a sign-in screen that looks like a
-phishing page.
+**The sign-in and first-run screens are a centred column 380px wide**, with no top bar and no
+tabs: there is nothing to navigate to until there is a session.
+
+They were one card, and a card was three pieces of chrome for one password: a header reading
+"Sign in" above a button reading "Sign in", a label naming the only field on screen, and a footer
+whose whole job was to hold that button. The screen is the composition now -- the mark, the
+product's name, the machine, the field, and one line about the service. The field and the button
+are still the ones used everywhere else, which is the part that mattered: a sign-in screen that
+looks like a different product is a sign-in screen that looks like a phishing page. What
+identifies the machine sits above the form rather than inside it, because the same screen asks
+for a new password on first run and for the existing one afterwards, and neither of those two
+forms owns it.
+
+**The screen is the one place with a decoration, and it is almost invisible**: hairlines at
+`lattice`, on the same 56px pitch the layout is built from, put out by a radial mask before they
+reach any edge, over a neutral lift at `lattice-lift`. It is drawn on the container's own
+`::before` and `::after` so that masking the light cannot take the content with it. Nothing about
+it carries a hue: a colour here would be the only one on this interface claiming nothing.
+
+**The sign-in form's submit sits inside the field.** One field needs no label naming it and no
+footer to hold its button, and an arrow at the end of the only input on screen is the shortest
+way to say "press this when you are done". The label is still in the markup for a screen reader;
+the first-run form, which has two fields, keeps its labels visible and its button full width.
 
 ## Elevation & Depth
 
@@ -835,9 +901,13 @@ click never leaves a ring behind. It is the same ring on every control except a 
 answers focus in its own border as described above. Nothing removes an outline without putting one
 back.
 
-**The mark in the top bar is drawn, not stroked.** It is the one graphic here that paints itself
-from its own gradient instead of taking `currentColor` like every icon, and it is the same drawing
-as the favicon. If one of the two changes, both are wrong.
+**The mark is drawn, not stroked.** It is the one graphic here that paints itself from its own
+gradient instead of taking `currentColor` like every icon, and it is the same drawing as the
+favicon. If one of the two changes, both are wrong.
+
+It appears twice -- 18px in the top bar, 46px on the sign-in screen -- and it is one symbol in
+the sprite, used twice. Two copies of it in the markup would be a third and fourth drawing to
+keep in step with the favicon.
 
 **A disabled control drops to 40% opacity and stops taking pointer events**, and that is the
 whole treatment: no separate grey, no change of shape. The one thing that must not happen is a

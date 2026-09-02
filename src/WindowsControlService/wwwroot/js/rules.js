@@ -8,7 +8,7 @@
  * replaces. Here they survive it, and can be read without reading any markup.
  */
 
-import { formatAgo, formatDuration, formatTimestamp, formatWhen } from './format.js';
+import { formatAgo, formatDuration, formatTimestamp, formatUptime, formatWhen } from './format.js';
 
 /**
  * Every time this interface shows is relative, because the question being asked of it is "was
@@ -338,4 +338,40 @@ export function describePasswordRule(rule) {
   return rule.requiresLettersAndDigits
     ? `at least ${rule.minimum} characters, letters and digits`
     : `at least ${rule.minimum} characters`;
+}
+
+// --- Service health --------------------------------------------------------
+
+/**
+ * What the indicator beside the health dot says, in the bar and on the sign-in screen alike.
+ *
+ * It reads as a duration and not as a version because the question it answers is "has this been
+ * restarted": a version string is the same after a restart and after a week of running, and the
+ * one thing an operator looks at this corner for is whether the service is the one they left.
+ * The version has not been dropped -- it moves into the title with the exact instant, which is
+ * the rule every other time on this interface already follows.
+ *
+ * The service's own word is printed rather than interpreted. `status` is a constant it cannot
+ * vary, and comparing it against one this file chose is how the dot spent months never going
+ * green.
+ *
+ * @param {{status: string, version: string, startedAt: string} | null} health
+ *   null before the first answer, or after one that did not arrive.
+ * @returns {{text: string, title: string}} `title` is empty when there is nothing exact to hang
+ *   on it, so a renderer can remove the attribute rather than set it to a lie.
+ */
+export function describeServiceHealth(health, now = Date.now()) {
+  if (!health) {
+    return { text: '', title: '' };
+  }
+
+  // The informational version carries the commit after a plus sign. A tooltip is not the place
+  // for a forty character hash either.
+  const version = String(health.version).split('+')[0];
+  const started = exactly(health.startedAt);
+
+  return {
+    text: `${health.status} ${formatUptime(health.startedAt, now)}`,
+    title: started ? `Started ${started} · version ${version}` : `Version ${version}`,
+  };
 }

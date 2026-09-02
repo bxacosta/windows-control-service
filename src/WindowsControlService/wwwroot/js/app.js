@@ -49,12 +49,51 @@ api.whenSessionLost(() => {
 // answer with a different version than the one this page loaded with.
 api.whenReachabilityChanges((reachable) => {
   shell.showReachable(reachable);
+  session.showMachineReachable(reachable);
+
   if (reachable) {
     void showServiceStatus();
-  } else {
-    shell.showUnreachable();
+    return;
   }
+
+  // Stopping the tick is not an optimisation. A ticker left running would keep counting up
+  // beside a red dot, which is the same lie the version used to tell from that corner.
+  stopCountingUptime();
+  health = null;
+  shell.showUnreachable();
+  session.showMachineUnreachable();
 });
+
+/**
+ * The bar shows how long the service has been up, and the service answers with the instant it
+ * started rather than with a duration -- so the duration goes stale here, on its own, and has to
+ * be redrawn. Once a minute, from the value already in hand: it is printed to the minute, and
+ * asking the service again every minute would be a round trip for a subtraction the browser can
+ * do. Only the paint repeats; the fact does not change until the service is restarted, and a
+ * restart arrives as a reachability transition, which re-reads it.
+ */
+const UPTIME_TICK = 60_000;
+
+/** @type {{status: string, version: string, machineName: string, startedAt: string} | null} */
+let health = null;
+let uptimeTicker = null;
+
+function paintHealth() {
+  shell.showHealth(health);
+  session.showMachine(health);
+}
+
+function countUptime() {
+  stopCountingUptime();
+  uptimeTicker = setInterval(paintHealth, UPTIME_TICK);
+}
+
+function stopCountingUptime() {
+  if (uptimeTicker !== null) {
+    clearInterval(uptimeTicker);
+    uptimeTicker = null;
+  }
+}
 
 /**
  * GET /api/health is public and always answers, so it doubles as the proof that this page is
@@ -64,7 +103,9 @@ api.whenReachabilityChanges((reachable) => {
  */
 async function showServiceStatus() {
   try {
-    shell.showHealth(await api.getHealth());
+    health = await api.getHealth();
+    paintHealth();
+    countUptime();
   } catch (error) {
     // The words are not written here on failure. "Unreachable" belongs to a call that never
     // arrived, and that case is already handled above; a health call that arrived and failed

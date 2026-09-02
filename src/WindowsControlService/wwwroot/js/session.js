@@ -5,9 +5,9 @@
 
 import * as api from './api.js';
 import * as shell from './shell.js';
-import { elementsOf } from './markup.js';
+import { attributes, elementsOf } from './markup.js';
 import { showFieldNote } from './dom.js';
-import { describePasswordMatch, describePasswordNote } from './rules.js';
+import { describePasswordMatch, describePasswordNote, describeServiceHealth } from './rules.js';
 import { withPending } from './pending.js';
 import { notify, notifyError } from './notices.js';
 
@@ -26,6 +26,33 @@ let rules = { minimum: 0, requiresLettersAndDigits: false, sessionTimeoutMinutes
 
 export const passwordRule = () => rules;
 export const sessionTimeoutMinutes = () => rules.sessionTimeoutMinutes;
+
+/**
+ * What the sign-in screen says about the machine it is guarding. The same three functions the
+ * top bar has, because it is the same indicator: this screen has no bar to put it on, and the
+ * words are decided once, in `rules.js`, so the two cannot drift apart.
+ *
+ * It comes from GET /api/health, which is public -- it has to be, since there is no session yet.
+ * That is also the boundary on what may be said here: the name of the machine and how long its
+ * service has been up, never what the machine is configured to block.
+ */
+export function showMachine(health, now = Date.now()) {
+  const described = describeServiceHealth(health, now);
+
+  ui.machineName.textContent = health ? health.machineName : '';
+  ui.machineStatus.textContent = described.text;
+  ui.machineStatus.title = described.title;
+}
+
+/** The name stays -- it is still this machine. Only the claim about the service goes. */
+export function showMachineUnreachable() {
+  ui.machineStatus.textContent = 'unreachable';
+  ui.machineStatus.title = '';
+}
+
+export function showMachineReachable(reachable) {
+  ui.machineDot.setAttribute(attributes.health, reachable ? 'healthy' : 'unreachable');
+}
 
 function showGate(which) {
   ui.root.hidden = false;

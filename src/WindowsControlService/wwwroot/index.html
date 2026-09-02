@@ -81,12 +81,41 @@
       <line x1="8" y1="18" x2="21" y2="18"/><line x1="3.5" y1="6" x2="3.51" y2="6"/>
       <line x1="3.5" y1="12" x2="3.51" y2="12"/><line x1="3.5" y1="18" x2="3.51" y2="18"/>
     </symbol>
+    <symbol id="i-arrow-right" viewBox="0 0 24 24">
+      <path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>
+    </symbol>
     <symbol id="i-plus" viewBox="0 0 24 24">
       <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
     </symbol>
     <!-- Filled, and the only two symbols here that are. See .icon-caret. -->
     <symbol id="i-caret-right" viewBox="0 0 24 24"><path d="M16 12 8.5 18.5v-13z"/></symbol>
     <symbol id="i-caret-left" viewBox="0 0 24 24"><path d="M8 12 15.5 5.5v13z"/></symbol>
+
+    <!-- The mark, and the one drawing here that is not a stroke in currentColor: it paints
+         itself from its own gradient. A symbol rather than inline markup because it is now drawn
+         twice -- the top bar and the sign-in screen -- and two copies of it is two drawings to
+         keep in step. It is still the same drawing as favicon.svg; if one of those two changes,
+         both are wrong. -->
+    <symbol id="i-mark" viewBox="0 0 32 32">
+      <defs>
+        <linearGradient id="mark-steel" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#F6F6F6"/>
+          <stop offset="0.55" stop-color="#D2D2D2"/>
+          <stop offset="1" stop-color="#9C9C9C"/>
+        </linearGradient>
+        <mask id="mark-panes" maskUnits="userSpaceOnUse" x="0" y="0" width="32" height="32">
+          <path fill="#fff"
+                d="M6 4.4 H26 A1.6 1.6 0 0 1 27.6 6 V16.8 C27.6 23.2 22.8 27.6 16.8 29.6
+                   A2.2 2.2 0 0 1 15.2 29.6 C9.2 27.6 4.4 23.2 4.4 16.8 V6 A1.6 1.6 0 0 1 6 4.4 Z"/>
+          <rect x="10.3" y="10.6" width="5.1" height="5.1" rx="0.8" fill="#000"/>
+          <rect x="16.6" y="10.6" width="5.1" height="5.1" rx="0.8" fill="#000"/>
+          <rect x="10.3" y="16.9" width="5.1" height="5.1" rx="0.8" fill="#000"/>
+          <rect x="16.6" y="16.9" width="5.1" height="5.1" rx="0.8" fill="#000"/>
+        </mask>
+      </defs>
+      <rect width="32" height="32" fill="url(#mark-steel)" mask="url(#mark-panes)"/>
+      <rect x="10.3" y="10.6" width="5.1" height="5.1" rx="0.8" fill="#4A9EEB"/>
+    </symbol>
   </svg>
 
   <!-- Toasts stack outside the flow: a notice that pushes the page down moves the control the
@@ -96,29 +125,7 @@
   <header id="top-bar" class="top-bar" hidden>
     <div class="top-bar-inner">
       <div class="wordmark">
-        <!-- The mark itself, inline: it is the same drawing as favicon.svg, it appears exactly
-             once, and it paints itself rather than taking currentColor like every other icon
-             here. Its ids are prefixed because they share the document with the sprite. -->
-        <svg class="wordmark-mark" viewBox="0 0 32 32" aria-hidden="true" focusable="false">
-          <defs>
-            <linearGradient id="mark-steel" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0" stop-color="#F6F6F6"/>
-              <stop offset="0.55" stop-color="#D2D2D2"/>
-              <stop offset="1" stop-color="#9C9C9C"/>
-            </linearGradient>
-            <mask id="mark-panes" maskUnits="userSpaceOnUse" x="0" y="0" width="32" height="32">
-              <path fill="#fff"
-                    d="M6 4.4 H26 A1.6 1.6 0 0 1 27.6 6 V16.8 C27.6 23.2 22.8 27.6 16.8 29.6
-                       A2.2 2.2 0 0 1 15.2 29.6 C9.2 27.6 4.4 23.2 4.4 16.8 V6 A1.6 1.6 0 0 1 6 4.4 Z"/>
-              <rect x="10.3" y="10.6" width="5.1" height="5.1" rx="0.8" fill="#000"/>
-              <rect x="16.6" y="10.6" width="5.1" height="5.1" rx="0.8" fill="#000"/>
-              <rect x="10.3" y="16.9" width="5.1" height="5.1" rx="0.8" fill="#000"/>
-              <rect x="16.6" y="16.9" width="5.1" height="5.1" rx="0.8" fill="#000"/>
-            </mask>
-          </defs>
-          <rect width="32" height="32" fill="url(#mark-steel)" mask="url(#mark-panes)"/>
-          <rect x="10.3" y="10.6" width="5.1" height="5.1" rx="0.8" fill="#4A9EEB"/>
-        </svg>
+        <svg class="wordmark-mark" aria-hidden="true" focusable="false"><use href="#i-mark"/></svg>
         <span>Windows Control Service</span>
       </div>
       <div class="top-bar-right">
@@ -156,48 +163,57 @@
     </div>
   </nav>
 
+  <!-- No top bar and no tabs: there is nothing to navigate to until there is a session. What
+       identifies the machine sits above whichever form is showing, because both of them are
+       asked on the same screen and neither owns it. -->
   <div id="gate" class="gate" hidden>
-    <form id="setup-form" class="card gate-card" hidden autocomplete="off">
-      <div class="card-header"><h1 class="card-title">Set a password</h1></div>
-      <div class="form-rows">
-        <div class="form-row">
-          <label class="form-label" for="setup-password">Password</label>
+    <div class="gate-column">
+      <div class="gate-identity">
+        <svg class="gate-mark" aria-hidden="true" focusable="false"><use href="#i-mark"/></svg>
+        <h1 class="gate-name">Windows Control Service</h1>
+        <p id="gate-machine" class="gate-machine"></p>
+      </div>
+
+      <form id="setup-form" class="gate-form" hidden autocomplete="off">
+        <div class="gate-field">
+          <label class="gate-label" for="setup-password">Password</label>
           <div class="field-wrap">
-            <input id="setup-password" class="field" type="password" required autocomplete="new-password">
+            <input id="setup-password" class="field field-gate" type="password" required autocomplete="new-password">
             <span id="setup-count" class="field-note"></span>
           </div>
         </div>
-        <div class="form-row">
-          <label class="form-label" for="setup-confirm">Repeat</label>
+        <div class="gate-field">
+          <label class="gate-label" for="setup-confirm">Repeat</label>
           <div class="field-wrap">
-            <input id="setup-confirm" class="field" type="password" required autocomplete="new-password">
+            <input id="setup-confirm" class="field field-gate" type="password" required autocomplete="new-password">
             <span id="setup-match" class="field-note"></span>
           </div>
         </div>
-      </div>
-      <p id="setup-error" class="field-error" role="alert"></p>
-      <div class="card-footer">
-        <span class="footer-note">No recovery: forgetting it means deleting the database.</span>
-        <button id="setup-submit" type="submit" class="button button-primary"><span class="button-label">Set password</span></button>
-      </div>
-    </form>
+        <p id="setup-error" class="field-error gate-error" role="alert"></p>
+        <button id="setup-submit" type="submit" class="button button-primary button-gate"><span class="button-label">Set password</span></button>
+        <p class="gate-note">No recovery: forgetting it means deleting the database.</p>
+      </form>
 
-    <form id="login-form" class="card gate-card" hidden>
-      <div class="card-header"><h1 class="card-title">Sign in</h1></div>
-      <div class="form-rows">
-        <div class="form-row">
-          <label class="form-label" for="login-password">Password</label>
-          <div class="field-wrap">
-            <input id="login-password" class="field" type="password" required autocomplete="current-password">
-          </div>
+      <!-- One field, so the submit lives inside it: a label naming the only field on screen and
+           a footer holding nothing but the button were both saying what the field and the arrow
+           already say. The label is still there for a screen reader. -->
+      <form id="login-form" class="gate-form" hidden>
+        <div class="field-wrap gate-single">
+          <label class="visually-hidden" for="login-password">Password</label>
+          <input id="login-password" class="field field-gate field-with-submit" type="password"
+                 placeholder="Password" required autocomplete="current-password">
+          <button id="login-submit" type="submit" class="button button-primary button-submit" aria-label="Sign in">
+            <span class="button-label"><svg class="icon" aria-hidden="true"><use href="#i-arrow-right"/></svg></span>
+          </button>
         </div>
-      </div>
-      <p id="login-error" class="field-error" role="alert"></p>
-      <div class="card-footer">
-        <span class="footer-note"></span>
-        <button id="login-submit" type="submit" class="button button-primary"><span class="button-label">Sign in</span></button>
-      </div>
-    </form>
+        <p id="login-error" class="field-error gate-error" role="alert"></p>
+      </form>
+
+      <p class="gate-service">
+        <span id="gate-dot" class="health-dot" data-health="unknown"></span>
+        <span id="gate-status" class="gate-status"></span>
+      </p>
+    </div>
   </div>
 
   <main id="main" class="page" hidden>

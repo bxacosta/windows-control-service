@@ -56,6 +56,7 @@ builder.Services.AddOptions<ServiceEventOptions>()
     .ValidateOnStart();
 
 // 6. Features.
+builder.Services.AddHealth();
 builder.Services.AddAuthenticationFeature(builder.Configuration);
 builder.Services.AddApplicationBlocking(builder.Configuration);
 builder.Services.AddDeviceControl();

@@ -248,6 +248,18 @@ and keeps it right afterwards.
 *the health dot answers whether the call arrived*, *a service that does not answer turns the dot
 red*, *a later call that never arrives turns the dot red too*.
 
+**The words are a duration, and the service does not send one.** `GET /api/health` answers with
+`startedAt`, the instant it started; `describeServiceHealth` in `rules.js` does the subtraction.
+So the line goes stale on its own and `app.js` repaints it once a minute from the value already
+in hand — not by asking again, which would be a round trip a minute for a number the browser can
+work out. The ticker stops when the service stops answering: one left running would keep counting
+up beside a red dot, which is the lie the version used to tell from that corner.
+
+The same two values are shown on the sign-in screen, by `session.js`, because that screen has no
+bar to put them on. Both call the one rule, so the two cannot drift apart. What may be said there
+is bounded by the endpoint being public: the machine's name and the service's uptime, never what
+the machine is configured to block.
+
 ### 17. Origin has three values, and the third one is not "Local"
 
 `LogonOrigin` is `Local`, `Remote` and `Unknown`. An event whose record carried no address is
