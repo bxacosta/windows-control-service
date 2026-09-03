@@ -21,8 +21,9 @@ const HEALTH = {
 
 /**
  * Applications someone would plausibly block on a machine they are keeping someone else off.
- * Two of the rules match on FileName and one on ProductName, because which attribute a rule
- * matches on is the thing about this product worth showing.
+ * They match on both attributes a rule can match on, and two of them are switched off, because
+ * those are the two things about a rule worth showing: what it matches, and that keeping a rule
+ * is not the same as enforcing it.
  */
 const APPLICATIONS = [
   {
@@ -33,7 +34,7 @@ const APPLICATIONS = [
   {
     id: 2, name: 'Discord', executablePath: 'C:\\Users\\owner\\AppData\\Local\\Discord\\Discord.exe',
     matchAttribute: 'ProductName', matchValue: 'Discord',
-    productName: 'Discord', isEnabled: true, createdAt: ago(9 * 86400),
+    productName: 'Discord', isEnabled: false, createdAt: ago(9 * 86400),
   },
   {
     id: 3, name: 'Spotify', executablePath: 'C:\\Users\\owner\\AppData\\Roaming\\Spotify\\Spotify.exe',
@@ -43,12 +44,12 @@ const APPLICATIONS = [
   {
     id: 4, name: 'Steam', executablePath: 'C:\\Program Files (x86)\\Steam\\steam.exe',
     matchAttribute: 'FileName', matchValue: 'steam.exe',
-    productName: 'Steam Client', isEnabled: true, createdAt: ago(4 * 86400),
+    productName: 'Steam Client', isEnabled: false, createdAt: ago(4 * 86400),
   },
   {
     id: 5, name: 'Notion', executablePath: 'C:\\Users\\owner\\AppData\\Local\\Programs\\Notion\\Notion.exe',
     matchAttribute: 'ProductName', matchValue: 'Notion',
-    productName: 'Notion', isEnabled: false, createdAt: ago(2 * 86400),
+    productName: 'Notion', isEnabled: true, createdAt: ago(2 * 86400),
   },
 ];
 
@@ -83,6 +84,14 @@ const HISTORY = [
   durationSeconds: row.duration,
 }));
 
+const POLICY_STATE = {
+  state: 'Enforced',
+  enabledRuleCount: APPLICATIONS.filter((application) => application.isEnabled).length,
+  lastReconciledAt: ago(95),
+};
+
+const USB = { blocked: true, lastModified: ago(3 * 86400) };
+
 /** Keyed exactly as `api.js` asks for them: method, a space, then the path. */
 export const RESPONSES = {
   'GET /api/health': HEALTH,
@@ -94,12 +103,20 @@ export const RESPONSES = {
     sessionTimeoutMinutes: 10,
   },
   'GET /api/applications': APPLICATIONS,
-  'GET /api/applications/policy-state': {
-    state: 'Enforced',
-    enabledRuleCount: 4,
-    lastReconciledAt: ago(95),
-  },
+  'GET /api/applications/policy-state': POLICY_STATE,
   'GET /api/processes': PROCESSES,
-  'GET /api/devices/usb': { blocked: true, lastModified: ago(3 * 86400) },
+  'GET /api/devices/usb': USB,
   'GET /api/access-history?limit=10&offset=0': { total: 47, entries: HISTORY },
+};
+
+/**
+ * What the service pushes down the event stream the moment a browser connects, keyed by event
+ * name. It is not a duplicate of the table above: the tab indicators are painted from these and
+ * from nothing else, so without them the Devices tab shows no dot on a machine whose USB storage
+ * is blocked -- the section was never opened, and only the stream says so before it is.
+ */
+export const SNAPSHOT = {
+  'policy-state': POLICY_STATE,
+  usb: USB,
+  'access-history': { total: 47 },
 };

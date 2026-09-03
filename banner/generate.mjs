@@ -4,9 +4,10 @@
  *   node banner/generate.mjs
  *
  * It renders the real interface -- the same wwwroot the service serves -- against a simulated
- * machine, screenshots two sections, and composes them. Nothing is installed, no policy is
- * applied and the running service is not touched: `scripts/lib/browser.mjs` serves wwwroot from
- * disk and the whole API is answered from inside the page, exactly as the DOM harness does it.
+ * machine, screenshots the Applications section, and composes the picture around it. Nothing is
+ * installed, no policy is applied and the running service is not touched: `scripts/lib/browser.mjs`
+ * serves wwwroot from disk and the whole API is answered from inside the page, exactly as the DOM
+ * harness does it.
  *
  * The picture is deterministic. The clock is frozen in machine.mjs, so running this twice
  * produces the same bytes and a redraw only shows up in git when the interface really changed.
@@ -17,7 +18,7 @@ import { fileURLToPath } from 'node:url';
 import { setTimeout as delay } from 'node:timers/promises';
 
 import { DEFAULT_BROWSER, openBrowser, serveDirectory } from '../scripts/lib/browser.mjs';
-import { NOW, RESPONSES } from './machine.mjs';
+import { NOW, RESPONSES, SNAPSHOT } from './machine.mjs';
 
 const args = Object.fromEntries(
   process.argv.slice(2).map((argument) => {
@@ -33,8 +34,8 @@ const browserPath = args.browser ?? DEFAULT_BROWSER;
 // 960 is the page's own width: 900 of column plus its 20px of padding on each side. Wider than
 // that and every screenshot carries dead margin that has to be cropped back off later.
 const SHOT_WIDTH = 960;
-// Both panels are cut to one height so they are the same rectangle. Symmetry is the whole reason
-// the one behind reads as a second window rather than as a mistake.
+// Down to the row an application is added from, so the section is shown whole: the policy strip,
+// the rules under it, and the field they arrive through.
 const SHOT_HEIGHT = 600;
 
 const BANNER = { width: 1200, height: 630 };
@@ -44,12 +45,25 @@ const BANNER = { width: 1200, height: 630 };
 const bootstrap = `
 (() => {
   const table = ${JSON.stringify(RESPONSES)};
+  const snapshot = ${JSON.stringify(SNAPSHOT)};
   Date.now = () => ${NOW};
 
-  // The stream would open a connection that is never answered and hold the page busy.
+  // The stream would open a connection that is never answered and hold the page busy. What it
+  // does answer is the snapshot the service pushes the moment a browser connects, because the
+  // tab indicators are painted from that and from nothing else -- without it the Devices tab
+  // carries no dot on a machine whose USB storage is blocked.
   class StubEventSource {
-    constructor(url) { this.url = url; this.readyState = 1; }
-    addEventListener() {}
+    constructor(url) {
+      this.url = url;
+      this.readyState = 1;
+      this.handlers = new Map();
+      setTimeout(() => {
+        for (const [name, payload] of Object.entries(snapshot)) {
+          this.handlers.get(name)?.({ data: JSON.stringify(payload) });
+        }
+      }, 0);
+    }
+    addEventListener(name, handler) { this.handlers.set(name, handler); }
     close() { this.readyState = 2; }
   }
   StubEventSource.CONNECTING = 0; StubEventSource.OPEN = 1; StubEventSource.CLOSED = 2;
@@ -80,6 +94,19 @@ const bootstrap = `
 })();
 `;
 
+/**
+ * The last rule is caught mid-removal, asking its question. It is the interface's own state,
+ * reached the way anyone reaches it -- by pressing the button -- and it shows what a column of
+ * switches cannot: a rule is not permanent, and it asks before it goes.
+ *
+ * The caret is sent away afterwards. The confirmation puts focus on the dangerous button, which
+ * is right for someone using it and a ring around a button in a picture nobody is using.
+ */
+const askToRemoveTheLastRule = `
+  document.querySelector('#application-list .row:last-child [aria-label^="Stop blocking"]').click();
+  document.activeElement?.blur();
+`;
+
 const files = await serveDirectory(webRoot);
 const page = await openBrowser({
   browserPath,
@@ -94,13 +121,19 @@ await page.send('Emulation.setDeviceMetricsOverride', {
 });
 await page.send('Page.addScriptToEvaluateOnNewDocument', { source: bootstrap });
 
-const capture = async (hash) => {
+/** @param {string} hash The section. @param {string} [arrange] Driven once it has loaded. */
+const capture = async (hash, arrange) => {
   // Through about:blank: moving between two hashes of one URL is a same-document navigation and
   // fires no load event, so waiting for one after the first shot would wait for ever.
   await page.blank();
   await delay(150);
   await page.navigate(`${files.origin}/${hash}`);
   await page.evaluate('await window.__banner.settle();');
+
+  if (arrange) {
+    await page.evaluate(arrange);
+  }
+
   await delay(400);
 
   const shot = await page.send('Page.captureScreenshot', {
@@ -112,8 +145,7 @@ const capture = async (hash) => {
   return `data:image/png;base64,${shot.result.data}`;
 };
 
-const applications = await capture('#/applications');
-const activity = await capture('#/history');
+const applications = await capture('#/applications', askToRemoveTheLastRule);
 
 // --- 2. The composition --------------------------------------------------------------------
 
@@ -139,7 +171,9 @@ const pill = (label, ink, wash) =>
   `<span style="display:inline-flex;align-items:center;height:26px;padding:0 12px;border-radius:999px;
      background:${wash};color:${ink};font-size:12px;font-weight:600;letter-spacing:0.02em">${label}</span>`;
 
-const PANEL_WIDTH = 700;
+// One window rather than two. The second one sat behind this one showing almost nothing of
+// itself, which read as a shadow with text in it rather than as another section.
+const PANEL_WIDTH = 720;
 const PANEL_HEIGHT = Math.round(SHOT_HEIGHT * (PANEL_WIDTH / SHOT_WIDTH));
 
 const html = `<!doctype html>
@@ -189,21 +223,20 @@ const html = `<!doctype html>
     font-family: "Cascadia Mono", Consolas, ui-monospace, monospace; letter-spacing: -0.01em;
   }
 
-  /* Two windows of one size, offset. Symmetry is what makes the one behind read as a second
-     window rather than as a crop that went wrong. */
+  /* Set against the right edge and down into the bottom fade, so the window dissolves rather than
+     ends. It is not pushed further out than that: the switches and the buttons that answer the
+     question in the last row are the subject, and a bleed wide enough to cut them off wastes it. */
   .stage { position: absolute; inset: 0; z-index: 1; }
   .panel {
-    position: absolute;
+    position: absolute; left: 478px; top: 112px;
     width: ${PANEL_WIDTH}px; height: ${PANEL_HEIGHT}px;
     border: 1px solid #272727; border-radius: 14px;
     overflow: hidden; background: #0B0B0B;
+    box-shadow: 0 34px 80px rgba(0,0,0,0.8), 0 2px 4px rgba(0,0,0,0.5);
   }
   .panel img { display: block; width: 100%; }
 
-  .back { left: 468px; top: 18px; box-shadow: 0 18px 44px rgba(0,0,0,0.6); opacity: 0.8; }
-  .front { left: 532px; top: 132px; box-shadow: 0 34px 80px rgba(0,0,0,0.8), 0 2px 4px rgba(0,0,0,0.5); }
-
-  /* The edges fade rather than stop, so the windows read as continuing past the frame. */
+  /* The edges fade rather than stop, so the window reads as continuing past the frame. */
   .fade-right {
     position: absolute; top: 0; right: 0; bottom: 0; width: 96px; z-index: 3;
     background: linear-gradient(to right, rgba(3,3,3,0), rgba(3,3,3,0.92) 88%); pointer-events: none;
@@ -219,8 +252,7 @@ const html = `<!doctype html>
     <div class="lift"></div>
 
     <div class="stage">
-      <div class="panel back"><img src="${activity}" alt=""></div>
-      <div class="panel front"><img src="${applications}" alt=""></div>
+      <div class="panel"><img src="${applications}" alt=""></div>
     </div>
 
     <div class="fade-right"></div>

@@ -7,11 +7,16 @@ node banner/generate.mjs
 ```
 
 It renders the interface the service actually serves — `src/WindowsControlService/wwwroot`, read
-straight from disk — against a machine that has something to show, screenshots two sections and
-composes them. **Nothing is installed, no policy is applied and a running service is not touched.**
-The API is answered from inside the page, the same way `scripts/interface-dom.mjs` does it, and
-both go through `scripts/lib/browser.mjs` so there is one copy of the serve-and-drive-a-browser
-code rather than two.
+straight from disk — against a machine that has something to show, screenshots the Applications
+section and composes the picture around it. **Nothing is installed, no policy is applied and a
+running service is not touched.** The API is answered from inside the page, the same way
+`scripts/interface-dom.mjs` does it, and both go through `scripts/lib/browser.mjs` so there is one
+copy of the serve-and-drive-a-browser code rather than two.
+
+What the picture shows is the interface in a state it reaches on its own: the last rule is asking
+whether it should be removed because the generator presses the button, and the dot on the Devices
+tab is there because the event stream is answered with the snapshot the service sends on connect.
+Nothing is dressed up in markup to look as if someone had.
 
 Regenerate it whenever the interface changes. The clock is frozen in `machine.mjs`, so two runs of
 the same interface produce the same picture: a diff on `banner.png` means the interface moved, not
@@ -19,7 +24,7 @@ that the file was rebuilt.
 
 | File | What it is |
 |---|---|
-| `generate.mjs` | Captures the sections and composes the image |
+| `generate.mjs` | Captures the section and composes the image |
 | `machine.mjs` | The simulated machine: health, blocked applications, USB state, access history |
 | `banner.png` | The output, 1200×630 at 2x |
 | `banner.html` | The intermediate page that gets screenshotted. Untracked; useful when a change to the composition does not look like it should |
