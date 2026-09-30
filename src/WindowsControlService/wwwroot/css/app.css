@@ -247,9 +247,6 @@ h1, h2, p { margin: 0; }
   stroke-width: var(--icon-stroke-solid);
 }
 
-/* Numbers that sit in a column must not shift as they change. */
-.tabular { font-variant-numeric: tabular-nums; }
-
 /* ------------------------------------------------------------- top bar -- */
 
 .top-bar {
@@ -644,8 +641,6 @@ h1, h2, p { margin: 0; }
 
 .pill-signal { background: var(--signal-wash); color: var(--signal); }
 .pill-enforced { background: var(--enforced-wash); color: var(--enforced); }
-.pill-waiting { background: var(--waiting-wash); color: var(--waiting); }
-.pill-denied { background: var(--denied-wash); color: var(--denied); }
 .pill-remote { background: var(--remote-wash); color: var(--remote); }
 .pill-muted { background: var(--overlay); color: var(--text-secondary); }
 

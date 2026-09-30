@@ -31,13 +31,13 @@ const exactly = (iso) => (iso ? formatTimestamp(iso) : '');
  *
  * @param {{state: string, enabledRuleCount: number, lastReconciledAt: string | null} | null} state
  *   null when the service could not be asked at all.
- * @returns {{tone: string, headline: string, detail: string, checked: string, icon: 'ok' | 'alert'}}
+ * @returns {{tone: string, headline: string, detail: string, checked: string, checkedExactly: string, icon: 'ok' | 'alert'}}
  *   `tone` is the styling hook, `headline` and `detail` read on the strip, `checked` sits at its
- *   trailing edge.
+ *   trailing edge and `checkedExactly` is its tooltip.
  */
 export function describePolicyState(state) {
   if (!state) {
-    return { tone: 'unknown', headline: 'Policy state unavailable', detail: '', checked: '', icon: 'alert' };
+    return { tone: 'unknown', headline: 'Policy state unavailable', detail: '', checked: '', checkedExactly: '', icon: 'alert' };
   }
 
   const rules = `${state.enabledRuleCount} ${state.enabledRuleCount === 1 ? 'rule' : 'rules'}`;

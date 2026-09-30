@@ -6,14 +6,14 @@
 
 import { attributes, sectionId } from './markup.js';
 
-/** @type {Map<string, {name: string, element: HTMLElement, hooks: {enter?: Function, leave?: Function}}>} */
+/** @type {Map<string, {name: string, element: HTMLElement, hooks: {enter?: Function}}>} */
 const routes = new Map();
 let active = null;
 let started = false;
 
 /**
  * @param {string} name Route name, also the id suffix of its <section>.
- * @param {{enter?: () => void | Promise<void>, leave?: () => void}} hooks
+ * @param {{enter?: () => void | Promise<void>}} hooks
  */
 export function register(name, hooks = {}) {
   const element = document.getElementById(sectionId(name));
@@ -36,7 +36,6 @@ async function apply() {
   }
 
   if (active) {
-    active.hooks.leave?.();
     active.element.hidden = true;
   }
 
@@ -59,6 +58,9 @@ async function apply() {
 
 export function start() {
   if (started) {
+    // Signed in again: the section on screen was painted, or failed to paint, for the session that
+    // ended, and the route has not changed, so nothing else would load it.
+    void active?.hooks.enter?.();
     return;
   }
 

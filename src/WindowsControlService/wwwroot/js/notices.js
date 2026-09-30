@@ -44,4 +44,12 @@ export function notify(message, kind = 'ok', timeoutMs = DEFAULT_TIMEOUT_MS) {
   return remove;
 }
 
-export const notifyError = (message) => notify(message, 'error');
+/**
+ * A call that failed, said once. A lost session has already been announced by the gate, and the
+ * calls it interrupted adding their own notices would stack three toasts for one event.
+ */
+export function notifyFailure(error) {
+  if (!error.sessionLost) {
+    notify(error.message, 'error');
+  }
+}

@@ -10,7 +10,7 @@ import * as shell from './shell.js';
 import { css, elementsOf } from './markup.js';
 import { acceptsPushedValue, describeUsbChange, describeUsbState } from './rules.js';
 import { isPending, optimistic } from './pending.js';
-import { notify, notifyError } from './notices.js';
+import { notify, notifyFailure } from './notices.js';
 
 const ui = elementsOf('devices');
 
@@ -55,7 +55,7 @@ async function handleToggle(control) {
     });
   } catch (error) {
     // The switch is already back where it was.
-    notifyError(error.message);
+    notifyFailure(error);
   }
 }
 
@@ -63,7 +63,7 @@ export async function enter() {
   try {
     showUsb(await api.getUsb());
   } catch (error) {
-    notifyError(error.message);
+    notifyFailure(error);
   }
 }
 

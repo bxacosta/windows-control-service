@@ -9,13 +9,24 @@ import { attributes, elementsOf } from './markup.js';
 import { showFieldNote } from './dom.js';
 import { describePasswordMatch, describePasswordNote, describeServiceHealth } from './rules.js';
 import { withPending } from './pending.js';
-import { notify, notifyError } from './notices.js';
+import { notify, notifyFailure } from './notices.js';
 
 const ui = elementsOf('gate');
 
 /** @type {() => void} */
 let onAuthenticated = () => {};
+/** @type {() => void} */
+let onSignedOut = () => {};
 let lostAlreadyShown = false;
+
+/**
+ * Every way out of the application ends here once: signing out, changing the password, and a
+ * lost session. What has to stop with the session (the event stream) is registered once, instead
+ * of being remembered at each exit.
+ */
+export function whenSignedOut(handler) {
+  onSignedOut = handler;
+}
 
 /**
  * The rules the service owns and this interface has to obey while typing. They arrive with the
@@ -71,11 +82,6 @@ function showApplication() {
   onAuthenticated();
 }
 
-/** Field errors live in a slot that is always in the layout, so showing one moves nothing. */
-function setFieldError(slot, message) {
-  slot.textContent = message ?? '';
-}
-
 /** Validation while typing, not after submitting. The minimum is the service's rule. */
 function renderSetupNotes() {
   showFieldNote(ui.setupCount, describePasswordNote(ui.setupPassword.value, rules));
@@ -92,13 +98,14 @@ export function onSessionLost() {
   }
 
   lostAlreadyShown = true;
+  onSignedOut();
   showGate('login');
   notify('Your session ended. Sign in again.', 'warn');
 }
 
 async function handleSetup(submitEvent) {
   submitEvent.preventDefault();
-  setFieldError(ui.setupError, '');
+  ui.setupError.textContent = '';
 
   const password = ui.setupPassword.value;
   const confirmation = ui.setupConfirm.value;
@@ -106,7 +113,7 @@ async function handleSetup(submitEvent) {
   // There is no password reset: a typo here would only be discovered at the next sign in, and
   // recovering means deleting the database. The confirmation is worth the extra field.
   if (password !== confirmation) {
-    setFieldError(ui.setupError, 'The two passwords do not match.');
+    ui.setupError.textContent = 'The two passwords do not match.';
     return;
   }
 
@@ -118,14 +125,14 @@ async function handleSetup(submitEvent) {
       showApplication();
     } catch (error) {
       // The minimum length is the service's rule, so its own message is the one shown.
-      setFieldError(ui.setupError, error.message);
+      ui.setupError.textContent = error.message;
     }
   });
 }
 
 async function handleLogin(submitEvent) {
   submitEvent.preventDefault();
-  setFieldError(ui.loginError, '');
+  ui.loginError.textContent = '';
 
   const password = ui.loginPassword.value;
 
@@ -135,7 +142,7 @@ async function handleLogin(submitEvent) {
       ui.loginPassword.value = '';
       showApplication();
     } catch (error) {
-      setFieldError(ui.loginError, error.status === 401 ? 'That password is not correct.' : error.message);
+      ui.loginError.textContent = error.status === 401 ? 'That password is not correct.' : error.message;
       ui.loginPassword.select();
     }
   });
@@ -144,6 +151,7 @@ async function handleLogin(submitEvent) {
 /** Used when the caller has already explained why, so a warning notice would only repeat it. */
 export function returnToSignIn() {
   lostAlreadyShown = false;
+  onSignedOut();
   showGate('login');
 }
 
@@ -152,7 +160,7 @@ export async function signOut(control) {
     try {
       await api.logout();
     } catch (error) {
-      notifyError(error.message);
+      notifyFailure(error);
       return;
     }
 
@@ -191,7 +199,7 @@ export async function bootstrap(authenticatedHandler) {
       showApplication();
     }
   } catch (error) {
-    notifyError(error.message);
+    notifyFailure(error);
     showGate('login');
   }
 }

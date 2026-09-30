@@ -57,11 +57,13 @@ export class ApiError extends Error {
   /**
    * @param {number} status HTTP status, or 0 when the request never reached the service.
    * @param {string} message Already suitable for showing to a person.
+   * @param {boolean} sessionLost The gate already said so; callers add nothing.
    */
-  constructor(status, message) {
+  constructor(status, message, sessionLost = false) {
     super(message);
     this.name = 'ApiError';
     this.status = status;
+    this.sessionLost = sessionLost;
   }
 }
 
@@ -113,6 +115,7 @@ async function request(method, path, body, { anonymous = false } = {}) {
 
   if (response.status === 401 && !anonymous) {
     sessionLostHandler();
+    throw new ApiError(401, 'Your session ended.', true);
   }
 
   if (!response.ok) {

@@ -84,7 +84,6 @@ export const ids = Object.freeze({
     submit: 'change-password-submit',
     signOut: 'sign-out',
     passwordRule: 'password-rule',
-    sessionPill: 'session-pill',
     sessionExpiry: 'session-expiry',
   }),
 });
@@ -97,11 +96,9 @@ export const sectionId = (route) => `section-${route}`;
 
 /** Icons are one inlined sprite, referenced by id. Named here so a rename is one edit. */
 export const icons = Object.freeze({
-  shield: 'i-shield',
   shieldCheck: 'i-shield-check',
   shieldAlert: 'i-shield-alert',
   trash: 'i-trash',
-  refresh: 'i-refresh',
   ok: 'i-check-circle',
   warn: 'i-alert-triangle',
   error: 'i-x-circle',
@@ -128,7 +125,6 @@ export const css = Object.freeze({
   rowMain: 'row-main',
   rowTitle: 'row-title',
   rowDetail: 'row-detail',
-  rowMeta: 'row-meta',
   rowActions: 'row-actions',
   rowConfirm: 'row-confirm',
   /** An access event is one line and a time, so its row carries less air than an application's. */
@@ -137,11 +133,6 @@ export const css = Object.freeze({
   empty: 'empty',
   /** The same line, while what goes in its place is still being read. */
   loading: 'empty shimmer',
-  primaryButton: 'button button-primary',
-  secondaryButton: 'button button-secondary',
-  ghostButton: 'button button-ghost',
-  dangerButton: 'button button-danger',
-  iconButton: 'button button-ghost button-icon',
   /** The word inside a button, so it can shimmer while the button is working. */
   buttonLabel: 'button-label',
   /** The one action in a row that cannot be undone, so hovering it answers in its own colour. */
@@ -160,7 +151,7 @@ export const css = Object.freeze({
   toastDismiss: 'toast-dismiss',
   /** @param {'ok' | 'warn' | 'error'} kind */
   toastOf: (kind) => `toast toast-${kind}`,
-  /** @param {'signal' | 'enforced' | 'waiting' | 'denied' | 'remote' | 'muted'} tone */
+  /** @param {'signal' | 'remote' | 'muted'} tone */
   pill: (tone) => `pill pill-${tone}`,
 });
 
@@ -187,7 +178,7 @@ export const focusable = [
  * belong to this file rather than to the module that happens to set them.
  */
 export const attributes = Object.freeze({
-  /** On the policy line. app.css takes the tint and the icon colour from this. */
+  /** On the policy line. app.css styles the checked-at text from it; the tint comes from `tint`. */
   policyState: 'data-state',
   /** On the policy strip, so the whole band follows the state rather than the section. */
   tint: 'data-tint',
@@ -201,7 +192,7 @@ export const attributes = Object.freeze({
   confirming: 'data-confirming',
   /** Which way an access event points: into the machine, or out of it. */
   direction: 'data-direction',
-  /** On the health dot in the top bar. */
+  /** On the health dots: the top bar's and the sign-in screen's. */
   health: 'data-health',
   /** On a field's own note: neutral, satisfied, or not. */
   noteState: 'data-state',

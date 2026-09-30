@@ -12,7 +12,7 @@ import * as router from './router.js';
 import * as session from './session.js';
 import * as settings from './settings.js';
 import * as shell from './shell.js';
-import { notifyError } from './notices.js';
+import { notifyFailure } from './notices.js';
 
 router.register('applications', { enter: applications.enter });
 router.register('devices', { enter: devices.enter });
@@ -24,18 +24,14 @@ devices.connect();
 history.connect();
 settings.connect();
 
-// Two ways out, one path: the top bar and the Settings card both end here.
-shell.connect((control) => {
-  events.stop();
-  void session.signOut(control);
-});
+shell.connect((control) => { void session.signOut(control); });
 
-// Every 401 in the application ends here, and so does an event stream that died with one. The
-// stream is torn down first: reconnecting it while signed out would only earn another 401.
-api.whenSessionLost(() => {
-  events.stop();
-  session.onSessionLost();
-});
+// Every 401 in the application ends here, and so does an event stream that died with one.
+api.whenSessionLost(session.onSessionLost);
+
+// Stopped only once the session is really over: a sign-out that fails leaves the page, and the
+// stream feeding it, as they were. Reconnecting it while signed out would only earn another 401.
+session.whenSignedOut(events.stop);
 
 // Every call, not one at boot: the indicator stays current for the whole session instead of
 // reporting whatever was true when the page loaded. Both halves of it follow this one signal,
@@ -112,7 +108,7 @@ async function showServiceStatus() {
     // says nothing about reachability, and printing the word anyway would put it next to a
     // green dot -- the two halves contradicting each other, which is the whole point of
     // having them follow one signal.
-    notifyError(error.message);
+    notifyFailure(error);
   }
 }
 

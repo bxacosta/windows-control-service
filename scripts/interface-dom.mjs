@@ -16,7 +16,8 @@
 
 import { fileURLToPath } from 'node:url';
 import { writeFileSync } from 'node:fs';
-import { normalize } from 'node:path';
+import { join, normalize } from 'node:path';
+import { tmpdir } from 'node:os';
 
 import { DEFAULT_BROWSER, openBrowser, serveDirectory } from './lib/browser.mjs';
 
@@ -31,8 +32,8 @@ const args = Object.fromEntries(
 // running: the page only has to be served over http for ES modules to load. Serving wwwroot
 // directly is also what makes this usable while editing -- no publish, no install, no restart.
 // Pass --origin to point at a running instance instead.
-// Normalised so the traversal guard below compares separators of the same kind: a path given
-// on the command line arrives with forward slashes even on Windows.
+// Normalised so the traversal guard in serveDirectory compares separators of the same kind: a
+// path given with --serve arrives with forward slashes even on Windows.
 const webRoot = normalize(args.serve ?? fileURLToPath(new URL('../src/WindowsControlService/wwwroot', import.meta.url)));
 const outputPath = args.out ?? 'interface-dom.txt';
 const port = Number(args.port ?? 9334);
@@ -946,6 +947,35 @@ const scenarios = [
     }),
     capture: [GATE, "'notices: ' + document.querySelectorAll('#notices .toast').length", NOTICES],
   },
+  {
+    // Signing in again does not change the route, so nothing but the re-entry reloads the section
+    // that the lost session left empty.
+    name: 'shell · signing in again reloads the section on screen',
+    hash: '#/applications',
+    responses: withResponses({
+      'GET /api/applications': PROBLEM(401, 'no'),
+      'POST /api/auth/login': NO_CONTENT,
+    }),
+    steps: [
+      "window.__wcs.override('GET /api/applications', { status: 200, body: [] });",
+      "document.getElementById('login-password').value = 'the-password';",
+      "document.getElementById('login-form').requestSubmit(); await window.__wcs.settle();",
+    ],
+    capture: [
+      "'list reads: ' + window.__wcs.calls.filter((c) => c === 'GET /api/applications').length",
+      "'list: ' + document.getElementById('application-list').textContent.trim()",
+    ],
+  },
+  {
+    name: 'applications · the process picker does not stay loading when the list fails',
+    hash: '#/applications',
+    responses: withResponses({ 'GET /api/processes': PROBLEM(500, 'no') }),
+    steps: ["document.getElementById('load-processes').click(); await window.__wcs.settle();"],
+    capture: [
+      "'picker: ' + document.getElementById('process-list').textContent.trim()",
+      "'still loading: ' + (document.querySelector('#process-list .shimmer') !== null)",
+    ],
+  },
 ];
 
 // --- The page, with the service replaced -----------------------------------
@@ -955,7 +985,6 @@ const bootstrap = (responses) => `
   const table = ${JSON.stringify(responses)};
   const NOW = ${NOW};
   Date.now = () => NOW;
-  window.confirm = () => true;
 
   const listeners = new Map();
   class StubEventSource {
@@ -1038,7 +1067,7 @@ const bootstrap = (responses) => `
 const page = await openBrowser({
   browserPath,
   port,
-  profile: args.profile ?? 'C:\Windows\Temp\wcs-dom-profile',
+  profile: args.profile ?? join(tmpdir(), 'wcs-dom-profile'),
   windowSize: '1200,1400',
 });
 

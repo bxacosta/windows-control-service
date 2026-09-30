@@ -18,16 +18,17 @@ const CALENDAR = { day: '2-digit', month: 'short', year: 'numeric' };
 const time = new Intl.DateTimeFormat(undefined, CLOCK);
 const dateTime = new Intl.DateTimeFormat(undefined, { ...CALENDAR, ...CLOCK });
 
+/** null for anything that is not a timestamp, null included: new Date(null) is 1970. */
 const parse = (iso) => {
+  if (!iso) {
+    return null;
+  }
+
   const parsed = new Date(iso);
   return Number.isNaN(parsed.getTime()) ? null : parsed;
 };
 
 export function formatTimestamp(iso) {
-  if (!iso) {
-    return '—';
-  }
-
   const parsed = parse(iso);
   return parsed === null ? '—' : dateTime.format(parsed);
 }
@@ -58,11 +59,12 @@ export function formatWhen(iso, now = Date.now()) {
 
 /** "40 s ago", "3 min ago". Coarse on purpose: this is a freshness cue, not a measurement. */
 export function formatAgo(iso, now = Date.now()) {
-  if (!iso) {
+  const parsed = parse(iso);
+  if (parsed === null) {
     return 'never';
   }
 
-  const seconds = Math.max(0, Math.round((now - new Date(iso).getTime()) / 1000));
+  const seconds = Math.max(0, Math.round((now - parsed.getTime()) / 1000));
   if (seconds < 60) {
     return `${seconds} s ago`;
   }

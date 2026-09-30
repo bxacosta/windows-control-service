@@ -66,11 +66,12 @@ Three states, not two. `Unknown` means the service could not ask Windows. Collap
 "not enforced" would tell the administrator the machine is unprotected when the truth is that
 nobody knows.
 
-`rules.js` → `describePolicyState(state)` returns `{ tone, headline, detail, checked, icon }`.
+`rules.js` → `describePolicyState(state)` returns
+`{ tone, headline, detail, checked, checkedExactly, icon }`.
 A state this version does not know is shown verbatim rather than mapped onto one it does know,
 and `null` — could not ask at all — is a fourth, distinct case.
 
-Four capture scenarios plus *the policy state could not be read at all*; five cases in
+Four capture scenarios plus *the policy state could not be read at all*; six cases in
 `node --test`.
 
 ### 4. Nothing rebuilds the form
@@ -296,13 +297,15 @@ lives in `rules.js`.
 `rules.test.mjs` changes in the same commit as the text. Text that changes without its test
 changing is text that changed silently.
 
-### Three more, held by structure
+### Held by structure
 
 | Rule                                    | Where        | What it prevents                                                      |
 |-----------------------------------------|--------------|-----------------------------------------------------------------------|
 | A repeated click is ignored, not queued | `pending.js` | Queueing would apply the policy twice and the second would answer 409 |
 | "Session lost" is shown once            | `session.js` | Two 401s in the same instant stacking two notices                     |
 | A 401 anywhere goes through one door    | `api.js`     | Except at login, where 401 is an answer and not an expired session    |
+| A lost session adds no error notices    | `notices.js` | The calls it interrupted each adding a toast (`notifyFailure`)        |
+| Every exit from the session is one path | `session.js` | The event stream left running, or stopped by a sign-out that failed   |
 
 ## The DOM harness
 

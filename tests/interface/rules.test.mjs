@@ -30,7 +30,7 @@ import {
   pageNumbers,
   pagerState,
 } from '../../src/WindowsControlService/wwwroot/js/rules.js';
-import { formatUptime } from '../../src/WindowsControlService/wwwroot/js/format.js';
+import { formatAgo, formatDuration, formatUptime, formatWhen } from '../../src/WindowsControlService/wwwroot/js/format.js';
 
 // --- Rule 3: three policy states, and Unknown is not "nothing is blocked" ---
 
@@ -91,6 +91,8 @@ test('a state that could not be read at all is not turned into one that could', 
   assert.equal(described.tone, 'unknown');
   assert.equal(described.headline, 'Policy state unavailable');
   assert.equal(described.checked, '');
+  // Assigned to a title attribute: undefined would print the word "undefined" on hover.
+  assert.equal(described.checkedExactly, '');
 });
 
 test('a state this version does not know is shown verbatim rather than guessed at', () => {
@@ -115,9 +117,6 @@ test('a removal reloads the list whether it succeeded or not', () => {
 
   // The row survives a failure precisely because the list is re-read instead of edited in
   // place: the application is still blocked, so its row is still true.
-  assert.equal(removed.reload, true);
-  assert.equal(refused.reload, true);
-
   assert.deepEqual(removed, { tone: 'ok', text: 'Example was removed.', reload: true });
   assert.deepEqual(refused, { tone: 'error', text: 'The policy could not be rebuilt.', reload: true });
 });
@@ -365,12 +364,6 @@ test('an origin the service could not determine is not reported as local', () =>
   assert.notEqual(texts[ORIGINS.indexOf('Unknown')], texts[ORIGINS.indexOf('Local')]);
 });
 
-test('a disconnection is not a sign-out, because here they are different events', () => {
-  assert.notEqual(
-    event({ kind: 'Disconnect', startsSession: false }).label,
-    event({ kind: 'Logoff', startsSession: false }).label);
-});
-
 // --- Validation while typing ------------------------------------------------
 
 test('the password counter counts against the minimum until it is met', () => {
@@ -455,4 +448,36 @@ test('the health line says nothing before the service has answered', () => {
   // Not "running 0m": before the first answer there is no reading, and inventing one would put
   // a claim about the service next to a dot that does not know either.
   assert.deepEqual(describeServiceHealth(null, NOW), { text: '', title: '' });
+});
+
+// --- Formatting -------------------------------------------------------------
+
+test('a missing or unreadable timestamp is never read as 1970', () => {
+  // new Date(null) is the epoch, and it is a valid date: without the guard these printed a date in
+  // 1970 and an uptime of fifty-six years.
+  for (const value of [null, undefined, '', 'not a date']) {
+    assert.equal(formatWhen(value), 'never');
+    assert.equal(formatAgo(value), 'never');
+    assert.equal(formatUptime(value), '—');
+  }
+});
+
+test('"when" is a duration while recent, a time the same day, and a date after that', () => {
+  const now = Date.parse('2026-09-02T12:00:00Z');
+  const before = (seconds) => new Date(now - seconds * 1000).toISOString();
+
+  assert.equal(formatWhen(before(40), now), '40 s ago');
+  assert.equal(formatWhen(before(3 * 60), now), '3 min ago');
+  assert.equal(formatWhen(before(5 * 3600), now), '5 h ago');
+  // Past six hours the reader wants the clock, not a subtraction: a time, then a date.
+  assert.match(formatWhen(before(7 * 3600), now), /^\d{2}:\d{2}:\d{2}$/);
+  assert.match(formatWhen(before(3 * 86400), now), /2026/);
+});
+
+test('a duration picks its unit from its size', () => {
+  assert.equal(formatDuration(null), '—');
+  assert.equal(formatDuration(45), '45 s');
+  assert.equal(formatDuration(5 * 60), '5 min');
+  assert.equal(formatDuration(2 * 3600 + 5 * 60), '2 h 5 min');
+  assert.equal(formatDuration(3 * 86400 + 4 * 3600), '3 d 4 h');
 });

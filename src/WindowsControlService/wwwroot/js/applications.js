@@ -23,7 +23,7 @@ import {
   filterProcesses,
 } from './rules.js';
 import { optimistic, withPending } from './pending.js';
-import { notify, notifyError } from './notices.js';
+import { notify, notifyFailure } from './notices.js';
 
 const ui = elementsOf('applications');
 const picker = elementsOf('processes');
@@ -186,7 +186,7 @@ async function setEnabled(application, control, onChanged) {
     });
   } catch (error) {
     // The switch has already gone back to where it was; this only says why.
-    notifyError(error.message);
+    notifyFailure(error);
   }
 }
 
@@ -307,7 +307,7 @@ async function loadList({ force = false } = {}) {
   try {
     applications = await api.getApplications();
   } catch (error) {
-    notifyError(error.message);
+    notifyFailure(error);
     return;
   }
 
@@ -331,7 +331,7 @@ async function loadPolicyState() {
     renderPolicyState(await api.getPolicyState());
   } catch (error) {
     renderPolicyState(null);
-    notifyError(error.message);
+    notifyFailure(error);
   }
 }
 
@@ -340,7 +340,9 @@ async function loadProcesses(control) {
     try {
       processes = await api.getProcesses();
     } catch (error) {
-      notifyError(error.message);
+      // The loading line would otherwise shimmer forever over a list that is not coming.
+      replace(picker.list, [el('p', { class: css.empty, text: 'The running processes could not be read.' })]);
+      notifyFailure(error);
       return;
     }
 

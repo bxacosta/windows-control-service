@@ -81,6 +81,9 @@ export async function openBrowser({
     '--disable-gpu',
     '--no-sandbox',
     '--no-first-run',
+    // A password manager the machine installs in every profile wrote its own elements into the
+    // captured markup, so two runs of the same code did not compare equal.
+    '--disable-extensions',
     '--hide-scrollbars',
     `--remote-debugging-port=${port}`,
     `--user-data-dir=${profile}`,
@@ -170,16 +173,28 @@ export async function openBrowser({
    * that moves between routes has to go through about:blank -- which is what `blank` is for.
    */
   const navigate = async (url) => {
-    const loaded = new Promise((resolve) => { onLoad = resolve; });
+    let timer;
+    const loaded = new Promise((resolve, reject) => {
+      onLoad = resolve;
+      // Seen on the first run with a fresh profile: a load event that never comes. Failing with
+      // the URL beats a run that hangs with nothing on screen.
+      timer = setTimeout(() => reject(new Error(`No load event for ${url} after 30 s. Run it again.`)), 30_000);
+    });
     await send('Page.navigate', { url });
-    await loaded;
+    try {
+      await loaded;
+    } finally {
+      clearTimeout(timer);
+    }
   };
 
   return {
     send,
     evaluate,
     navigate,
-    blank: () => send('Page.navigate', { url: 'about:blank' }),
+    // Awaited like any other navigation: a load event from about:blank arriving late would
+    // otherwise satisfy the next navigate's wait and leave it evaluating on the wrong page.
+    blank: () => navigate('about:blank'),
 
     // Browser.close before killing the launcher. Edge spawns a tree of child processes and
     // killing the one we started leaves the rest running: a few capture runs had left 148 of

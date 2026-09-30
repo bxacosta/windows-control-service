@@ -11,7 +11,7 @@ import { el, icon, replace } from './dom.js';
 import { attributes, css, elementsOf, icons } from './markup.js';
 import { describeEvent, followsPushedEvents, offsetAfterEmptyPage, pageNumbers, pagerState } from './rules.js';
 import { withPending } from './pending.js';
-import { notifyError } from './notices.js';
+import { notifyFailure } from './notices.js';
 
 const PAGE_SIZE = 10;
 
@@ -87,12 +87,26 @@ function renderPager() {
 
 // --- Loading ---------------------------------------------------------------
 
+/**
+ * Filters, pages and pushed events all start loads, and an answer can arrive after a later one.
+ * Only the latest request paints: an older answer would put another filter's rows under the
+ * pressed segment.
+ */
+let latestLoad = 0;
+
 async function load() {
+  const request = ++latestLoad;
   let page;
   try {
     page = await api.getAccessHistory({ limit: PAGE_SIZE, offset: view.offset, origin: view.origin });
   } catch (error) {
-    notifyError(error.message);
+    if (request === latestLoad) {
+      notifyFailure(error);
+    }
+    return;
+  }
+
+  if (request !== latestLoad) {
     return;
   }
 

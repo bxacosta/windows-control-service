@@ -4,7 +4,6 @@
  */
 
 import * as api from './api.js';
-import * as events from './events.js';
 import * as session from './session.js';
 import { elementsOf } from './markup.js';
 import { showFieldNote } from './dom.js';
@@ -60,7 +59,6 @@ async function handleChangePassword(submitEvent) {
 
     renderFieldNotes();
     notify('Password changed. Every open session was signed out, including this one.', 'ok');
-    events.stop();
     session.returnToSignIn();
   });
 }
@@ -73,7 +71,6 @@ export function connect() {
   }
 
   ui.signOut.addEventListener('click', (clickEvent) => {
-    events.stop();
     void session.signOut(clickEvent.currentTarget);
   });
 }
