@@ -46,9 +46,19 @@ catch {
     Write-WcsField 'Health' "$($paths.Url) does not answer" $level
 }
 
-$policy = Get-WcsPolicyState
-$level = if (-not $policy.Queried) { 'Warn' } elseif ($policy.Present) { 'Ok' } else { 'Info' }
-Write-WcsField 'WDAC policy' (Format-WcsPolicyState $policy) $level
+# CiTool and the restore point list answer only an administrator. Without one they read as
+# "unknown" and "none", and the second is false, so they are not asked at all.
+$elevated = Test-WcsAdministrator
+$needsAdmin = 'needs administrator: sudo .\wcs status'
+
+if ($elevated) {
+    $policy = Get-WcsPolicyState
+    $level = if (-not $policy.Queried) { 'Warn' } elseif ($policy.Present) { 'Ok' } else { 'Info' }
+    Write-WcsField 'WDAC policy' (Format-WcsPolicyState $policy) $level
+}
+else {
+    Write-WcsField 'WDAC policy' $needsAdmin
+}
 
 switch (Get-WcsUsbStart) {
     3       { Write-WcsField 'USB storage' 'allowed (USBSTOR Start = 3)' 'Ok' }
@@ -59,6 +69,9 @@ switch (Get-WcsUsbStart) {
 # Only ours count: a Windows Update checkpoint is not evidence that anybody prepared.
 if (-not (Test-WcsSystemProtection)) {
     Write-WcsField 'Restore point' 'impossible, system protection is off' 'Warn'
+}
+elseif (-not $elevated) {
+    Write-WcsField 'Restore point' $needsAdmin
 }
 elseif ($point = Get-WcsRestorePoint) {
     Write-WcsField 'Restore point' "$($point.CreatedAt.ToString('yyyy-MM-dd HH:mm')) ($(Format-WcsAge $point.Age))" 'Ok'

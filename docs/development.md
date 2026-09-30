@@ -102,6 +102,22 @@ unchanged.
 `InterfaceRuleTests` shells out to `node --test` so that `dotnet test` stays the single answer to
 "is the tree green". It fails rather than passing quietly when Node is missing.
 
+## Schema changes
+
+The schema is the numbered scripts in `Infrastructure\Database\Scripts\`, embedded in the
+executable. On every start, before serving, DbUp runs the ones the `SchemaVersions` table does not
+list yet, in order, each in its own transaction. A script that fails is rolled back and the
+service does not start, so `.\wcs deploy` reports it and the data stays as the previous script
+left it.
+
+- **A change is a new script**, `0006_...sql` and onwards. An applied script is never edited:
+  DbUp knows scripts by name, so the edit would never reach a database that already ran it.
+- **SQLite's `ALTER TABLE` adds, renames and drops columns and little else.** Changing a
+  constraint or a type means rebuilding the table: create the new one, copy the rows, drop the
+  old, rename, and recreate the indexes. `0005_MatchAttributeCheck.sql` is the pattern.
+- **There are no down migrations.** An older build on a newer schema may fail. The way back is the
+  backup `deploy` takes before every update (see `operations.md`).
+
 ## Packages
 
 Microsoft packages follow the runtime version number.
@@ -198,7 +214,7 @@ var span = reader.HasValueSequence ? reader.ValueSequence.ToArray() : reader.Val
 | `dev.ps1`                    | `.\wcs dev`                                                         |
 | `test.ps1`                   | `.\wcs test`                                                        |
 | `build.ps1`                  | `.\wcs build`. Does not install                                     |
-| `deploy.ps1`                 | `.\wcs deploy`. Installs or updates, never touches the data         |
+| `deploy.ps1`                 | `.\wcs deploy`. Installs or updates; backs up the database first    |
 | `status.ps1`                 | `.\wcs status`                                                      |
 | `uninstall.ps1`              | `.\wcs uninstall`                                                   |
 | `restore-point.ps1`          | `.\wcs restore-point`                                               |

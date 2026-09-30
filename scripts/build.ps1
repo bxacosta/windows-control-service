@@ -13,6 +13,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 Import-Module (Join-Path $PSScriptRoot 'WindowsControlService.psm1') -Force
+Assert-WcsDotnetSdk
 $paths = Get-WcsPaths
 
 Write-WcsStep 'Building'

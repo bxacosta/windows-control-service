@@ -32,6 +32,7 @@ function Get-WcsPaths {
         ExePath          = Join-Path $installPath 'WindowsControlService.exe'
         DataPath         = $dataPath
         DatabasePath     = Join-Path $dataPath 'windows-control-service.db'
+        BackupPath       = Join-Path $dataPath 'backups'
         LogPath          = Join-Path $dataPath 'logs'
 
         # Must match WdacPolicyDocument.PolicyId. Deliberately not the A1B2C3D4-... policy an
@@ -105,6 +106,32 @@ function Assert-WcsAdministrator {
 
     if (-not (Test-WcsAdministrator)) {
         throw 'This needs administrator rights. Run it from an elevated terminal, or through .\wcs, which asks for them.'
+    }
+}
+
+function Assert-WcsDotnetSdk {
+    <#
+    .SYNOPSIS
+        Fails with the install command when the SDK that global.json asks for is missing.
+
+    .DESCRIPTION
+        Without it the first dotnet call fails with PowerShell's "not recognized", or with a
+        global.json resolution error, and neither says what to install.
+    #>
+    [CmdletBinding()]
+    param()
+
+    $install = 'Install it with: winget install Microsoft.DotNet.SDK.10'
+
+    if (-not (Get-Command dotnet -ErrorAction SilentlyContinue)) {
+        throw "The .NET SDK is not installed. $install"
+    }
+
+    # Run from the repository root so global.json decides which SDK counts.
+    Push-Location (Get-WcsPaths).Root
+    try { dotnet --version *> $null } finally { Pop-Location }
+    if ($LASTEXITCODE -ne 0) {
+        throw "No .NET SDK matching global.json (10.0.1xx) is installed. $install"
     }
 }
 
@@ -325,6 +352,6 @@ function Format-WcsAge {
 }
 
 Export-ModuleMember -Function Get-WcsPaths, Write-WcsStep, Write-WcsField, Test-WcsAdministrator,
-    Assert-WcsAdministrator, Assert-WcsArtifact, Wait-WcsServiceStatus, Wait-WcsHealth,
+    Assert-WcsAdministrator, Assert-WcsDotnetSdk, Assert-WcsArtifact, Wait-WcsServiceStatus, Wait-WcsHealth,
     Get-WcsPolicyState, Format-WcsPolicyState, Remove-WcsPolicy, Get-WcsUsbStart,
     Test-WcsSystemProtection, Get-WcsRestorePoint, Format-WcsAge

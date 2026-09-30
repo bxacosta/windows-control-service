@@ -8,7 +8,8 @@ Every operation is a `.\wcs` command, run from the repository root. `.\wcs` alon
 - PowerShell 7 or Windows PowerShell 5.1. `deploy`, `uninstall`, `restore-point` and `validate`
   need administrator rights; `.\wcs` asks for them when they are missing, through Windows' `sudo`
   when it is enabled and otherwise in a new elevated window.
-- .NET SDK 10.0.1xx to build only. What is published is self-contained and needs no installed
+- .NET SDK 10.0.1xx to build only (`winget install Microsoft.DotNet.SDK.10`); the commands that
+  need it say so when it is missing. What is published is self-contained and needs no installed
   runtime, but it is more than one file.
 - Node only for the tests, which run the interface rules through it. It takes no part in the
   build or the deployment, and the installed service does not need it.
@@ -116,6 +117,18 @@ while none is set.
 ### What an update keeps
 
 `C:\ProgramData\WindowsControlService`: the password, the blocked applications and the history.
+The new build migrates the database when it starts (see "Schema changes" in `development.md`),
+and migrations only go forward, so `deploy` first copies the database, with the service stopped,
+to `backups\<date>_<time>\` in the data directory. It keeps the last three.
+
+To go back to one, with the build that matches it:
+
+```powershell
+Stop-Service WindowsControlService
+Copy-Item C:\ProgramData\WindowsControlService\backups\<folder>\* C:\ProgramData\WindowsControlService -Force
+.\wcs deploy -From <the matching build>
+```
+
 `deploy` waits for the service to actually stop before overwriting the executable. With
 `ShutdownTimeout` at 70 seconds, sleeping two is not enough and the symptom is `Copy-Item`
 failing on a file in use.
@@ -187,7 +200,8 @@ possible outcome.
 ```
 
 Works the same with the service installed and without it. When the installed version was built
-from an older commit than the working tree's HEAD, it says so.
+from an older commit than the working tree's HEAD, it says so. Without administrator rights it
+shows everything but the WDAC policy and the restore point, which only an administrator can read.
 
 | Policy state it reports                 | Meaning                                                           |
 |-----------------------------------------|-------------------------------------------------------------------|

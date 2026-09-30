@@ -14,6 +14,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 Import-Module (Join-Path $PSScriptRoot 'WindowsControlService.psm1') -Force
+Assert-WcsDotnetSdk
 
 # Restart instead of asking when an edit cannot be hot reloaded: the question blocks the console.
 $env:DOTNET_WATCH_RESTART_ON_RUDE_EDIT = 'true'

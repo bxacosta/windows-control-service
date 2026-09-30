@@ -40,7 +40,7 @@ Anything else that can affect the machine: ask first.
 .\wcs test -Fast                        # skips the tests that touch the machine
 .\wcs test -Filter PasswordServiceTests # one class, or one test
 .\wcs build                             # publishes to .\publish (Properties\PublishProfiles\win-x64.pubxml)
-.\wcs deploy                            # builds, then installs or updates; never touches the data
+.\wcs deploy                            # builds, backs up the database, then installs or updates
 .\wcs status                            # service, health, version vs HEAD, policy, USB, restore point, database
 .\wcs uninstall                         # policy first, then registry, service, binaries; keeps the data
 

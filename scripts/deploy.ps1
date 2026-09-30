@@ -3,6 +3,10 @@
 .SYNOPSIS
     Builds, then installs the service or updates the installed one. The data is never touched.
 
+.DESCRIPTION
+    An update backs the database up first, to backups\ in the data directory, keeping the last
+    three.
+
 .PARAMETER From
     Deploy this already published folder instead of building. For a build inspected first.
 #>
@@ -16,6 +20,7 @@ $ErrorActionPreference = 'Stop'
 
 Import-Module (Join-Path $PSScriptRoot 'WindowsControlService.psm1') -Force
 $paths = Get-WcsPaths
+$backupsToKeep = 3
 
 if (-not $From) {
     & (Join-Path $PSScriptRoot 'build.ps1')
@@ -33,6 +38,19 @@ if ($installed) {
         throw 'The service did not stop within 90 seconds. Nothing was replaced.'
     }
     Write-WcsStep 'stopped' -Level Ok
+
+    # The new build migrates the database when it starts, and migrations only go forward. A copy
+    # taken while the service is stopped is the way back from one that goes wrong. The -wal and
+    # -shm files go with it: a committed write can still be only in the -wal.
+    if (Test-Path $paths.DatabasePath) {
+        $backup = Join-Path $paths.BackupPath (Get-Date -Format 'yyyy-MM-dd_HHmmss')
+        New-Item -ItemType Directory -Force -Path $backup | Out-Null
+        Copy-Item "$($paths.DatabasePath)*" $backup
+
+        Get-ChildItem $paths.BackupPath -Directory | Sort-Object Name -Descending |
+            Select-Object -Skip $backupsToKeep | Remove-Item -Recurse -Force
+        Write-WcsStep "database backed up to $backup" -Level Ok
+    }
 
     # Retried rather than slept: the SCM reports Stopped before the process has exited, and
     # e_sqlite3.dll stays locked for a moment after ("Access to the path is denied", then fine a
