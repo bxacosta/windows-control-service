@@ -1,107 +1,76 @@
-<p align="center">
-  <img src="banner/banner.png" alt="Windows Control Service, showing the Applications section of the interface" width="900">
-</p>
+# Windows Control Service
 
-<h1 align="center">Windows Control Service</h1>
+A Windows service for a single Windows 11 machine. It blocks applications with a WDAC policy, blocks USB storage, and
+lists sign-ins. It is managed through a password-protected web interface and API on `http://localhost:5150`.
 
-<p align="center">
-  Blocks applications with WDAC, blocks USB storage, and records every sign-in, local or over RDP.<br>
-  One machine, one password, a web interface on <code>localhost</code>.
-</p>
+![The Applications section of the interface](banner/banner.png)
 
-## What it is
+## How it works
 
-WDAC (Windows Defender Application Control) decides in the kernel whether an executable may run. This service generates
-that policy, deploys it with `CiTool`, and puts an interface in front of it, so blocking an application is a switch
-rather than hand-written XML.
+- **Blocking:** generates a WDAC policy and deploys it with `CiTool`. Every minute it compares the deployed policy with
+  the database and redeploys it if they differ.
+- **Rule matching:** a rule matches a field of the executable's version resource (`OriginalFilename`, else
+  `InternalName` or `ProductName`), not its path. Renaming the file does not get around it.
+- **USB storage:** sets `Start` of `HKLM\SYSTEM\CurrentControlSet\Services\USBSTOR` to `4`. Drives already mounted stay
+  mounted.
+- **Sign-in history:** reads the `TerminalServices-LocalSessionManager` log, local and RDP sessions, last 30 days.
+- **Process list:** running processes outside `C:\Windows`, to choose what to block.
+- **Access:** one password, a session cookie, a limit on sign-in attempts. Listens on loopback only.
 
-Two things follow from where the blocking lives:
+## Limits
 
-- **Stopping or uninstalling the service does not lift a block.** The kernel enforces a deployed policy on its own.
-  AppLocker, the obvious alternative, depends on a service that can be stopped.
-- **Renaming an executable does not lift it either.** Rules match a field of the PE version resource, not a path:
-  `OriginalFilename`, falling back to `InternalName` or `ProductName`.
+- **It does not stop an administrator.** An administrator can stop the service, uninstall it, or remove the policy with
+  `CiTool`. The policy is unsigned; the service redeploys it within a minute, but only while it is running.
+- **A block is only as reliable as the version resource.** Editing that resource in a copy of the executable makes the
+  rule stop matching. An executable with no version resource cannot be blocked, and the service refuses it.
+- **One password, no user accounts.**
+- **Not covered:** failed sign-ins (they need the Security log), installers (not distinguishable from other programs at
+  the executable level), signed policies.
 
-## What it does
+## Risks to know before installing
 
-| Feature                           | Mechanism                                                                              |
-|-----------------------------------|----------------------------------------------------------------------------------------|
-| Application blocking              | A generated WDAC policy, converted to binary and deployed with `CiTool`                |
-| Enable / disable without deleting | The policy is rebuilt and redeployed                                                   |
-| Reconciliation                    | A worker compares the deployed policy against the database every minute                |
-| USB storage blocking              | The `Start` value of `USBSTOR` in the registry                                         |
-| Process inventory                 | Running processes, less anything under `C:\Windows`, named from their version resource |
-| Access history                    | The Terminal Services log, a 30-day window, ingested in the background                 |
-| Authentication                    | One password, a session cookie, an attempt limit                                       |
-| REST API                          | `http://localhost:5150`, loopback only                                                 |
-| Web interface                     | Served from the same origin, no framework and no build step                            |
-
-Blocking `USBSTOR` stops new drives from mounting; drives already mounted stay mounted.
-
-## What it is not
-
-**It is not a security boundary.** It runs under an administrator account, and an administrator can stop it, uninstall
-it, or remove the policy with `CiTool --remove-policy`. It enforces a decision already made; it does not hold against
-someone who wants it gone.
-
-- **The policy is unsigned**, so removing it needs no key. The reconciliation worker puts it back within a minute, which
-  shortens that window rather than closing it, and only while the service runs.
-- **A rule matches a field inside the file.** Edit the version resource of a copy and the rule stops matching it.
-- **An executable with no version resource cannot be blocked.** It is refused rather than given a rule that matches
-  nothing.
-- **There are no user accounts.** One password guards the interface, and anyone who can reinstall does not need it.
-
-Out of scope, deliberately:
-
-- **Failed sign-in attempts.** They need the Security log, which the target machine retained for only a few hours.
-- **Blocking installers.** An installer cannot be told from an ordinary program at the executable level.
-- **Signed policies.** They would remove the need for the reconciliation worker, but require a CA and custody of a key.
+- **A WDAC policy outlives the service.** Enforcement is done by the kernel, so stopping the service does not lift a
+  block. Use `.\wcs uninstall`, which removes the policy first and checks that it is gone.
+- **A wrong policy can stop legitimate programs from running.** Create a restore point before blocking applications:
+  `.\wcs restore-point`.
+- **Until a password is set, anyone on the machine can set it.** Set it right after installing.
 
 ## Requirements
 
-- Windows 11 (tested on Pro 26200). `CiTool.exe` ships with it.
-- Administrator rights to install and operate.
-- .NET SDK 10.0.1xx to build. What is published is self-contained.
+- Windows 11 (tested on Pro, build 26200). `CiTool.exe` is included with it.
+- Administrator rights to install and operate. `.\wcs` asks for them when needed.
+- .NET SDK 10.0.1xx to build (`winget install Microsoft.DotNet.SDK.10`). The published service does not need it.
 
-## Quick start
-
-```powershell
-.\wcs deploy     # builds, registers and starts the service
-.\wcs status     # what is installed and whether it answers
-```
-
-Then open `http://localhost:5150/` and set the password. **Before anything else:** until one exists, the endpoint that
-sets it is public.
-
-`.\wcs` alone lists every command. To remove everything:
+## Usage
 
 ```powershell
-.\wcs uninstall -RemoveData
+.\wcs deploy                  # build, then install or update; backs up the database before an update
+.\wcs status                  # service, version, policy, USB storage, restore point, database
+.\wcs uninstall               # remove the policy, restore USB storage, remove the service; keeps the data
+.\wcs uninstall -RemoveData   # the same, and delete the database and logs
+.\wcs                         # list every command
 ```
 
-It stops the service, removes the policy, restores `USBSTOR`, and deletes the registration, the binaries and the data.
-The policy goes first and is verified: if `CiTool` still lists it, the script fails and prints the command to remove it
-by hand.
+After the first deploy, open `http://localhost:5150/` and set the password.
+
+Development:
+
+```powershell
+.\wcs dev     # run from source on http://localhost:5151 with its own database, hot reload
+.\wcs test    # all tests; without administrator rights, skips the ones that touch the machine
+```
 
 ## Documentation
 
-| Document                                                 | What it is                                                                                              |
-|----------------------------------------------------------|---------------------------------------------------------------------------------------------------------|
-| [`docs/architecture.md`](docs/architecture.md)           | Shape of the solution, the patterns that do not change, known limits                                    |
-| [`docs/windows-internals.md`](docs/windows-internals.md) | **WDAC, registry, event log, PE files, processes.** Behaviour that is not in the official documentation |
-| [`docs/api.md`](docs/api.md)                             | The HTTP surface and the event stream                                                                   |
-| [`docs/web-interface.md`](docs/web-interface.md)         | Module map, the behaviour rules, and the DOM harness                                                    |
-| [`docs/operations.md`](docs/operations.md)               | Install, update, uninstall, diagnose, recover                                                           |
-| [`docs/development.md`](docs/development.md)             | Toolchain, tests, packages, publishing                                                                  |
-
-## Development
-
-```powershell
-.\wcs dev        # run from source with hot reload on http://localhost:5151, its own database
-.\wcs test       # everything; without elevation it skips the tests that touch the machine
-.\wcs build      # publish to .\publish
-```
+| Document                                                 | Contents                                                        |
+|----------------------------------------------------------|-----------------------------------------------------------------|
+| [`docs/operations.md`](docs/operations.md)               | Install, update, uninstall, diagnose, recover                   |
+| [`docs/development.md`](docs/development.md)             | Toolchain, commands, tests, schema changes, packages            |
+| [`docs/architecture.md`](docs/architecture.md)           | Structure, patterns, known limits                               |
+| [`docs/windows-internals.md`](docs/windows-internals.md) | Undocumented behaviour of WDAC, registry, event log, PE files   |
+| [`docs/api.md`](docs/api.md)                             | HTTP API and event stream                                       |
+| [`docs/web-interface.md`](docs/web-interface.md)         | Interface modules, behaviour rules, DOM harness                 |
 
 ## License
 
-This project is licensed under the [MIT License](LICENSE).
+[MIT](LICENSE)
