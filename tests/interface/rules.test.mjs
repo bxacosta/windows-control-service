@@ -160,9 +160,11 @@ test('the usb state is described from what the service reports', () => {
   const blocked = describeUsbState({ blocked: true, lastModified: '2026-08-19T10:00:00Z' });
   const allowed = describeUsbState({ blocked: false, lastModified: null });
 
-  // One line, and the time in it is relative like every other time in this interface.
+  // One line, and the time in it is said like every other time in this interface: this change is
+  // from another day, so it is a date, not "1000 h ago".
   assert.deepEqual(blocked.pill, { tone: 'signal', text: 'Blocked' });
-  assert.match(blocked.detail, /^New drives will not mount · changed .* ago$/);
+  assert.match(blocked.detail, /^New drives will not mount · changed .*2026/);
+  assert.doesNotMatch(blocked.detail, /ago/);
 
   assert.notEqual(blocked.detailExactly, '');
 
@@ -462,16 +464,27 @@ test('a missing or unreadable timestamp is never read as 1970', () => {
   }
 });
 
-test('"when" is a duration while recent, a time the same day, and a date after that', () => {
-  const now = Date.parse('2026-09-02T12:00:00Z');
-  const before = (seconds) => new Date(now - seconds * 1000).toISOString();
+test('"when" is a duration while recent, a time later the same day, and a date for any other day', () => {
+  // Local time, because the day that matters is the one on this machine's calendar.
+  const at = (hours, minutes = 0, day = 2) => new Date(2026, 8, day, hours, minutes).getTime();
+  const iso = (time) => new Date(time).toISOString();
+  const now = at(20);
 
-  assert.equal(formatWhen(before(40), now), '40 s ago');
-  assert.equal(formatWhen(before(3 * 60), now), '3 min ago');
-  assert.equal(formatWhen(before(5 * 3600), now), '5 h ago');
-  // Past six hours the reader wants the clock, not a subtraction: a time, then a date.
-  assert.match(formatWhen(before(7 * 3600), now), /^\d{2}:\d{2}:\d{2}$/);
-  assert.match(formatWhen(before(3 * 86400), now), /2026/);
+  assert.equal(formatWhen(iso(now - 40_000), now), '40 s ago');
+  assert.equal(formatWhen(iso(at(19, 57)), now), '3 min ago');
+  assert.equal(formatWhen(iso(at(15)), now), '5 h ago');
+  // Past six hours the reader wants the clock, not a subtraction.
+  assert.match(formatWhen(iso(at(9)), now), /^\d{2}:\d{2}:\d{2}$/);
+  assert.match(formatWhen(iso(at(10, 0, 1)), now), /2026/);
+});
+
+test('another calendar day is a date however few minutes ago it was', () => {
+  const now = new Date(2026, 8, 2, 0, 10).getTime();
+  const lateLastNight = new Date(2026, 8, 1, 23, 50).toISOString();
+
+  // Twenty minutes, but yesterday: "20 min ago" would hide that the date changed.
+  assert.match(formatWhen(lateLastNight, now), /2026/);
+  assert.doesNotMatch(formatWhen(lateLastNight, now), /ago/);
 });
 
 test('a duration picks its unit from its size', () => {

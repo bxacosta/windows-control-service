@@ -35,12 +35,17 @@ export function formatTimestamp(iso) {
 
 /** Under this, "how long ago" is the useful reading; over it, the clock is. */
 const RELATIVE_LIMIT = 6 * 3600;
-const SAME_DAY_LIMIT = 24 * 3600;
+
+const sameDay = (a, b) =>
+  a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
 
 /**
  * When something happened, said the way it is actually read at that distance. Minutes ago is a
- * duration; this morning is a time; last week is a date. "19 h ago" is none of the three -- it
+ * duration; this morning is a time; another day is a date. "19 h ago" is none of the three -- it
  * makes the reader do the subtraction the interface was supposed to have done.
+ *
+ * The day is the calendar day on this machine, not a span of hours: at ten past midnight,
+ * something from 23:50 is "yesterday", and "20 min ago" would hide that it crossed the date.
  */
 export function formatWhen(iso, now = Date.now()) {
   const parsed = parse(iso);
@@ -48,13 +53,12 @@ export function formatWhen(iso, now = Date.now()) {
     return 'never';
   }
 
-  const seconds = Math.max(0, Math.round((now - parsed.getTime()) / 1000));
-
-  if (seconds < RELATIVE_LIMIT) {
-    return formatAgo(iso, now);
+  if (!sameDay(parsed, new Date(now))) {
+    return dateTime.format(parsed);
   }
 
-  return seconds < SAME_DAY_LIMIT ? time.format(parsed) : dateTime.format(parsed);
+  const seconds = Math.max(0, Math.round((now - parsed.getTime()) / 1000));
+  return seconds < RELATIVE_LIMIT ? formatAgo(iso, now) : time.format(parsed);
 }
 
 /** "40 s ago", "3 min ago". Coarse on purpose: this is a freshness cue, not a measurement. */

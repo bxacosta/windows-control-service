@@ -8,7 +8,7 @@
  * replaces. Here they survive it, and can be read without reading any markup.
  */
 
-import { formatAgo, formatDuration, formatTimestamp, formatUptime, formatWhen } from './format.js';
+import { formatDuration, formatTimestamp, formatUptime, formatWhen } from './format.js';
 
 /**
  * Every time this interface shows is relative, because the question being asked of it is "was
@@ -60,7 +60,7 @@ export function describePolicyState(state) {
     tone: state.state.toLowerCase(),
     headline: chosen.headline,
     detail: chosen.detail,
-    checked: state.lastReconciledAt === null ? '' : `checked ${formatAgo(state.lastReconciledAt)}`,
+    checked: state.lastReconciledAt === null ? '' : `checked ${formatWhen(state.lastReconciledAt)}`,
     checkedExactly: exactly(state.lastReconciledAt),
     icon: chosen.icon,
   };
@@ -131,7 +131,7 @@ export const describeUsbState = (status) => ({
     : { tone: 'muted', text: 'Allowed' },
   detail: [
     status.blocked ? 'New drives will not mount' : 'Drives mount normally',
-    status.lastModified ? `changed ${formatAgo(status.lastModified)}` : 'never changed through this service',
+    status.lastModified ? `changed ${formatWhen(status.lastModified)}` : 'never changed through this service',
   ].join(' · '),
   detailExactly: exactly(status.lastModified),
 });

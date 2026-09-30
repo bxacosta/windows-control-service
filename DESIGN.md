@@ -728,10 +728,12 @@ character by character, and a proportional face makes `l`, `I` and `1` the same 
 Every place digits line up in a column -- counts, durations, pagination, the character counter --
 sets `font-variant-numeric: tabular-nums`, so numbers do not shift as they change.
 
-**Every time is relative, and carries the exact one in its title.** "5 h ago" answers the question
-actually being asked -- was that just now -- and the timestamp the service recorded answers "when
-exactly". A recorded value must never be only paraphrased, so it is a hover away rather than
-absent. Never both on the line: two clocks for one fact.
+**Every time from today is relative, and carries the exact one in its title.** "5 h ago" answers
+the question actually being asked -- was that just now -- and the timestamp the service recorded
+answers "when exactly". A recorded value must never be only paraphrased, so it is a hover away
+rather than absent. Never both on the line: two clocks for one fact. Past six hours today shows
+the time, and **any other calendar day shows the date and time**, however recent: "20 min ago" at
+ten past midnight would hide that the date changed.
 
 ## Layout
 
