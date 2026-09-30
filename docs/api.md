@@ -133,7 +133,7 @@ Invalidates the session and clears the cookie. `200`.
 { "currentPassword": "...", "newPassword": "..." }
 ```
 
-`200` · `400` · `401`.
+`200` · `400` (the current password is wrong, or the new one is refused) · `401` (no session).
 
 Requires the current password **in addition to** a valid session: the machine is shared,
 and a browser left signed in must not be enough to take the service over.

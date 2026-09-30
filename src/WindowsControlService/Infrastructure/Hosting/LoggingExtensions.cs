@@ -51,9 +51,6 @@ public static class LoggingExtensions
         Directory.CreateDirectory(logDirectory);
 
         var configuration = new LoggerConfiguration()
-            // Verbose here on purpose: the Logging:LogLevel section filters first, so levels are
-            // governed in one place instead of two.
-            .MinimumLevel.Verbose()
             .Enrich.With(new UtcTimestampEnricher())
             .WriteTo.File(
                 path: Path.Combine(logDirectory, "wcs-.log"),
@@ -87,7 +84,48 @@ public static class LoggingExtensions
                 manageEventSource: false);
         }
 
+        ApplyLogLevels(configuration, builder.Configuration.GetSection("Logging:LogLevel"));
+
         builder.Services.AddSerilog(configuration.CreateLogger(), dispose: true);
+    }
+
+    /// <summary>
+    /// Carries the standard <c>Logging:LogLevel</c> section over to Serilog.
+    /// </summary>
+    /// <remarks>
+    /// Serilog's factory replaces the one that applies those rules, so without this the section
+    /// is read by nothing and every category logs down to Verbose. Measured on the installed
+    /// service: Kestrel's per-connection Debug lines filled the file under a Default of
+    /// Information. <c>None</c> has no Serilog equivalent and becomes Fatal.
+    /// </remarks>
+    private static void ApplyLogLevels(LoggerConfiguration configuration, IConfigurationSection levels)
+    {
+        foreach (var entry in levels.GetChildren())
+        {
+            if (!Enum.TryParse<LogLevel>(entry.Value, ignoreCase: true, out var level))
+            {
+                continue;
+            }
+
+            var serilogLevel = level switch
+            {
+                LogLevel.Trace => LogEventLevel.Verbose,
+                LogLevel.Debug => LogEventLevel.Debug,
+                LogLevel.Information => LogEventLevel.Information,
+                LogLevel.Warning => LogEventLevel.Warning,
+                LogLevel.Error => LogEventLevel.Error,
+                _ => LogEventLevel.Fatal,
+            };
+
+            if (entry.Key == "Default")
+            {
+                configuration.MinimumLevel.Is(serilogLevel);
+            }
+            else
+            {
+                configuration.MinimumLevel.Override(entry.Key, serilogLevel);
+            }
+        }
     }
 
     private static bool EventSourceExists(string source)

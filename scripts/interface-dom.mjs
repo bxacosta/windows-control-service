@@ -905,14 +905,17 @@ const scenarios = [
   {
     name: 'settings · a wrong current password',
     hash: '#/settings',
-    responses: withResponses({ 'PUT /api/auth/password': PROBLEM(401, 'no') }),
+    responses: withResponses({ 'PUT /api/auth/password': PROBLEM(400, 'The current password is not correct.') }),
     steps: [
       "document.getElementById('current-password').value = 'wrong';",
       "document.getElementById('new-password').value = 'same';",
       "document.getElementById('confirm-password').value = 'same';",
       "document.getElementById('change-password-form').requestSubmit(); await window.__wcs.settle();",
     ],
-    capture: ["document.getElementById('change-password-error').outerHTML"],
+    capture: [
+      "document.getElementById('change-password-error').outerHTML",
+      "'still signed in: ' + !document.getElementById('main').hidden",
+    ],
   },
   {
     name: 'settings · a successful change returns to the gate',

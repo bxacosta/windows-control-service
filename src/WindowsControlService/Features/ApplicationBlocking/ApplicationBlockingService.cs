@@ -32,6 +32,12 @@ public interface IApplicationBlockingService
 /// The write order is the most important logic in this project. A failure must never leave the
 /// machine and the database disagreeing.
 /// </para>
+/// <para>
+/// For the same reason the caller's token is honoured only up to the first change. From the
+/// insert or the apply onward every step runs with <see cref="CancellationToken.None"/>: a client
+/// that disconnects between applying the policy and writing the row would otherwise leave the
+/// two out of step, and reconciliation does not repair that case.
+/// </para>
 /// </remarks>
 public sealed class ApplicationBlockingService(
     IBlockedApplicationRepository repository,
@@ -41,7 +47,11 @@ public sealed class ApplicationBlockingService(
     TimeProvider timeProvider,
     ILogger<ApplicationBlockingService> logger) : IApplicationBlockingService
 {
-    private DateTime? _lastReconciledAt;
+    private const string NotFoundMessage = "No blocked application with that id.";
+
+    // Ticks rather than DateTime?: written inside the executor, read outside it, and a nullable
+    // struct can tear. Zero means no cycle has completed.
+    private long _lastReconciledTicks;
 
     public Task<IReadOnlyList<BlockedApplication>> GetAllAsync(CancellationToken cancellationToken) =>
         repository.GetAllAsync(cancellationToken);
@@ -49,7 +59,7 @@ public sealed class ApplicationBlockingService(
     public async Task<Result<BlockedApplication>> GetByIdAsync(long id, CancellationToken cancellationToken) =>
         await repository.GetByIdAsync(id, cancellationToken) is { } application
             ? Result<BlockedApplication>.Success(application)
-            : Result<BlockedApplication>.Failure(ErrorCode.NotFound, "No blocked application with that id.");
+            : Result<BlockedApplication>.Failure(ErrorCode.NotFound, NotFoundMessage);
 
     public Task<Result<long>> AddAsync(string executablePath, string name, CancellationToken cancellationToken) =>
         executor.RunAsync(token => AddCoreAsync(executablePath, name, token), cancellationToken);
@@ -97,8 +107,11 @@ public sealed class ApplicationBlockingService(
         var enabled = await repository.GetEnabledAsync(cancellationToken);
 
         return Result<PolicyStateResponse>.Success(
-            new PolicyStateResponse(state.Value, enabled.Count, _lastReconciledAt));
+            new PolicyStateResponse(state.Value, enabled.Count, LastReconciledAt));
     }
+
+    private DateTime? LastReconciledAt =>
+        Volatile.Read(ref _lastReconciledTicks) is var ticks and not 0 ? new DateTime(ticks, DateTimeKind.Utc) : null;
 
     private async Task<Result<long>> AddCoreAsync(string executablePath, string name, CancellationToken cancellationToken)
     {
@@ -162,12 +175,12 @@ public sealed class ApplicationBlockingService(
         // The only operation that writes before applying, because the deny rule id is derived
         // from the row id and the policy cannot be built until the insert has happened. It is
         // compensated below.
-        var id = await repository.InsertAsync(application, cancellationToken);
+        var id = await repository.InsertAsync(application, CancellationToken.None);
 
-        var applied = await ApplyCurrentPolicyAsync(cancellationToken);
+        var applied = await ApplyCurrentPolicyAsync(CancellationToken.None);
         if (applied.IsFailure)
         {
-            await repository.DeleteAsync(id, cancellationToken);
+            await repository.DeleteAsync(id, CancellationToken.None);
             logger.LogWarning(
                 "Rolled back the entry for {ExecutablePath}: the policy could not be applied.",
                 fullPath);
@@ -183,26 +196,27 @@ public sealed class ApplicationBlockingService(
         var application = await repository.GetByIdAsync(id, cancellationToken);
         if (application is null)
         {
-            return Result.Failure(ErrorCode.NotFound, "No blocked application with that id.");
+            return Result.Failure(ErrorCode.NotFound, NotFoundMessage);
         }
 
         // A disabled entry contributes no rule, so removing it cannot change the policy. Worth
         // the shortcut: it avoids a CiTool call that could fail for unrelated reasons.
         if (!application.IsEnabled)
         {
-            await repository.DeleteAsync(id, cancellationToken);
+            await repository.DeleteAsync(id, CancellationToken.None);
             return Result.Success();
         }
 
         // Apply first, delete second. The other way round would leave a phantom block with no row
         // left to explain it.
-        var applied = await ApplyPolicyForAsync(await EnabledExceptAsync(id, cancellationToken), cancellationToken);
+        var remaining = await EnabledExceptAsync(id, cancellationToken);
+        var applied = await ApplyPolicyForAsync(remaining, CancellationToken.None);
         if (applied.IsFailure)
         {
             return applied;
         }
 
-        await repository.DeleteAsync(id, cancellationToken);
+        await repository.DeleteAsync(id, CancellationToken.None);
         return Result.Success();
     }
 
@@ -211,7 +225,7 @@ public sealed class ApplicationBlockingService(
         var application = await repository.GetByIdAsync(id, cancellationToken);
         if (application is null)
         {
-            return Result.Failure(ErrorCode.NotFound, "No blocked application with that id.");
+            return Result.Failure(ErrorCode.NotFound, NotFoundMessage);
         }
 
         if (application.IsEnabled == enabled)
@@ -225,13 +239,13 @@ public sealed class ApplicationBlockingService(
             : projected.Where(candidate => candidate.Id != id).ToList();
 
         // Apply the projected policy first; only touch the row if the system accepted it.
-        var applied = await ApplyPolicyForAsync(resulting, cancellationToken);
+        var applied = await ApplyPolicyForAsync(resulting, CancellationToken.None);
         if (applied.IsFailure)
         {
             return applied;
         }
 
-        await repository.SetEnabledAsync(id, enabled, cancellationToken);
+        await repository.SetEnabledAsync(id, enabled, CancellationToken.None);
         return Result.Success();
     }
 
@@ -243,8 +257,6 @@ public sealed class ApplicationBlockingService(
             return Result.Failure(state.Error);
         }
 
-        _lastReconciledAt = timeProvider.GetUtcNow().UtcDateTime;
-
         // Unknown means CiTool could not be queried, not that there is no policy. Acting on it
         // would reinstall the policy every minute forever.
         if (state.Value is PolicyState.Unknown)
@@ -255,13 +267,21 @@ public sealed class ApplicationBlockingService(
 
         var enabled = await repository.GetEnabledAsync(cancellationToken);
 
-        return (enabled.Count, state.Value) switch
+        var result = (enabled.Count, state.Value) switch
         {
             // The database is the source of truth for configuration.
             (0, PolicyState.Enforced) => await RemoveAndLogAsync(cancellationToken),
             (> 0, PolicyState.NotEnforced) => await ReapplyAndLogAsync(enabled, cancellationToken),
             _ => Result.Success(),
         };
+
+        // Stamped only for a cycle that completed: a skipped or failed one reconciled nothing.
+        if (result.IsSuccess)
+        {
+            Volatile.Write(ref _lastReconciledTicks, timeProvider.GetUtcNow().UtcTicks);
+        }
+
+        return result;
     }
 
     private async Task<Result> RemoveAndLogAsync(CancellationToken cancellationToken)

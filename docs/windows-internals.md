@@ -502,7 +502,8 @@ shown, never used to generate rules — falling back to `Path.GetFileNameWithout
   ```
   `UseUrls` takes precedence over `ASPNETCORE_URLS`, `--urls` and `launchSettings`, so this is
   the only place the address is decided.
-- `HostOptions.ShutdownTimeout` above the worst possible WDAC operation: 70 s.
+- `HostOptions.ShutdownTimeout` above the worst possible WDAC operation: derived as twice
+  `CodeIntegrity:OperationTimeout` plus 10 s, 70 s by default.
 - The data directory is created on **every** branch, including when it arrives as an argument.
   A `--data-dir` pointing at a directory that does not exist fails later with an opaque SQLite
   error.

@@ -154,7 +154,7 @@ public sealed class AuthenticationHttpTests : IDisposable
     }
 
     [Fact]
-    public async Task ChangingThePasswordWithoutTheCurrentOneIsRejected()
+    public async Task AWrongCurrentPasswordIsRejectedWithoutEndingTheSession()
     {
         using var client = await SignedInClientAsync();
 
@@ -163,7 +163,10 @@ public sealed class AuthenticationHttpTests : IDisposable
             new { currentPassword = "not-the-right-one-2026", newPassword = "another-test-password-2026" },
             CancellationToken.None);
 
-        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        // 400, not 401: the interface reads a 401 as a lost session and would sign out over a typo.
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var session = await client.GetFromJsonAsync<JsonElement>("/api/auth/session", CancellationToken.None);
+        Assert.True(session.GetProperty("authenticated").GetBoolean());
     }
 
     [Fact]

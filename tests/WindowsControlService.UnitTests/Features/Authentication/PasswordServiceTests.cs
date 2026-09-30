@@ -143,7 +143,7 @@ public sealed class PasswordServiceTests
 
         var result = await Service.ChangeAsync("not-the-right-one-2026", "another-test-password-2026", CancellationToken.None);
 
-        Assert.Equal(ErrorCode.Unauthorized, result.Error.Code);
+        Assert.Equal(ErrorCode.Invalid, result.Error.Code);
         Assert.Equal(before, _settings.Values[PasswordService.HashKey]);
     }
 

@@ -19,6 +19,9 @@ public sealed class FakeCodeIntegrityTool : ICodeIntegrityTool
 
     public int RemoveCount { get; private set; }
 
+    /// <summary>Runs as a policy is applied: where a test cancels the caller half way through.</summary>
+    public Action? WhileApplying { get; set; }
+
     public Task<Result<PolicyState>> GetPolicyStateAsync(string policyId, CancellationToken cancellationToken = default) =>
         Task.FromResult(Result<PolicyState>.Success(State));
 
@@ -29,6 +32,7 @@ public sealed class FakeCodeIntegrityTool : ICodeIntegrityTool
             return Task.FromResult(Result.Failure(failure));
         }
 
+        WhileApplying?.Invoke();
         AppliedDocuments.Add(policyXml.ToArray());
         State = PolicyState.Enforced;
         return Task.FromResult(Result.Success());

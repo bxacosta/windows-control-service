@@ -47,8 +47,8 @@ async function handleChangePassword(submitEvent) {
     try {
       await api.changePassword(current, replacement);
     } catch (error) {
-      ui.error.textContent =
-        error.status === 401 ? 'The current password is not correct.' : error.message;
+      // The service words both refusals: a wrong current password and a new one it will not take.
+      ui.error.textContent = error.message;
       return;
     }
 

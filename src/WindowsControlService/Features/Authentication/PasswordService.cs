@@ -63,8 +63,10 @@ public sealed class PasswordService(
         if (current.IsFailure)
         {
             // Asked for on top of a valid session on purpose: this machine is shared, and
-            // a browser left signed in must not be enough to take the service over.
-            return Result.Failure(ErrorCode.Unauthorized, "The current password is not correct.");
+            // a browser left signed in must not be enough to take the service over. Invalid, not
+            // Unauthorized: the session is still good, and the interface reads a 401 as a lost
+            // session and signs out over a typo.
+            return Result.Failure(ErrorCode.Invalid, "The current password is not correct.");
         }
 
         if (PolicyViolation(newPassword) is { } violation)

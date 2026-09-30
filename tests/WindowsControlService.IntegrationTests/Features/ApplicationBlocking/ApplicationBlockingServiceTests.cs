@@ -360,6 +360,35 @@ public sealed class ApplicationBlockingServiceTests : IDisposable
         Assert.NotNull(after.Value.LastReconciledAt);
     }
 
+    [Fact]
+    public async Task ASkippedCycleIsNotReportedAsReconciled()
+    {
+        _codeIntegrity.State = PolicyState.Unknown;
+
+        await _service.ReconcileAsync(CancellationToken.None);
+
+        _codeIntegrity.State = PolicyState.NotEnforced;
+        var state = await _service.GetPolicyStateAsync(CancellationToken.None);
+        Assert.Null(state.Value.LastReconciledAt);
+    }
+
+    [Fact]
+    public async Task ACallerThatGoesAwayAfterTheApplyStillGetsItsRowRemoved()
+    {
+        var keep = await AddAsync("keep.exe", "Keep");
+        var remove = await AddAsync("remove.exe", "Remove");
+        using var caller = new CancellationTokenSource();
+        _codeIntegrity.WhileApplying = caller.Cancel;
+
+        var result = await _service.RemoveAsync(remove, caller.Token);
+
+        // The policy no longer carries the rule, so the row must be gone too: a cancelled delete
+        // would leave an entry that blocks nothing.
+        Assert.True(result.IsSuccess);
+        var remaining = await _service.GetAllAsync(CancellationToken.None);
+        Assert.Equal([keep], remaining.Select(application => application.Id));
+    }
+
     private async Task<long> AddAsync(string fileName, string name)
     {
         var result = await _service.AddAsync(CreateExecutable(fileName), name, CancellationToken.None);

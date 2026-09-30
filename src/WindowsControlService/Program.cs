@@ -26,9 +26,12 @@ builder.Host.UseWindowsService(options => options.ServiceName = ServiceConstants
 //    --urls and launchSettings, so this is the single place the address is decided.
 builder.WebHost.UseUrls(builder.Configuration["urls"] ?? ServiceConstants.DefaultUrl);
 
-// 4. Above the worst case WDAC operation. A stop request that cuts a policy update in half
-//    leaves the machine and the database disagreeing.
-builder.Services.Configure<HostOptions>(options => options.ShutdownTimeout = TimeSpan.FromSeconds(70));
+// 4. Above the worst case WDAC operation, two CiTool calls (convert, then update), plus a margin.
+//    Derived rather than written down, so raising the operation timeout cannot leave a stop
+//    request able to cut a policy update in half.
+builder.Services.AddOptions<HostOptions>()
+    .Configure<IOptions<CodeIntegrityOptions>>((host, codeIntegrity) =>
+        host.ShutdownTimeout = (2 * codeIntegrity.Value.OperationTimeout) + TimeSpan.FromSeconds(10));
 
 // 5. Cross-cutting.
 // The API contract spells out "kind": "Logon" and "origin": "Remote". Without this they go out

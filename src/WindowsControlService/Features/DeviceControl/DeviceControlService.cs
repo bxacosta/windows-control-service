@@ -72,12 +72,13 @@ public sealed class DeviceControlService(
         }
 
         // Only after the registry write succeeded. The other order would record a change that
-        // never happened.
+        // never happened. Not cancellable: the registry already changed, and a client that
+        // disconnects now must not leave the timestamp and the event behind.
         var changedAt = timeProvider.GetUtcNow().UtcDateTime;
         await settings.SetAsync(
             LastModifiedKey,
             changedAt.ToString("O", CultureInfo.InvariantCulture),
-            cancellationToken);
+            CancellationToken.None);
 
         // Published from what was just written rather than by reading it back: the value is
         // known here, and a second registry read would only be another chance to disagree.
