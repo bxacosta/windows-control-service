@@ -1,3 +1,5 @@
+using System.Net;
+using System.Net.Http.Json;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -14,6 +16,9 @@ namespace WindowsControlService.IntegrationTests;
 /// </summary>
 public sealed class ServiceApplicationFactory : WebApplicationFactory<Program>
 {
+    /// <summary>The password every test that needs one sets. Letters and digits, long enough.</summary>
+    public const string TestPassword = "a-long-test-password-2026";
+
     private readonly string _dataDirectory;
     private readonly bool _ownsDataDirectory;
     private readonly Dictionary<string, string?> _settings = [];
@@ -43,10 +48,12 @@ public sealed class ServiceApplicationFactory : WebApplicationFactory<Program>
 
     public FakePortableExecutableReader ExecutableReader { get; } = new();
 
+    public FakeMachineIdentity Machine { get; } = new();
+
     /// <summary>
-    /// Raises the login limit for the tests that are not testing it. The rate limiter is
-    /// process-wide state, so a test that logs in repeatedly would otherwise exhaust the window
-    /// and fail whatever runs next.
+    /// Raises the login limit for the tests that are not testing it. The limiter belongs to one
+    /// host, so this only matters to a test that signs in more than five times against the same
+    /// factory.
     /// </summary>
     public ServiceApplicationFactory WithGenerousLoginLimit()
     {
@@ -58,6 +65,18 @@ public sealed class ServiceApplicationFactory : WebApplicationFactory<Program>
     {
         _settings[key] = value;
         return this;
+    }
+
+    /// <summary>Sets <see cref="TestPassword"/> and signs in with it.</summary>
+    public async Task<HttpClient> CreateSignedInClientAsync()
+    {
+        var client = CreateClient();
+
+        await client.PostAsJsonAsync("/api/auth/password", new { password = TestPassword }, CancellationToken.None);
+        var login = await client.PostAsJsonAsync("/api/auth/login", new { password = TestPassword }, CancellationToken.None);
+        Assert.Equal(HttpStatusCode.OK, login.StatusCode);
+
+        return client;
     }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
@@ -102,6 +121,9 @@ public sealed class ServiceApplicationFactory : WebApplicationFactory<Program>
 
             services.RemoveAll<IPortableExecutableReader>();
             services.AddSingleton<IPortableExecutableReader>(ExecutableReader);
+
+            services.RemoveAll<IMachineIdentity>();
+            services.AddSingleton<IMachineIdentity>(Machine);
         });
     }
 

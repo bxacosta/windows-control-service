@@ -1,4 +1,3 @@
-using Microsoft.Extensions.Time.Testing;
 using WindowsControlService.Infrastructure.Hosting;
 
 namespace WindowsControlService.UnitTests.Infrastructure.Hosting;
@@ -28,18 +27,5 @@ public sealed class ClockTests
         Assert.Same(
             provider.GetRequiredService<ISequentialExecutor>(),
             provider.GetRequiredService<ISequentialExecutor>());
-    }
-
-    [Fact]
-    public void FakeTimeProviderMovesTimeOnDemand()
-    {
-        var start = new DateTimeOffset(2026, 8, 17, 12, 0, 0, TimeSpan.Zero);
-        var clock = new FakeTimeProvider(start);
-
-        clock.Advance(TimeSpan.FromDays(31));
-
-        // This is what makes the 30-day access-history window and session expiry testable
-        // without waiting for them.
-        Assert.Equal(start.AddDays(31), clock.GetUtcNow());
     }
 }

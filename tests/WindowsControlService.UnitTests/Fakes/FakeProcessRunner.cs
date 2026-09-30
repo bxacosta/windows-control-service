@@ -14,7 +14,7 @@ internal sealed class FakeProcessRunner : IProcessRunner
 
     public ProcessResult Default { get; set; } = new(0, string.Empty, string.Empty);
 
-    /// <summary>Answers with <paramref name="result"/> when every fragment appears in the arguments.</summary>
+    /// <summary>Answers with <paramref name="result"/> when the fragment appears in one of the arguments.</summary>
     public FakeProcessRunner When(string argumentFragment, ProcessResult result)
     {
         _responses.Add((_, arguments) =>

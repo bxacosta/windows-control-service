@@ -15,36 +15,34 @@ public sealed class WdacPolicyDocumentTests
         "CodeIntegrity",
         "cipolicy.xsd");
 
-    [Fact]
-    public void TheDocumentValidatesAgainstTheWindowsSchema()
+    /// <summary>
+    /// The cheapest tests in the project and the most valuable: they catch nearly every structural
+    /// mistake without deploying anything. Each attribute is here because the attribute name is
+    /// written straight from the enum, and the schema is what decides which names exist.
+    /// </summary>
+    public static TheoryData<string, BlockedApplication[]> Documents() => new()
     {
-        // The cheapest test in the project and the most valuable: it catches nearly every
-        // structural mistake without deploying anything.
+        { "three applications", [.. SampleApplications()] },
+        { "no applications", [] },
+        { "a name that needs escaping", [new() { Id = 1, Name = "A & B", MatchValue = "a.exe" }] },
+        { "matched by FileName", [Matched(RuleMatchField.FileName, "app.exe")] },
+        { "matched by InternalName", [Matched(RuleMatchField.InternalName, "app_internal")] },
+        { "matched by ProductName", [Matched(RuleMatchField.ProductName, "App Suite")] },
+    };
+
+    [Theory]
+    [MemberData(nameof(Documents))]
+    public void TheDocumentValidatesAgainstTheWindowsSchema(string description, BlockedApplication[] applications)
+    {
         Assert.True(File.Exists(SchemaPath), $"{SchemaPath} is missing; this is a Windows file.");
 
         var schemas = new XmlSchemaSet();
         schemas.Add(Namespace, SchemaPath);
 
-        var document = XDocument.Parse(Encoding.UTF8.GetString(WdacPolicyDocument.Build(SampleApplications())));
-
         var problems = new List<string>();
-        document.Validate(schemas, (_, args) => problems.Add(args.Message));
+        Parse(applications).Validate(schemas, (_, args) => problems.Add(args.Message));
 
-        Assert.Empty(problems);
-    }
-
-    [Fact]
-    public void AnEmptyPolicyAlsoValidates()
-    {
-        var schemas = new XmlSchemaSet();
-        schemas.Add(Namespace, SchemaPath);
-
-        var document = XDocument.Parse(Encoding.UTF8.GetString(WdacPolicyDocument.Build([])));
-
-        var problems = new List<string>();
-        document.Validate(schemas, (_, args) => problems.Add(args.Message));
-
-        Assert.Empty(problems);
+        Assert.True(problems.Count == 0, $"{description}: {string.Join(" | ", problems)}");
     }
 
     [Fact]
@@ -172,20 +170,6 @@ public sealed class WdacPolicyDocumentTests
         Assert.Equal(application.Name, deny.Attribute("FriendlyName")!.Value);
     }
 
-    [Fact]
-    public void TheSchemaValidatesADocumentWithAnAwkwardName()
-    {
-        var schemas = new XmlSchemaSet();
-        schemas.Add(Namespace, SchemaPath);
-
-        var document = Parse([new BlockedApplication { Id = 1, Name = "A & B", MatchValue = "a.exe" }]);
-
-        var problems = new List<string>();
-        document.Validate(schemas, (_, args) => problems.Add(args.Message));
-
-        Assert.Empty(problems);
-    }
-
     private static XDocument Parse(IReadOnlyList<BlockedApplication> applications) =>
         XDocument.Parse(Encoding.UTF8.GetString(WdacPolicyDocument.Build(applications)));
 
@@ -196,6 +180,9 @@ public sealed class WdacPolicyDocumentTests
             .Descendants(XName.Get("FileRuleRef", Namespace))
             .Select(reference => reference.Attribute("RuleID")!.Value)
     ];
+
+    private static BlockedApplication Matched(RuleMatchField attribute, string value) =>
+        new() { Id = 7, Name = "App", MatchAttribute = attribute, MatchValue = value };
 
     private static List<BlockedApplication> SampleApplications() =>
     [

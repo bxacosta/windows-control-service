@@ -16,6 +16,7 @@ namespace WindowsControlService.IntegrationTests.Platform;
 /// unavoidable when the subject is the switch itself.
 /// </remarks>
 [Trait("Requires", "Admin")]
+[Collection(UsbRegistryTests.Name)]
 public sealed class UsbStorageSwitchWriteTests
 {
     private const string DriverKeyPath = @"SYSTEM\CurrentControlSet\Services\USBSTOR";

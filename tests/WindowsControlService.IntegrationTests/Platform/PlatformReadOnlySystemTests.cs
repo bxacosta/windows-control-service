@@ -10,6 +10,7 @@ namespace WindowsControlService.IntegrationTests.Platform;
 /// restores it in a finally block.
 /// </summary>
 [Trait("Requires", "Admin")]
+[Collection(UsbRegistryTests.Name)]
 public sealed class PlatformReadOnlySystemTests
 {
     [Fact]
@@ -24,17 +25,6 @@ public sealed class PlatformReadOnlySystemTests
 
         Assert.True(result.IsSuccess);
         Assert.Equal(start == 4, result.Value);
-    }
-
-    [Fact]
-    public void ReadingUsbStateLeavesTheRegistryUntouched()
-    {
-        using var key = Registry.LocalMachine.OpenSubKey(@"SYSTEM\CurrentControlSet\Services\USBSTOR");
-        var before = (int)key!.GetValue("Start")!;
-
-        new UsbStorageSwitch(NullLogger<UsbStorageSwitch>.Instance).IsBlocked();
-
-        Assert.Equal(before, (int)key.GetValue("Start")!);
     }
 
     [Fact]

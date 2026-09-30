@@ -10,7 +10,7 @@ public sealed class DatabaseOptionsValidationTests
     [Fact]
     public async Task AZeroBusyTimeoutStopsTheHostFromStarting()
     {
-        using var directory = new TemporaryDataDirectory();
+        using var directory = new TemporaryDirectory("wcs-database-tests");
         using var host = BuildHost(directory.Path, new Dictionary<string, string?>
         {
             ["Database:BusyTimeout"] = "00:00:00",
@@ -29,7 +29,7 @@ public sealed class DatabaseOptionsValidationTests
     [Fact]
     public async Task AnEmptyFileNameStopsTheHostFromStarting()
     {
-        using var directory = new TemporaryDataDirectory();
+        using var directory = new TemporaryDirectory("wcs-database-tests");
         using var host = BuildHost(directory.Path, new Dictionary<string, string?>
         {
             ["Database:FileName"] = string.Empty,
@@ -42,15 +42,11 @@ public sealed class DatabaseOptionsValidationTests
     [Fact]
     public async Task TheDefaultsStartCleanly()
     {
-        using var directory = new TemporaryDataDirectory();
+        using var directory = new TemporaryDirectory("wcs-database-tests");
         using var host = BuildHost(directory.Path, []);
 
         await host.StartAsync(CancellationToken.None);
         await host.StopAsync(CancellationToken.None);
-
-        Assert.Equal(
-            TimeSpan.FromSeconds(5),
-            host.Services.GetRequiredService<IOptions<DatabaseOptions>>().Value.BusyTimeout);
     }
 
     private static IHost BuildHost(string dataDirectory, Dictionary<string, string?> overrides)

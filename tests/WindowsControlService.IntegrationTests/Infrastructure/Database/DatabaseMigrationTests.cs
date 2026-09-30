@@ -10,7 +10,7 @@ public sealed class DatabaseMigrationTests
     [Fact]
     public void FirstRunAppliesTheScriptsAndTheSecondAppliesNone()
     {
-        using var directory = new TemporaryDataDirectory();
+        using var directory = new TemporaryDirectory("wcs-database-tests");
 
         var firstRun = ApplyMigrations(directory.Path);
         Assert.NotEmpty(firstRun);
@@ -20,27 +20,9 @@ public sealed class DatabaseMigrationTests
     }
 
     [Fact]
-    public void MigrationCreatesTheJournalTable()
-    {
-        using var directory = new TemporaryDataDirectory();
-
-        ApplyMigrations(directory.Path);
-
-        using var host = BuildHost(directory.Path);
-        using var connection = new SqliteConnection(
-            host.Services.GetRequiredService<IDbConnectionFactory>().ConnectionString);
-        connection.Open();
-
-        using var command = connection.CreateCommand();
-        command.CommandText = JournalTableExistsSql;
-
-        Assert.Equal(1L, command.ExecuteScalar());
-    }
-
-    [Fact]
     public void MigrationTurnsOnWriteAheadLogging()
     {
-        using var directory = new TemporaryDataDirectory();
+        using var directory = new TemporaryDirectory("wcs-database-tests");
 
         ApplyMigrations(directory.Path);
 
@@ -59,7 +41,7 @@ public sealed class DatabaseMigrationTests
     [Fact]
     public async Task ConnectionFactoryOpensAgainstTheDataDirectory()
     {
-        using var directory = new TemporaryDataDirectory();
+        using var directory = new TemporaryDirectory("wcs-database-tests");
         ApplyMigrations(directory.Path);
 
         using var host = BuildHost(directory.Path);

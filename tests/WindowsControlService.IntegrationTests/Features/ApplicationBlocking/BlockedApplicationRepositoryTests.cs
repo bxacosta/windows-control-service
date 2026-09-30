@@ -1,8 +1,5 @@
 using Microsoft.Data.Sqlite;
-using Microsoft.Extensions.Hosting;
 using WindowsControlService.Features.ApplicationBlocking;
-using WindowsControlService.Infrastructure.Database;
-using WindowsControlService.Infrastructure.Hosting;
 using WindowsControlService.IntegrationTests.Infrastructure.Database;
 
 namespace WindowsControlService.IntegrationTests.Features.ApplicationBlocking;
@@ -11,30 +8,21 @@ public sealed class BlockedApplicationRepositoryTests : IDisposable
 {
     private static readonly DateTime Created = new(2026, 8, 17, 10, 0, 0, DateTimeKind.Utc);
 
-    private readonly TemporaryDataDirectory _directory = new();
-    private readonly IHost _host;
+    private readonly MigratedDatabase _database;
     private readonly IBlockedApplicationRepository _repository;
 
     public BlockedApplicationRepositoryTests()
     {
-        var builder = Host.CreateApplicationBuilder(new HostApplicationBuilderSettings
+        _database = new MigratedDatabase(services =>
         {
-            Args = [$"--{DataDirectoryExtensions.ConfigurationKey}={_directory.Path}"],
+            services.AddSingleton<IBlockedApplicationRepository, BlockedApplicationRepository>();
         });
-
-        builder.AddDataDirectory();
-        builder.Services.AddDatabase(builder.Configuration);
-        builder.Services.AddSingleton<IBlockedApplicationRepository, BlockedApplicationRepository>();
-
-        _host = builder.Build();
-        _host.Services.MigrateDatabase();
-        _repository = _host.Services.GetRequiredService<IBlockedApplicationRepository>();
+        _repository = _database.Get<IBlockedApplicationRepository>();
     }
 
     public void Dispose()
     {
-        _host.Dispose();
-        _directory.Dispose();
+        _database.Dispose();
     }
 
     [Fact]

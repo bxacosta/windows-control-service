@@ -1,9 +1,6 @@
 using System.Xml.Linq;
 using Microsoft.Data.Sqlite;
-using Microsoft.Extensions.Hosting;
 using WindowsControlService.Features.ApplicationBlocking;
-using WindowsControlService.Infrastructure.Database;
-using WindowsControlService.Infrastructure.Hosting;
 using WindowsControlService.IntegrationTests.Infrastructure.Database;
 
 namespace WindowsControlService.IntegrationTests.Features.ApplicationBlocking;
@@ -15,30 +12,21 @@ namespace WindowsControlService.IntegrationTests.Features.ApplicationBlocking;
 /// </summary>
 public sealed class RuleMatchFieldTests : IDisposable
 {
-    private readonly TemporaryDataDirectory _directory = new();
-    private readonly IHost _host;
+    private readonly MigratedDatabase _database;
     private readonly IBlockedApplicationRepository _repository;
 
     public RuleMatchFieldTests()
     {
-        var builder = Host.CreateApplicationBuilder(new HostApplicationBuilderSettings
+        _database = new MigratedDatabase(services =>
         {
-            Args = [$"--{DataDirectoryExtensions.ConfigurationKey}={_directory.Path}"],
+            services.AddSingleton<IBlockedApplicationRepository, BlockedApplicationRepository>();
         });
-
-        builder.AddDataDirectory();
-        builder.Services.AddDatabase(builder.Configuration);
-        builder.Services.AddSingleton<IBlockedApplicationRepository, BlockedApplicationRepository>();
-
-        _host = builder.Build();
-        _host.Services.MigrateDatabase();
-        _repository = _host.Services.GetRequiredService<IBlockedApplicationRepository>();
+        _repository = _database.Get<IBlockedApplicationRepository>();
     }
 
     public void Dispose()
     {
-        _host.Dispose();
-        _directory.Dispose();
+        _database.Dispose();
     }
 
     [Theory]
@@ -66,7 +54,7 @@ public sealed class RuleMatchFieldTests : IDisposable
     [Fact]
     public async Task TheDatabaseRefusesAnAttributeThisServiceCannotWrite()
     {
-        var connectionString = _host.Services.GetRequiredService<IDbConnectionFactory>().ConnectionString;
+        var connectionString = _database.ConnectionString;
 
         await using var connection = new SqliteConnection(connectionString);
         await connection.OpenAsync(CancellationToken.None);

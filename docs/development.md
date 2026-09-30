@@ -73,6 +73,18 @@ node scripts/interface-dom.mjs --out=after.txt    # the DOM harness
 **No mocking framework.** Doubles are hand-written `Fake*` classes in the test project: there
 are few of them, they are explicit, and their failures read better.
 
+Shared scaffolding, so a test class does not grow its own copy:
+
+| Helper                                                  | For                                                        |
+|---------------------------------------------------------|------------------------------------------------------------|
+| `ServiceApplicationFactory.CreateSignedInClientAsync()` | An HTTP client with `TestPassword` set and signed in       |
+| `MigratedDatabase`                                      | A real, migrated SQLite file, plus what the test registers |
+| `TemporaryDirectory`                                    | A throwaway directory under TEMP, deleted with the test    |
+| `UsbRegistryTests` collection                           | Serialises every test that reads or writes `USBSTOR`       |
+
+`EndpointAuthorizationTests` reads every mapped route and fails on an `/api/` endpoint that
+answers without a session and is not on its list, so a new endpoint cannot ship open by accident.
+
 **The suite runs on the machine it is testing, and has to leave it exactly as it found it.**
 There is no isolated Windows to run against: what is under test is the effect on the real
 registry, the real event log and the real `CiTool`, and a double would only prove the double

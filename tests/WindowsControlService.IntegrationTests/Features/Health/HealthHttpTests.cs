@@ -1,3 +1,4 @@
+using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 
@@ -11,6 +12,24 @@ namespace WindowsControlService.IntegrationTests.Features.Health;
 public sealed class HealthHttpTests
 {
     [Fact]
+    public async Task HealthIsPublic()
+    {
+        using var factory = new ServiceApplicationFactory();
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/api/health", CancellationToken.None);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>(CancellationToken.None);
+        Assert.Equal("running", body.GetProperty("status").GetString());
+        Assert.False(string.IsNullOrWhiteSpace(body.GetProperty("version").GetString()));
+
+        // Z, not +00:00: the API contract fixes the shape of every timestamp it emits.
+        Assert.EndsWith("Z", body.GetProperty("timestamp").GetString()!, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task HealthSaysWhichMachineAndWhenTheServiceStarted()
     {
         using var factory = new ServiceApplicationFactory();
@@ -18,7 +37,7 @@ public sealed class HealthHttpTests
 
         var health = await client.GetFromJsonAsync<JsonElement>("/api/health", CancellationToken.None);
 
-        Assert.Equal(Environment.MachineName, health.GetProperty("machineName").GetString());
+        Assert.Equal(factory.Machine.MachineName, health.GetProperty("machineName").GetString());
 
         // The instant the host started, taken from the injected clock -- which the factory holds
         // still. An uptime that came from DateTime.UtcNow would be the age of this test run.

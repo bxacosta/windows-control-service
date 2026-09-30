@@ -21,23 +21,19 @@ public sealed class PolicyReconciliationWorkerTests
         await worker.StartAsync(CancellationToken.None);
         await blocking.WaitForCyclesAsync(1);
         await worker.StopAsync(CancellationToken.None);
-
-        Assert.True(blocking.Cycles >= 1);
     }
 
     [Fact]
     public async Task ItKeepsGoingAfterACycleThrows()
     {
+        // A failing cycle must never take the worker down: after it dies, nothing watches the
+        // policy again until the service restarts. Reaching three cycles is the assertion.
         var blocking = new CountingBlockingService { Throw = true };
         using var worker = BuildWorker(blocking, TimeSpan.FromMilliseconds(50));
 
         await worker.StartAsync(CancellationToken.None);
         await blocking.WaitForCyclesAsync(3);
         await worker.StopAsync(CancellationToken.None);
-
-        // A failing cycle must never take the worker down: after it dies, nothing watches the
-        // policy again until the service restarts.
-        Assert.True(blocking.Cycles >= 3);
     }
 
     [Fact]
@@ -53,8 +49,6 @@ public sealed class PolicyReconciliationWorkerTests
         await worker.StartAsync(CancellationToken.None);
         await blocking.WaitForCyclesAsync(3);
         await worker.StopAsync(CancellationToken.None);
-
-        Assert.True(blocking.Cycles >= 3);
     }
 
     private static PolicyReconciliationWorker BuildWorker(IApplicationBlockingService blocking, TimeSpan interval) =>

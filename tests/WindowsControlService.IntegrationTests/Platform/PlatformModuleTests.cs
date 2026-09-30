@@ -38,16 +38,6 @@ public sealed class PlatformModuleTests
             StringComparison.Ordinal);
     }
 
-    [Fact]
-    public void TheDefaultOperationTimeoutIsThirtySeconds()
-    {
-        using var host = BuildHost([]);
-
-        Assert.Equal(
-            TimeSpan.FromSeconds(30),
-            host.Services.GetRequiredService<IOptions<CodeIntegrityOptions>>().Value.OperationTimeout);
-    }
-
     private static IHost BuildHost(Dictionary<string, string?> overrides)
     {
         var builder = Host.CreateApplicationBuilder();

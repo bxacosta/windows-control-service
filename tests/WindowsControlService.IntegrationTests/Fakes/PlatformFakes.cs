@@ -51,6 +51,11 @@ public sealed class FakeCodeIntegrityTool : ICodeIntegrityTool
     }
 }
 
+public sealed class FakeMachineIdentity : IMachineIdentity
+{
+    public string MachineName { get; set; } = "TEST-MACHINE";
+}
+
 public sealed class FakeUsbStorageSwitch : IUsbStorageSwitch
 {
     public bool Blocked { get; set; }

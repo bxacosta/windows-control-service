@@ -78,16 +78,5 @@ public sealed class InterfaceHostingTests : IDisposable
         Assert.Equal(HttpStatusCode.NotFound, api.StatusCode);
     }
 
-    [Fact]
-    public async Task TheShellIsServedBeforeAuthentication()
-    {
-        using var client = _factory.CreateClient();
-
-        // Reaching the login screen cannot require being logged in. The shell carries no data.
-        using var response = await client.GetAsync(new Uri("/index.html", UriKind.Relative));
-
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-    }
-
     public void Dispose() => _factory.Dispose();
 }

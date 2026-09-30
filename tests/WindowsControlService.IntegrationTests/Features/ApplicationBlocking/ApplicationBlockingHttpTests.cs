@@ -8,31 +8,18 @@ namespace WindowsControlService.IntegrationTests.Features.ApplicationBlocking;
 
 public sealed class ApplicationBlockingHttpTests : IDisposable
 {
-    private const string Password = "a-long-test-password-2026";
-
     private readonly ServiceApplicationFactory _factory = new ServiceApplicationFactory()
         .WithGenerousLoginLimit()
         // Long enough that the reconciliation worker never fires mid-test and changes the fake's
         // state underneath an assertion.
         .With("ApplicationBlocking:ReconciliationInterval", "01:00:00");
 
-    private readonly string _workDirectory =
-        Path.Combine(Path.GetTempPath(), "wcs-blocking-http", Guid.NewGuid().ToString("N"));
-
-    public ApplicationBlockingHttpTests() => Directory.CreateDirectory(_workDirectory);
+    private readonly TemporaryDirectory _work = new("wcs-blocking-http");
 
     public void Dispose()
     {
         _factory.Dispose();
-
-        try
-        {
-            Directory.Delete(_workDirectory, recursive: true);
-        }
-        catch (IOException)
-        {
-            // Not worth failing a test over.
-        }
+        _work.Dispose();
     }
 
     [Fact]
@@ -48,7 +35,7 @@ public sealed class ApplicationBlockingHttpTests : IDisposable
     [Fact]
     public async Task AddingReturnsCreatedWithALocation()
     {
-        using var client = await SignedInClientAsync();
+        using var client = await _factory.CreateSignedInClientAsync();
 
         var response = await client.PostAsJsonAsync(
             "/api/applications",
@@ -65,7 +52,7 @@ public sealed class ApplicationBlockingHttpTests : IDisposable
     [Fact]
     public async Task TheListSaysWhichAttributeTheRuleMatchesOn()
     {
-        using var client = await SignedInClientAsync();
+        using var client = await _factory.CreateSignedInClientAsync();
         var path = CreateExecutable("renamed.exe");
         _factory.ExecutableReader.WithOriginalFileName(path, "the-real-name.exe");
 
@@ -86,11 +73,11 @@ public sealed class ApplicationBlockingHttpTests : IDisposable
     [Fact]
     public async Task APathThatDoesNotExistIsABadRequest()
     {
-        using var client = await SignedInClientAsync();
+        using var client = await _factory.CreateSignedInClientAsync();
 
         var response = await client.PostAsJsonAsync(
             "/api/applications",
-            new { executablePath = Path.Combine(_workDirectory, "missing.exe"), name = "Nope" },
+            new { executablePath = Path.Combine(_work.Path, "missing.exe"), name = "Nope" },
             CancellationToken.None);
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
@@ -100,7 +87,7 @@ public sealed class ApplicationBlockingHttpTests : IDisposable
     [Fact]
     public async Task ADuplicateIsAConflict()
     {
-        using var client = await SignedInClientAsync();
+        using var client = await _factory.CreateSignedInClientAsync();
         var path = CreateExecutable("target.exe");
         await client.PostAsJsonAsync("/api/applications", new { executablePath = path, name = "Target" }, CancellationToken.None);
 
@@ -115,7 +102,7 @@ public sealed class ApplicationBlockingHttpTests : IDisposable
     [Fact]
     public async Task AFailingPolicyIsAnInternalErrorAndNothingIsRecorded()
     {
-        using var client = await SignedInClientAsync();
+        using var client = await _factory.CreateSignedInClientAsync();
         _factory.CodeIntegrity.ApplyFailure = new Error(ErrorCode.OperationFailed, "Windows refused it.");
 
         var response = await client.PostAsJsonAsync(
@@ -132,7 +119,7 @@ public sealed class ApplicationBlockingHttpTests : IDisposable
     [Fact]
     public async Task MissingCodeIntegrityToolingIsServiceUnavailable()
     {
-        using var client = await SignedInClientAsync();
+        using var client = await _factory.CreateSignedInClientAsync();
         _factory.CodeIntegrity.ApplyFailure = new Error(ErrorCode.PlatformUnavailable, "CiTool is not here.");
 
         var response = await client.PostAsJsonAsync(
@@ -146,7 +133,7 @@ public sealed class ApplicationBlockingHttpTests : IDisposable
     [Fact]
     public async Task GettingAnUnknownIdIsNotFound()
     {
-        using var client = await SignedInClientAsync();
+        using var client = await _factory.CreateSignedInClientAsync();
 
         var response = await client.GetAsync("/api/applications/404", CancellationToken.None);
 
@@ -156,7 +143,7 @@ public sealed class ApplicationBlockingHttpTests : IDisposable
     [Fact]
     public async Task DisablingKeepsTheEntry()
     {
-        using var client = await SignedInClientAsync();
+        using var client = await _factory.CreateSignedInClientAsync();
         var id = await AddAsync(client, "target.exe");
 
         var patch = await client.PatchAsJsonAsync($"/api/applications/{id}", new { enabled = false }, CancellationToken.None);
@@ -170,7 +157,7 @@ public sealed class ApplicationBlockingHttpTests : IDisposable
     [Fact]
     public async Task PatchWithoutTheFieldIsABadRequest()
     {
-        using var client = await SignedInClientAsync();
+        using var client = await _factory.CreateSignedInClientAsync();
         var id = await AddAsync(client, "target.exe");
 
         var patch = await client.PatchAsJsonAsync($"/api/applications/{id}", new { }, CancellationToken.None);
@@ -181,7 +168,7 @@ public sealed class ApplicationBlockingHttpTests : IDisposable
     [Fact]
     public async Task DeletingReturnsNoContent()
     {
-        using var client = await SignedInClientAsync();
+        using var client = await _factory.CreateSignedInClientAsync();
         var id = await AddAsync(client, "target.exe");
 
         var response = await client.DeleteAsync($"/api/applications/{id}", CancellationToken.None);
@@ -193,7 +180,7 @@ public sealed class ApplicationBlockingHttpTests : IDisposable
     [Fact]
     public async Task AFailedDeletionLeavesTheEntryBlocked()
     {
-        using var client = await SignedInClientAsync();
+        using var client = await _factory.CreateSignedInClientAsync();
         var id = await AddAsync(client, "target.exe");
         await AddAsync(client, "other.exe");
         _factory.CodeIntegrity.ApplyFailure = new Error(ErrorCode.OperationFailed, "no");
@@ -202,37 +189,24 @@ public sealed class ApplicationBlockingHttpTests : IDisposable
 
         // The contract is explicit: on a 500 the entry still exists and stays blocked.
         Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
-        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync($"/api/applications/{id}", CancellationToken.None)).StatusCode);
+        var entry = await client.GetFromJsonAsync<JsonElement>($"/api/applications/{id}", CancellationToken.None);
+        Assert.True(entry.GetProperty("isEnabled").GetBoolean());
     }
 
     [Fact]
     public async Task ThePolicyStateEndpointReportsTheThirdState()
     {
-        using var client = await SignedInClientAsync();
+        using var client = await _factory.CreateSignedInClientAsync();
         _factory.CodeIntegrity.State = PolicyState.Unknown;
 
         var state = await client.GetFromJsonAsync<JsonElement>("/api/applications/policy-state", CancellationToken.None);
 
         // Unknown has to be distinguishable from "there is no policy", or the interface tells the
-        // user something false.
+        // user something false. As its name, not its number (GetString throws on a number): as a
+        // number the browser would be comparing against member order, and Unknown and NotEnforced
+        // are the two that mean opposite things.
         Assert.Equal("Unknown", state.GetProperty("state").GetString());
         Assert.Equal(0, state.GetProperty("enabledRuleCount").GetInt32());
-
-        // Spelled out because the property is the enum now, not its name: as a number the
-        // browser would be comparing against member order, and Unknown and NotEnforced are the
-        // two that mean opposite things. The event stream carries the same record and has the
-        // same assertion, in EventStreamTests.
-        Assert.Equal(JsonValueKind.String, state.GetProperty("state").ValueKind);
-    }
-
-    [Fact]
-    public async Task ThePolicyStateRouteIsNotParsedAsAnIdentifier()
-    {
-        using var client = await SignedInClientAsync();
-
-        var response = await client.GetAsync("/api/applications/policy-state", CancellationToken.None);
-
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
 
     private async Task<long> AddAsync(HttpClient client, string fileName)
@@ -253,7 +227,7 @@ public sealed class ApplicationBlockingHttpTests : IDisposable
     /// </summary>
     private string CreateExecutable(string fileName)
     {
-        var path = Path.Combine(_workDirectory, fileName);
+        var path = Path.Combine(_work.Path, fileName);
         if (!File.Exists(path))
         {
             File.WriteAllText(path, "not a real executable, but it exists on disk");
@@ -262,16 +236,5 @@ public sealed class ApplicationBlockingHttpTests : IDisposable
         _factory.ExecutableReader.WithOriginalFileName(path, fileName);
 
         return path;
-    }
-
-    private async Task<HttpClient> SignedInClientAsync()
-    {
-        var client = _factory.CreateClient();
-
-        await client.PostAsJsonAsync("/api/auth/password", new { password = Password }, CancellationToken.None);
-        var login = await client.PostAsJsonAsync("/api/auth/login", new { password = Password }, CancellationToken.None);
-        Assert.Equal(HttpStatusCode.OK, login.StatusCode);
-
-        return client;
     }
 }

@@ -11,28 +11,9 @@ namespace WindowsControlService.IntegrationTests.Features.Authentication;
 /// </summary>
 public sealed class AuthenticationHttpTests : IDisposable
 {
-    private const string Password = "a-long-test-password-2026";
-
     private readonly ServiceApplicationFactory _factory = new ServiceApplicationFactory().WithGenerousLoginLimit();
 
     public void Dispose() => _factory.Dispose();
-
-    [Fact]
-    public async Task HealthIsPublic()
-    {
-        using var client = _factory.CreateClient();
-
-        var response = await client.GetAsync("/api/health", CancellationToken.None);
-
-        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
-
-        var body = await response.Content.ReadFromJsonAsync<JsonElement>(CancellationToken.None);
-        Assert.Equal("running", body.GetProperty("status").GetString());
-        Assert.False(string.IsNullOrWhiteSpace(body.GetProperty("version").GetString()));
-
-        // Z, not +00:00: the API contract fixes the shape of every timestamp it emits.
-        Assert.EndsWith("Z", body.GetProperty("timestamp").GetString()!, StringComparison.Ordinal);
-    }
 
     [Fact]
     public async Task AProtectedEndpointWithoutACookieAnswersUnauthorizedNotARedirect()
@@ -47,7 +28,6 @@ public sealed class AuthenticationHttpTests : IDisposable
         // The whole reason the framework's cookie handler is usable here: .NET 10 answers 401 for
         // API endpoints instead of 302 towards a login page.
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
-        Assert.NotEqual(HttpStatusCode.Redirect, response.StatusCode);
     }
 
     [Fact]
@@ -97,7 +77,7 @@ public sealed class AuthenticationHttpTests : IDisposable
     {
         using var client = _factory.CreateClient();
 
-        var response = await client.PostAsJsonAsync("/api/auth/password", new { password = Password }, CancellationToken.None);
+        var response = await client.PostAsJsonAsync("/api/auth/password", new { password = ServiceApplicationFactory.TestPassword }, CancellationToken.None);
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
 
         var session = await client.GetFromJsonAsync<JsonElement>("/api/auth/session", CancellationToken.None);
@@ -108,7 +88,7 @@ public sealed class AuthenticationHttpTests : IDisposable
     public async Task ConfiguringAPasswordTwiceIsAConflict()
     {
         using var client = _factory.CreateClient();
-        await client.PostAsJsonAsync("/api/auth/password", new { password = Password }, CancellationToken.None);
+        await client.PostAsJsonAsync("/api/auth/password", new { password = ServiceApplicationFactory.TestPassword }, CancellationToken.None);
 
         var second = await client.PostAsJsonAsync("/api/auth/password", new { password = "another-test-password-2026" }, CancellationToken.None);
 
@@ -119,7 +99,7 @@ public sealed class AuthenticationHttpTests : IDisposable
     public async Task TheWrongPasswordDoesNotSignAnyoneIn()
     {
         using var client = _factory.CreateClient();
-        await client.PostAsJsonAsync("/api/auth/password", new { password = Password }, CancellationToken.None);
+        await client.PostAsJsonAsync("/api/auth/password", new { password = ServiceApplicationFactory.TestPassword }, CancellationToken.None);
 
         var response = await client.PostAsJsonAsync("/api/auth/login", new { password = "not-the-right-one-2026" }, CancellationToken.None);
 
@@ -131,9 +111,9 @@ public sealed class AuthenticationHttpTests : IDisposable
     public async Task TheRightPasswordIssuesTheSessionCookie()
     {
         using var client = _factory.CreateClient();
-        await client.PostAsJsonAsync("/api/auth/password", new { password = Password }, CancellationToken.None);
+        await client.PostAsJsonAsync("/api/auth/password", new { password = ServiceApplicationFactory.TestPassword }, CancellationToken.None);
 
-        var response = await client.PostAsJsonAsync("/api/auth/login", new { password = Password }, CancellationToken.None);
+        var response = await client.PostAsJsonAsync("/api/auth/login", new { password = ServiceApplicationFactory.TestPassword }, CancellationToken.None);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         var cookie = Assert.Single(SetCookieValues(response), value => value.Contains("wcs_session", StringComparison.Ordinal));
@@ -144,7 +124,7 @@ public sealed class AuthenticationHttpTests : IDisposable
     [Fact]
     public async Task AValidCookieOpensTheProtectedEndpoints()
     {
-        using var client = await SignedInClientAsync();
+        using var client = await _factory.CreateSignedInClientAsync();
 
         var session = await client.GetFromJsonAsync<JsonElement>("/api/auth/session", CancellationToken.None);
         Assert.True(session.GetProperty("authenticated").GetBoolean());
@@ -156,7 +136,7 @@ public sealed class AuthenticationHttpTests : IDisposable
     [Fact]
     public async Task AWrongCurrentPasswordIsRejectedWithoutEndingTheSession()
     {
-        using var client = await SignedInClientAsync();
+        using var client = await _factory.CreateSignedInClientAsync();
 
         var response = await client.PutAsJsonAsync(
             "/api/auth/password",
@@ -172,11 +152,11 @@ public sealed class AuthenticationHttpTests : IDisposable
     [Fact]
     public async Task ChangingThePasswordInvalidatesTheSessionThatChangedIt()
     {
-        using var client = await SignedInClientAsync();
+        using var client = await _factory.CreateSignedInClientAsync();
 
         var change = await client.PutAsJsonAsync(
             "/api/auth/password",
-            new { currentPassword = Password, newPassword = "another-test-password-2026" },
+            new { currentPassword = ServiceApplicationFactory.TestPassword, newPassword = "another-test-password-2026" },
             CancellationToken.None);
         Assert.Equal(HttpStatusCode.OK, change.StatusCode);
 
@@ -189,7 +169,7 @@ public sealed class AuthenticationHttpTests : IDisposable
     [Fact]
     public async Task ASessionExpiresOnceTheClockPassesTheTimeout()
     {
-        using var client = await SignedInClientAsync();
+        using var client = await _factory.CreateSignedInClientAsync();
 
         _factory.Clock.Advance(TimeSpan.FromHours(2));
 
@@ -222,17 +202,6 @@ public sealed class AuthenticationHttpTests : IDisposable
         var paths = document.GetProperty("paths");
         Assert.True(paths.TryGetProperty("/api/auth/login", out _));
         Assert.True(paths.TryGetProperty("/api/health", out _));
-    }
-
-    private async Task<HttpClient> SignedInClientAsync()
-    {
-        var client = _factory.CreateClient();
-
-        await client.PostAsJsonAsync("/api/auth/password", new { password = Password }, CancellationToken.None);
-        var login = await client.PostAsJsonAsync("/api/auth/login", new { password = Password }, CancellationToken.None);
-        Assert.Equal(HttpStatusCode.OK, login.StatusCode);
-
-        return client;
     }
 
     private static IReadOnlyList<string> SetCookieValues(HttpResponseMessage response) =>

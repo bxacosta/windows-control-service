@@ -135,17 +135,4 @@ public sealed class LogonEventSourceTests
 
         Assert.Empty(missing.Read(TimeSpan.FromDays(30)));
     }
-
-    [Theory]
-    [InlineData(null, LogonOrigin.Unknown)]
-    [InlineData("", LogonOrigin.Unknown)]
-    [InlineData("   ", LogonOrigin.Unknown)]
-    [InlineData("LOCAL", LogonOrigin.Local)]
-    [InlineData("local", LogonOrigin.Local)]
-    [InlineData("203.0.113.40", LogonOrigin.Remote)]
-    [InlineData("fe80::1", LogonOrigin.Remote)]
-    public void OriginIsClassifiedFromTheAddress(string? address, LogonOrigin expected)
-    {
-        Assert.Equal(expected, LogonEventSource.ToOrigin(address));
-    }
 }

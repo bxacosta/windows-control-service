@@ -16,21 +16,11 @@ namespace WindowsControlService.IntegrationTests.Features.ApplicationBlocking;
 [Trait("Requires", "Admin")]
 public sealed class WdacPolicyConversionTests : IDisposable
 {
-    private readonly string _workDirectory =
-        Path.Combine(Path.GetTempPath(), "wcs-policy-conversion", Guid.NewGuid().ToString("N"));
-
-    public WdacPolicyConversionTests() => Directory.CreateDirectory(_workDirectory);
+    private readonly TemporaryDirectory _work = new("wcs-policy-conversion");
 
     public void Dispose()
     {
-        try
-        {
-            Directory.Delete(_workDirectory, recursive: true);
-        }
-        catch (IOException)
-        {
-            // Not worth failing a test over.
-        }
+        _work.Dispose();
     }
 
     [Fact]
@@ -58,7 +48,7 @@ public sealed class WdacPolicyConversionTests : IDisposable
 
     private async Task<(int ExitCode, string StandardError, string BinaryPath)> ConvertAsync(byte[] document)
     {
-        var stem = Path.Combine(_workDirectory, Guid.NewGuid().ToString("N"));
+        var stem = Path.Combine(_work.Path, Guid.NewGuid().ToString("N"));
         var xmlPath = stem + ".xml";
         var binaryPath = stem + ".bin";
 

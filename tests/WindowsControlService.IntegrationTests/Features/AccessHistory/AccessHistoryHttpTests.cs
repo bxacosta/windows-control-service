@@ -7,7 +7,6 @@ namespace WindowsControlService.IntegrationTests.Features.AccessHistory;
 
 public sealed class AccessHistoryHttpTests : IDisposable
 {
-    private const string Password = "a-long-test-password-2026";
     private static readonly DateTime Base = new(2026, 8, 17, 9, 0, 0, DateTimeKind.Utc);
 
     private readonly ServiceApplicationFactory _factory;
@@ -36,7 +35,7 @@ public sealed class AccessHistoryHttpTests : IDisposable
     public async Task TheWorkerIngestsAtStartup()
     {
         Seed(25);
-        using var client = await SignedInClientAsync();
+        using var client = await _factory.CreateSignedInClientAsync();
 
         var page = await WaitForEntriesAsync(client, "/api/access-history?limit=50");
 
@@ -48,7 +47,7 @@ public sealed class AccessHistoryHttpTests : IDisposable
     public async Task PagesDoNotOverlapAndShareTheSameTotal()
     {
         Seed(25);
-        using var client = await SignedInClientAsync();
+        using var client = await _factory.CreateSignedInClientAsync();
         await WaitForEntriesAsync(client, "/api/access-history?limit=10&offset=0");
 
         var first = await client.GetFromJsonAsync<JsonElement>("/api/access-history?limit=10&offset=0", CancellationToken.None);
@@ -69,7 +68,7 @@ public sealed class AccessHistoryHttpTests : IDisposable
     public async Task EntriesComeBackNewestFirstAndInUtc()
     {
         Seed(5);
-        using var client = await SignedInClientAsync();
+        using var client = await _factory.CreateSignedInClientAsync();
 
         var page = await WaitForEntriesAsync(client, "/api/access-history?limit=5");
         var occurred = page.GetProperty("entries").EnumerateArray()
@@ -96,7 +95,7 @@ public sealed class AccessHistoryHttpTests : IDisposable
         _factory.LogonEvents.Events.Add(Event(3, Base.AddMinutes(10), LogonEventKind.Reconnect, session: 1, address: "203.0.113.2"));
         _factory.LogonEvents.Events.Add(Event(4, Base.AddMinutes(20), LogonEventKind.Logoff, session: 1));
 
-        using var client = await SignedInClientAsync();
+        using var client = await _factory.CreateSignedInClientAsync();
         var page = await WaitForEntriesAsync(client, "/api/access-history");
 
         var byKind = page.GetProperty("entries").EnumerateArray()
@@ -124,7 +123,7 @@ public sealed class AccessHistoryHttpTests : IDisposable
         _factory.LogonEvents.Events.Add(Event(2, Base.AddMinutes(5), LogonEventKind.Logoff, session: 1));
         _factory.LogonEvents.Events.Add(Event(3, Base.AddMinutes(10), LogonEventKind.Logon, session: 2, address: "LOCAL"));
 
-        using var client = await SignedInClientAsync();
+        using var client = await _factory.CreateSignedInClientAsync();
         await WaitForEntriesAsync(client, "/api/access-history");
 
         var remote = await client.GetFromJsonAsync<JsonElement>("/api/access-history?origin=remote", CancellationToken.None);
@@ -143,7 +142,7 @@ public sealed class AccessHistoryHttpTests : IDisposable
     [InlineData("unknown")]
     public async Task AnInvalidOriginIsABadRequest(string origin)
     {
-        using var client = await SignedInClientAsync();
+        using var client = await _factory.CreateSignedInClientAsync();
 
         var response = await client.GetAsync($"/api/access-history?origin={origin}", CancellationToken.None);
 
@@ -158,7 +157,7 @@ public sealed class AccessHistoryHttpTests : IDisposable
         _factory.ProcessInventory.Applications.Add(
             new RunningApplication("Editor", @"D:\Apps\editor.exe", "Editor Suite"));
 
-        using var client = await SignedInClientAsync();
+        using var client = await _factory.CreateSignedInClientAsync();
 
         var processes = await client.GetFromJsonAsync<JsonElement>("/api/processes", CancellationToken.None);
         var only = processes.EnumerateArray().Single();
@@ -213,16 +212,5 @@ public sealed class AccessHistoryHttpTests : IDisposable
 
         Assert.Fail("the ingestion worker never produced any entries");
         return default;
-    }
-
-    private async Task<HttpClient> SignedInClientAsync()
-    {
-        var client = _factory.CreateClient();
-
-        await client.PostAsJsonAsync("/api/auth/password", new { password = Password }, CancellationToken.None);
-        var login = await client.PostAsJsonAsync("/api/auth/login", new { password = Password }, CancellationToken.None);
-        Assert.Equal(HttpStatusCode.OK, login.StatusCode);
-
-        return client;
     }
 }

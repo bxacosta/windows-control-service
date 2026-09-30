@@ -36,14 +36,6 @@ public sealed class ErrorHttpExtensionsTests
     }
 
     [Fact]
-    public void TheMappingCoversTheWholeEnum()
-    {
-        // Adding a value to ErrorCode without mapping it fails the build (CS8509, no default
-        // arm). This keeps the test suite honest about it too.
-        Assert.Equal(Enum.GetValues<ErrorCode>().Length, Expected.Count);
-    }
-
-    [Fact]
     public void ProblemResultCarriesTheMessageAndStatus()
     {
         var result = new Error(ErrorCode.Invalid, "The path is not absolute.").ToHttpResult();

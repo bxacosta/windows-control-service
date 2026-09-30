@@ -1,8 +1,5 @@
-using Microsoft.Data.Sqlite;
-using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Time.Testing;
 using WindowsControlService.Infrastructure.Database;
-using WindowsControlService.Infrastructure.Hosting;
 
 namespace WindowsControlService.IntegrationTests.Infrastructure.Database;
 
@@ -10,31 +7,22 @@ public sealed class SettingsRepositoryTests : IDisposable
 {
     private static readonly DateTimeOffset Now = new(2026, 8, 17, 10, 30, 0, TimeSpan.Zero);
 
-    private readonly TemporaryDataDirectory _directory = new();
+    private readonly MigratedDatabase _database;
     private readonly FakeTimeProvider _clock = new(Now);
-    private readonly IHost _host;
     private readonly ISettingsRepository _repository;
 
     public SettingsRepositoryTests()
     {
-        var builder = Host.CreateApplicationBuilder(new HostApplicationBuilderSettings
+        _database = new MigratedDatabase(services =>
         {
-            Args = [$"--{DataDirectoryExtensions.ConfigurationKey}={_directory.Path}"],
+            services.AddSingleton<TimeProvider>(_clock);
         });
-
-        builder.AddDataDirectory();
-        builder.Services.AddSingleton<TimeProvider>(_clock);
-        builder.Services.AddDatabase(builder.Configuration);
-
-        _host = builder.Build();
-        _host.Services.MigrateDatabase();
-        _repository = _host.Services.GetRequiredService<ISettingsRepository>();
+        _repository = _database.Get<ISettingsRepository>();
     }
 
     public void Dispose()
     {
-        _host.Dispose();
-        _directory.Dispose();
+        _database.Dispose();
     }
 
     [Fact]
@@ -90,7 +78,7 @@ public sealed class SettingsRepositoryTests : IDisposable
 
         // Round-trip format, UTC, from TimeProvider: no service in this project reads
         // DateTime.UtcNow, and this is what proves it for the repository.
-        var stored = await ScalarAsync("SELECT UpdatedAt FROM Settings WHERE Key = 'k';");
+        var stored = await _database.ScalarAsync("SELECT UpdatedAt FROM Settings WHERE Key = 'k';");
         var parsed = DateTime.Parse(
             (string)stored!,
             System.Globalization.CultureInfo.InvariantCulture,
@@ -100,16 +88,5 @@ public sealed class SettingsRepositoryTests : IDisposable
         Assert.Equal(Now.AddDays(2).UtcDateTime, parsed);
     }
 
-    private async Task<long> CountRows() => (long)(await ScalarAsync("SELECT COUNT(*) FROM Settings;"))!;
-
-    private async Task<object?> ScalarAsync(string sql)
-    {
-        var connectionString = _host.Services.GetRequiredService<IDbConnectionFactory>().ConnectionString;
-        await using var connection = new SqliteConnection(connectionString);
-        await connection.OpenAsync(CancellationToken.None);
-
-        await using var command = connection.CreateCommand();
-        command.CommandText = sql;
-        return await command.ExecuteScalarAsync(CancellationToken.None);
-    }
+    private async Task<long> CountRows() => (long)(await _database.ScalarAsync("SELECT COUNT(*) FROM Settings;"))!;
 }

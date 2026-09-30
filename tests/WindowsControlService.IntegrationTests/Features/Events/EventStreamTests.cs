@@ -11,8 +11,6 @@ namespace WindowsControlService.IntegrationTests.Features.Events;
 /// </summary>
 public sealed class EventStreamTests : IDisposable
 {
-    private const string Password = "a-long-test-password-2026";
-
     private readonly ServiceApplicationFactory _factory = new ServiceApplicationFactory()
         .WithGenerousLoginLimit()
         .With("ApplicationBlocking:ReconciliationInterval", "01:00:00")
@@ -33,7 +31,7 @@ public sealed class EventStreamTests : IDisposable
     [Fact]
     public async Task ConnectingDeliversTheCurrentStateOfEverything()
     {
-        using var client = await SignedInClientAsync();
+        using var client = await _factory.CreateSignedInClientAsync();
 
         using var response = await client.GetAsync("/api/events", CancellationToken.None);
         var body = await response.Content.ReadAsStringAsync(CancellationToken.None);
@@ -58,7 +56,7 @@ public sealed class EventStreamTests : IDisposable
     [Fact]
     public async Task TheStreamEndsOnItsOwnSoTheSessionCanBeRenewed()
     {
-        using var client = await SignedInClientAsync();
+        using var client = await _factory.CreateSignedInClientAsync();
 
         var started = DateTimeOffset.UtcNow;
         using var response = await client.GetAsync("/api/events", CancellationToken.None);
@@ -73,7 +71,10 @@ public sealed class EventStreamTests : IDisposable
     [Fact]
     public async Task AChangeReachesAnOpenStreamWithoutBeingAskedFor()
     {
-        using var client = await SignedInClientAsync();
+        // Longer than the class's two seconds: this test has three round trips to fit in the
+        // stream, and a loaded machine should not turn that into a failure.
+        _factory.With("Events:StreamLifetime", "00:00:10");
+        using var client = await _factory.CreateSignedInClientAsync();
 
         using var request = new HttpRequestMessage(HttpMethod.Get, "/api/events");
         using var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, CancellationToken.None);
@@ -111,16 +112,5 @@ public sealed class EventStreamTests : IDisposable
 
         Assert.Fail($"The stream ended without ever carrying '{marker}'. It carried:\n{string.Join('\n', seen)}");
         return string.Empty;
-    }
-
-    private async Task<HttpClient> SignedInClientAsync()
-    {
-        var client = _factory.CreateClient();
-
-        await client.PostAsJsonAsync("/api/auth/password", new { password = Password }, CancellationToken.None);
-        var login = await client.PostAsJsonAsync("/api/auth/login", new { password = Password }, CancellationToken.None);
-        Assert.Equal(HttpStatusCode.OK, login.StatusCode);
-
-        return client;
     }
 }

@@ -10,21 +10,11 @@ public sealed class PortableExecutableReaderTests : IDisposable
         Environment.GetFolderPath(Environment.SpecialFolder.System);
 
     private readonly PortableExecutableReader _reader = new(NullLogger<PortableExecutableReader>.Instance);
-    private readonly string _workDirectory =
-        Path.Combine(Path.GetTempPath(), "wcs-pe-reader-tests", Guid.NewGuid().ToString("N"));
-
-    public PortableExecutableReaderTests() => Directory.CreateDirectory(_workDirectory);
+    private readonly TemporaryDirectory _work = new("wcs-pe-reader-tests");
 
     public void Dispose()
     {
-        try
-        {
-            Directory.Delete(_workDirectory, recursive: true);
-        }
-        catch (IOException)
-        {
-            // Not worth failing a test over.
-        }
+        _work.Dispose();
     }
 
     [Fact]
@@ -69,7 +59,7 @@ public sealed class PortableExecutableReaderTests : IDisposable
     [Fact]
     public void ReadOriginalFileNameReturnsNullForAMissingFile()
     {
-        var missing = Path.Combine(_workDirectory, "no-such-binary.exe");
+        var missing = Path.Combine(_work.Path, "no-such-binary.exe");
 
         Assert.Null(_reader.ReadVersionFields(missing).OriginalFileName);
     }
@@ -77,7 +67,7 @@ public sealed class PortableExecutableReaderTests : IDisposable
     [Fact]
     public async Task ReadOriginalFileNameReturnsNullWhenThereIsNoVersionResource()
     {
-        var file = Path.Combine(_workDirectory, "not-really-a-binary.exe");
+        var file = Path.Combine(_work.Path, "not-really-a-binary.exe");
         await File.WriteAllTextAsync(file, "this is not a portable executable");
 
         Assert.Null(_reader.ReadVersionFields(file).OriginalFileName);
@@ -95,7 +85,7 @@ public sealed class PortableExecutableReaderTests : IDisposable
     [Fact]
     public void ReadDisplayInfoReturnsNullsForAMissingFile()
     {
-        var (description, product) = _reader.ReadDisplayInfo(Path.Combine(_workDirectory, "missing.exe"));
+        var (description, product) = _reader.ReadDisplayInfo(Path.Combine(_work.Path, "missing.exe"));
 
         Assert.Null(description);
         Assert.Null(product);

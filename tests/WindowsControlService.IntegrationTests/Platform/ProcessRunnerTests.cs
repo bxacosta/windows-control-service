@@ -16,21 +16,11 @@ public sealed class ProcessRunnerTests : IDisposable
     private static readonly TimeSpan GenerousTimeout = TimeSpan.FromSeconds(30);
 
     private readonly ProcessRunner _runner = new(NullLogger<ProcessRunner>.Instance);
-    private readonly string _workDirectory =
-        Path.Combine(Path.GetTempPath(), "wcs-process-runner-tests", Guid.NewGuid().ToString("N"));
-
-    public ProcessRunnerTests() => Directory.CreateDirectory(_workDirectory);
+    private readonly TemporaryDirectory _work = new("wcs-process-runner-tests");
 
     public void Dispose()
     {
-        try
-        {
-            Directory.Delete(_workDirectory, recursive: true);
-        }
-        catch (IOException)
-        {
-            // A temp directory left behind is not worth failing a test over.
-        }
+        _work.Dispose();
     }
 
     [Fact]
@@ -68,7 +58,7 @@ public sealed class ProcessRunnerTests : IDisposable
         // The Windows pipe buffer is 4 KB. This is the test that fails -- by hanging -- if the
         // two streams are drained one after the other instead of in parallel.
         const int lineCount = 4000;
-        var file = Path.Combine(_workDirectory, "large.txt");
+        var file = Path.Combine(_work.Path, "large.txt");
         await File.WriteAllLinesAsync(file, Enumerable.Range(0, lineCount).Select(i => $"line {i:D6} {new string('x', 60)}"));
         var expectedBytes = new FileInfo(file).Length;
         Assert.True(expectedBytes > 4096, "the fixture must exceed the pipe buffer");
@@ -82,7 +72,7 @@ public sealed class ProcessRunnerTests : IDisposable
     [Fact]
     public async Task PassesArgumentsContainingSpacesIntact()
     {
-        var directory = Path.Combine(_workDirectory, "una carpeta con espacios");
+        var directory = Path.Combine(_work.Path, "una carpeta con espacios");
         Directory.CreateDirectory(directory);
         var file = Path.Combine(directory, "un archivo.txt");
         await File.WriteAllTextAsync(file, "contenido intacto");

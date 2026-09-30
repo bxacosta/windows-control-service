@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
+using WindowsControlService.Features.Authentication;
 using WindowsControlService.Infrastructure.Results;
 
 namespace WindowsControlService.IntegrationTests.Features.DeviceControl;
@@ -11,8 +12,6 @@ namespace WindowsControlService.IntegrationTests.Features.DeviceControl;
 /// </summary>
 public sealed class DeviceControlHttpTests : IDisposable
 {
-    private const string Password = "a-long-test-password-2026";
-
     private readonly ServiceApplicationFactory _factory = new ServiceApplicationFactory()
         .WithGenerousLoginLimit()
         .With("ApplicationBlocking:ReconciliationInterval", "01:00:00");
@@ -30,7 +29,7 @@ public sealed class DeviceControlHttpTests : IDisposable
     [Fact]
     public async Task AFreshMachineReportsUnblockedWithNoTimestamp()
     {
-        using var client = await SignedInClientAsync();
+        using var client = await _factory.CreateSignedInClientAsync();
 
         var status = await client.GetFromJsonAsync<JsonElement>("/api/devices/usb", CancellationToken.None);
 
@@ -41,7 +40,7 @@ public sealed class DeviceControlHttpTests : IDisposable
     [Fact]
     public async Task BlockingFlipsTheSwitchAndStampsTheTime()
     {
-        using var client = await SignedInClientAsync();
+        using var client = await _factory.CreateSignedInClientAsync();
 
         var response = await client.PutAsJsonAsync("/api/devices/usb", new { blocked = true }, CancellationToken.None);
 
@@ -56,7 +55,7 @@ public sealed class DeviceControlHttpTests : IDisposable
     [Fact]
     public async Task UnblockingFlipsItBack()
     {
-        using var client = await SignedInClientAsync();
+        using var client = await _factory.CreateSignedInClientAsync();
         await client.PutAsJsonAsync("/api/devices/usb", new { blocked = true }, CancellationToken.None);
 
         await client.PutAsJsonAsync("/api/devices/usb", new { blocked = false }, CancellationToken.None);
@@ -67,7 +66,7 @@ public sealed class DeviceControlHttpTests : IDisposable
     [Fact]
     public async Task AChangeMadeOutsideTheServiceIsReflected()
     {
-        using var client = await SignedInClientAsync();
+        using var client = await _factory.CreateSignedInClientAsync();
 
         // The registry is the source of truth, not a column in the database.
         _factory.UsbStorage.Blocked = true;
@@ -79,7 +78,7 @@ public sealed class DeviceControlHttpTests : IDisposable
     [Fact]
     public async Task AnEmptyBodyIsRejectedRatherThanReadAsFalse()
     {
-        using var client = await SignedInClientAsync();
+        using var client = await _factory.CreateSignedInClientAsync();
         await client.PutAsJsonAsync("/api/devices/usb", new { blocked = true }, CancellationToken.None);
 
         var response = await client.PutAsJsonAsync("/api/devices/usb", new { }, CancellationToken.None);
@@ -92,7 +91,7 @@ public sealed class DeviceControlHttpTests : IDisposable
     [Fact]
     public async Task MissingPrivilegesAnswerForbiddenNotAGenericError()
     {
-        using var client = await SignedInClientAsync();
+        using var client = await _factory.CreateSignedInClientAsync();
         _factory.UsbStorage.Failure = new Error(ErrorCode.AccessDenied, "Administrator rights are required.");
 
         var response = await client.PutAsJsonAsync("/api/devices/usb", new { blocked = true }, CancellationToken.None);
@@ -104,7 +103,7 @@ public sealed class DeviceControlHttpTests : IDisposable
     [Fact]
     public async Task AMissingRegistryKeyAnswersServiceUnavailable()
     {
-        using var client = await SignedInClientAsync();
+        using var client = await _factory.CreateSignedInClientAsync();
         _factory.UsbStorage.Failure = new Error(ErrorCode.PlatformUnavailable, "The key is not present.");
 
         var response = await client.GetAsync("/api/devices/usb", CancellationToken.None);
@@ -115,14 +114,14 @@ public sealed class DeviceControlHttpTests : IDisposable
     [Fact]
     public async Task BlockingSomethingAlreadyBlockedDoesNotMoveTheTimestamp()
     {
-        using var client = await SignedInClientAsync();
+        using var client = await _factory.CreateSignedInClientAsync();
         await client.PutAsJsonAsync("/api/devices/usb", new { blocked = true }, CancellationToken.None);
         var first = (await client.GetFromJsonAsync<JsonElement>("/api/devices/usb", CancellationToken.None))
             .GetProperty("lastModified").GetString();
 
-        // Under the 30 minute session timeout: a longer jump would expire the cookie and the
-        // test would fail for a reason that has nothing to do with timestamps.
-        _factory.Clock.Advance(TimeSpan.FromMinutes(10));
+        // Half the session timeout: enough to move the clock, and far from expiring the cookie,
+        // which would fail the test for a reason that has nothing to do with timestamps.
+        _factory.Clock.Advance(new AuthenticationOptions().SessionTimeout / 2);
         var repeat = await client.PutAsJsonAsync("/api/devices/usb", new { blocked = true }, CancellationToken.None);
 
         Assert.Equal(HttpStatusCode.OK, repeat.StatusCode);
@@ -137,7 +136,7 @@ public sealed class DeviceControlHttpTests : IDisposable
     [Fact]
     public async Task AFailedRegistryWriteLeavesNoTimestampBehind()
     {
-        using var client = await SignedInClientAsync();
+        using var client = await _factory.CreateSignedInClientAsync();
         _factory.UsbStorage.Failure = new Error(ErrorCode.AccessDenied, "no");
 
         await client.PutAsJsonAsync("/api/devices/usb", new { blocked = true }, CancellationToken.None);
@@ -148,16 +147,5 @@ public sealed class DeviceControlHttpTests : IDisposable
         // Recording a change that never happened is worse than recording nothing.
         Assert.Equal(JsonValueKind.Null, status.GetProperty("lastModified").ValueKind);
         Assert.False(status.GetProperty("blocked").GetBoolean());
-    }
-
-    private async Task<HttpClient> SignedInClientAsync()
-    {
-        var client = _factory.CreateClient();
-
-        await client.PostAsJsonAsync("/api/auth/password", new { password = Password }, CancellationToken.None);
-        var login = await client.PostAsJsonAsync("/api/auth/login", new { password = Password }, CancellationToken.None);
-        Assert.Equal(HttpStatusCode.OK, login.StatusCode);
-
-        return client;
     }
 }

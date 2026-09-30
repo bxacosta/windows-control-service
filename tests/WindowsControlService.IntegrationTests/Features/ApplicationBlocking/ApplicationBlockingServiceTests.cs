@@ -1,8 +1,6 @@
-using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Time.Testing;
 using WindowsControlService.Features.ApplicationBlocking;
-using WindowsControlService.Infrastructure.Database;
 using WindowsControlService.Infrastructure.Hosting;
 using WindowsControlService.Infrastructure.Results;
 using WindowsControlService.IntegrationTests.Fakes;
@@ -17,33 +15,22 @@ namespace WindowsControlService.IntegrationTests.Features.ApplicationBlocking;
 /// </summary>
 public sealed class ApplicationBlockingServiceTests : IDisposable
 {
-    private readonly TemporaryDataDirectory _directory = new();
+    private readonly MigratedDatabase _database;
     private readonly FakeCodeIntegrityTool _codeIntegrity = new();
     private readonly FakePortableExecutableReader _executableReader = new();
     private readonly SequentialExecutor _executor = new();
-    private readonly IHost _host;
     private readonly IBlockedApplicationRepository _repository;
     private readonly ApplicationBlockingService _service;
 
-    private readonly string _workDirectory =
-        Path.Combine(Path.GetTempPath(), "wcs-blocking-tests", Guid.NewGuid().ToString("N"));
+    private readonly TemporaryDirectory _work = new("wcs-blocking-tests");
 
     public ApplicationBlockingServiceTests()
     {
-        Directory.CreateDirectory(_workDirectory);
-
-        var builder = Host.CreateApplicationBuilder(new HostApplicationBuilderSettings
+        _database = new MigratedDatabase(services =>
         {
-            Args = [$"--{DataDirectoryExtensions.ConfigurationKey}={_directory.Path}"],
+            services.AddSingleton<IBlockedApplicationRepository, BlockedApplicationRepository>();
         });
-
-        builder.AddDataDirectory();
-        builder.Services.AddDatabase(builder.Configuration);
-        builder.Services.AddSingleton<IBlockedApplicationRepository, BlockedApplicationRepository>();
-
-        _host = builder.Build();
-        _host.Services.MigrateDatabase();
-        _repository = _host.Services.GetRequiredService<IBlockedApplicationRepository>();
+        _repository = _database.Get<IBlockedApplicationRepository>();
 
         _service = new ApplicationBlockingService(
             _repository,
@@ -57,17 +44,8 @@ public sealed class ApplicationBlockingServiceTests : IDisposable
     public void Dispose()
     {
         _executor.Dispose();
-        _host.Dispose();
-        _directory.Dispose();
-
-        try
-        {
-            Directory.Delete(_workDirectory, recursive: true);
-        }
-        catch (IOException)
-        {
-            // Not worth failing a test over.
-        }
+        _database.Dispose();
+        _work.Dispose();
     }
 
     [Fact]
@@ -111,24 +89,6 @@ public sealed class ApplicationBlockingServiceTests : IDisposable
         Assert.Empty(_codeIntegrity.AppliedDocuments);
     }
 
-    [Theory]
-    [InlineData("app.exe", "app_internal", "App Suite", RuleMatchField.FileName, "app.exe")]
-    [InlineData(null, "app_internal", "App Suite", RuleMatchField.InternalName, "app_internal")]
-    [InlineData(null, null, "App Suite", RuleMatchField.ProductName, "App Suite")]
-    public void TheMatchAttributeFollowsWhatTheBinaryActuallyCarries(
-        string? original, string? internalName, string? product, RuleMatchField expectedAttribute, string expectedValue)
-    {
-        var match = ApplicationBlockingService.ResolveMatch(new PeVersionFields(original, internalName, product));
-
-        Assert.NotNull(match);
-        Assert.Equal(expectedAttribute, match.Value.Attribute);
-        Assert.Equal(expectedValue, match.Value.Value);
-    }
-
-    [Fact]
-    public void NoVersionFieldsAtAllMeansNoRuleIsPossible() =>
-        Assert.Null(ApplicationBlockingService.ResolveMatch(PeVersionFields.None));
-
     [Fact]
     public async Task AddingRollsBackTheRowWhenThePolicyCannotBeApplied()
     {
@@ -145,7 +105,7 @@ public sealed class ApplicationBlockingServiceTests : IDisposable
     [Fact]
     public async Task AddingAPathThatDoesNotExistNeverReachesCiTool()
     {
-        var result = await _service.AddAsync(Path.Combine(_workDirectory, "missing.exe"), "Nope", CancellationToken.None);
+        var result = await _service.AddAsync(Path.Combine(_work.Path, "missing.exe"), "Nope", CancellationToken.None);
 
         Assert.Equal(ErrorCode.Invalid, result.Error.Code);
         Assert.Empty(_codeIntegrity.AppliedDocuments);
@@ -169,13 +129,13 @@ public sealed class ApplicationBlockingServiceTests : IDisposable
         var path = CreateExecutable("target.exe");
         await _service.AddAsync(path, "Target", CancellationToken.None);
 
-        var awkward = Path.Combine(_workDirectory, "sub", "..", "target.exe");
+        var awkward = Path.Combine(_work.Path, "sub", "..", "target.exe");
 
         Assert.Equal(ErrorCode.Conflict, (await _service.AddAsync(awkward, "Again", CancellationToken.None)).Error.Code);
     }
 
     [Fact]
-    public async Task RemovingAppliesThePolicyBeforeDeletingTheRow()
+    public async Task RemovingRebuildsThePolicyAndDeletesTheRow()
     {
         var first = await AddAsync("one.exe", "One");
         await AddAsync("two.exe", "Two");
@@ -413,7 +373,7 @@ public sealed class ApplicationBlockingServiceTests : IDisposable
 
     private string CreateBareFile(string fileName)
     {
-        var path = Path.Combine(_workDirectory, fileName);
+        var path = Path.Combine(_work.Path, fileName);
         if (!File.Exists(path))
         {
             File.WriteAllText(path, "not a real executable, but it exists on disk");
