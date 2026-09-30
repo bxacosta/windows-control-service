@@ -29,6 +29,8 @@ public sealed class PasswordService(
     IOptions<AuthenticationOptions> options,
     ILogger<PasswordService> logger) : IPasswordService
 {
+    private const string WrongPassword = "The password is not correct.";
+
     internal const string HashKey = "auth.password.hash";
     internal const string SaltKey = "auth.password.salt";
     internal const string IterationsKey = "auth.password.iterations";
@@ -88,7 +90,7 @@ public sealed class PasswordService(
         // surfaces as a 500 with no body, which explains nothing to anyone.
         if (string.IsNullOrEmpty(password))
         {
-            return Result<string>.Failure(ErrorCode.Unauthorized, "The password is not correct.");
+            return Result<string>.Failure(ErrorCode.Unauthorized, WrongPassword);
         }
 
         var storedHash = await settings.GetAsync(HashKey, cancellationToken);
@@ -97,7 +99,7 @@ public sealed class PasswordService(
 
         if (storedHash is null || storedSalt is null || stamp is null)
         {
-            return Result<string>.Failure(ErrorCode.Unauthorized, "The password is not correct.");
+            return Result<string>.Failure(ErrorCode.Unauthorized, WrongPassword);
         }
 
         // Read from storage rather than from options, so raising the iteration count later does
@@ -119,7 +121,7 @@ public sealed class PasswordService(
         catch (FormatException exception)
         {
             logger.LogError(exception, "The stored password material is not valid base64.");
-            return Result<string>.Failure(ErrorCode.Unauthorized, "The password is not correct.");
+            return Result<string>.Failure(ErrorCode.Unauthorized, WrongPassword);
         }
 
         var candidate = Derive(password, salt, iterations);
@@ -127,7 +129,7 @@ public sealed class PasswordService(
         // Never ==: a short-circuiting comparison leaks how much of the hash matched.
         return CryptographicOperations.FixedTimeEquals(candidate, expected)
             ? Result<string>.Success(stamp)
-            : Result<string>.Failure(ErrorCode.Unauthorized, "The password is not correct.");
+            : Result<string>.Failure(ErrorCode.Unauthorized, WrongPassword);
     }
 
     public Task<string?> GetSecurityStampAsync(CancellationToken cancellationToken) =>

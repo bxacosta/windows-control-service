@@ -47,12 +47,7 @@ public static class AuthenticationEndpoints
         return endpoints;
     }
 
-    /// <summary>
-    /// Merges what used to be two calls: is a password set, and is this caller signed in. It
-    /// also carries the two rules the interface has to obey while typing -- the minimum password
-    /// length and the session timeout -- because this call is already made on every load, and a
-    /// separate endpoint for two integers would be a second round trip for nothing.
-    /// </summary>
+    /// <summary>One call made on every load; <see cref="SessionResponse"/> says why each field is in it.</summary>
     private static async Task<Ok<SessionResponse>> GetSessionAsync(
         HttpContext context,
         IPasswordService passwords,

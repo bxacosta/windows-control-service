@@ -14,10 +14,12 @@ src/WindowsControlService/
 │   ├── ApplicationBlocking/  WDAC: document, service, worker, endpoints
 │   ├── Authentication/       password, cookie, security stamp
 │   ├── DeviceControl/        USB storage
+│   ├── Events/               the SSE endpoint
 │   └── Health/
 ├── Platform/                 everything that talks to Windows, behind interfaces
 │   ├── ICodeIntegrityTool.cs / CodeIntegrityTool.cs
 │   ├── ILogonEventSource.cs / LogonEventSource.cs
+│   ├── IMachineIdentity.cs / MachineIdentity.cs
 │   ├── IPortableExecutableReader.cs / PortableExecutableReader.cs
 │   ├── IProcessInventory.cs / ProcessInventory.cs
 │   ├── IProcessRunner.cs / ProcessRunner.cs
@@ -34,19 +36,30 @@ tests/
 ├── WindowsControlService.UnitTests/
 ├── WindowsControlService.IntegrationTests/
 └── interface/                the interface rules, run by node --test
-scripts/                      build, install, update, uninstall, status, restore point, validation, the DOM harness
+wcs.ps1                       the entry point for every command (see development.md)
+scripts/                      one script per wcs command, the shared module, the DOM harness
 docs/
 ```
 
 A file belongs to the folder of the feature it talks about, not to the folder of the kind of
-thing it is. Each feature exposes exactly two extension methods, and `Program.cs` reads as a
-list of what is switched on:
+thing it is. Every slice is laid out the same way, so any of them can be read by its file names:
+
+| File            | Holds                                                              |
+|-----------------|--------------------------------------------------------------------|
+| `XModule.cs`    | `AddX`: options, services, workers. Registration only              |
+| `XEndpoints.cs` | `MapX` and the handlers behind it                                  |
+| `XOptions.cs`   | The options class, when the feature has settings                  |
+| `XContracts.cs` | The requests and responses that cross the API                      |
+| the rest        | The service, its repository, its worker, its event-stream snapshot |
+
+Each feature exposes at most those two extension methods (Events only maps, Health registers a
+start-time stamp), and `Program.cs` reads as a list of what is switched on:
 
 ```csharp
 builder.Services
     .AddAuthenticationFeature(builder.Configuration)
     .AddApplicationBlocking(builder.Configuration)
-    .AddDeviceControl(builder.Configuration)
+    .AddDeviceControl()
     .AddAccessHistory(builder.Configuration);
 
 app.MapAuthenticationFeature();
@@ -85,6 +98,7 @@ One place translates to HTTP, `ErrorHttpExtensions`:
 | `NotFound`            | 404    |
 | `Conflict`            | 409    |
 | `Invalid`             | 400    |
+| `Unauthorized`        | 401    |
 | `AccessDenied`        | 403    |
 | `PlatformUnavailable` | 503    |
 | `OperationFailed`     | 500    |
@@ -172,6 +186,7 @@ just the call to `CiTool`.
 public interface ISequentialExecutor
 {
     Task<T> RunAsync<T>(Func<CancellationToken, Task<T>> operation, CancellationToken ct);
+    Task RunAsync(Func<CancellationToken, Task> operation, CancellationToken ct);
 }
 ```
 
@@ -190,8 +205,8 @@ cannot block each other.
 - `IDbConnectionFactory` is injected, never a hand-passed connection string. That is what lets
   tests point at a temporary database.
 - The connection string is built with `SqliteConnectionStringBuilder`, never interpolated: a
-  directory containing `;` or `"` would inject into the string. `DefaultTimeout = 5` covers the
-  retry window on `SQLITE_BUSY`.
+  directory containing `;` or `"` would inject into the string. `DefaultTimeout`, from
+  `Database:BusyTimeout` (5 s), covers the retry window on `SQLITE_BUSY`.
 
 Repositories are `async` and take a `CancellationToken`.
 

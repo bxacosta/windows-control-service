@@ -4,7 +4,6 @@ using System.Text;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.RateLimiting;
-using Microsoft.Extensions.Options;
 
 namespace WindowsControlService.Features.Authentication;
 
@@ -102,7 +101,4 @@ public static class AuthenticationModule
                 new Claim(SecurityStampClaim, securityStamp),
             ],
             CookieAuthenticationDefaults.AuthenticationScheme));
-
-    internal static TimeSpan SessionTimeout(this IOptions<AuthenticationOptions> options) =>
-        options.Value.SessionTimeout;
 }

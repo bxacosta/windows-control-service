@@ -20,11 +20,6 @@ namespace WindowsControlService.Features.Health;
 /// <see cref="DateTime"/>.MinValue and be rendered as an uptime of some seven hundred thousand
 /// days. Construction happens before any of them start, so there is no such window.
 /// </para>
-/// <para>
-/// The clock is injected, like everywhere else here: a service that reads
-/// <see cref="DateTime"/>.UtcNow cannot be tested against an uptime that is not the age of the
-/// test run.
-/// </para>
 /// </remarks>
 public sealed class ServiceStartTime(TimeProvider clock) : IHostedService
 {

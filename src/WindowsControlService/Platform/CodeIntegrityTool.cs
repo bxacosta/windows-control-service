@@ -20,6 +20,9 @@ public sealed class CodeIntegrityTool(
     private static readonly string PowerShellPath =
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), "WindowsPowerShell", "v1.0", "powershell.exe");
 
+    private static readonly Error ToolingUnavailable =
+        new(ErrorCode.PlatformUnavailable, "Windows code integrity tooling is not available on this machine.");
+
     private TimeSpan Timeout => options.Value.OperationTimeout;
 
     public async Task<Result<PolicyState>> GetPolicyStateAsync(
@@ -30,9 +33,7 @@ public sealed class CodeIntegrityTool(
 
         if (!File.Exists(CiToolPath))
         {
-            return Result<PolicyState>.Failure(
-                ErrorCode.PlatformUnavailable,
-                "Windows code integrity tooling is not available on this machine.");
+            return Result<PolicyState>.Failure(ToolingUnavailable);
         }
 
         var lookup = await LookUpPolicyAsync(policyId, cancellationToken);
@@ -58,9 +59,7 @@ public sealed class CodeIntegrityTool(
 
         if (!File.Exists(CiToolPath) || !File.Exists(PowerShellPath))
         {
-            return Result.Failure(
-                ErrorCode.PlatformUnavailable,
-                "Windows code integrity tooling is not available on this machine.");
+            return Result.Failure(ToolingUnavailable);
         }
 
         var stem = Path.Combine(Path.GetTempPath(), $"wcs-policy-{Guid.NewGuid():N}");
@@ -95,9 +94,7 @@ public sealed class CodeIntegrityTool(
 
         if (!File.Exists(CiToolPath))
         {
-            return Result.Failure(
-                ErrorCode.PlatformUnavailable,
-                "Windows code integrity tooling is not available on this machine.");
+            return Result.Failure(ToolingUnavailable);
         }
 
         var lookup = await LookUpPolicyAsync(policyId, cancellationToken);

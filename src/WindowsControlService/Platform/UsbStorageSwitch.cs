@@ -39,17 +39,12 @@ public sealed class UsbStorageSwitch(ILogger<UsbStorageSwitch> logger) : IUsbSto
 
             return Result<bool>.Success(start == StartDisabled);
         }
-        catch (UnauthorizedAccessException)
+        catch (Exception exception) when (exception is UnauthorizedAccessException or System.Security.SecurityException)
         {
             // Distinguished from the cases above on purpose: the endpoint builds its message
             // from the code, and "run as administrator" is useless advice when the real problem
             // is a missing key.
-            return Result<bool>.Failure(
-                ErrorCode.AccessDenied,
-                "Administrator rights are required to read the USB storage settings.");
-        }
-        catch (System.Security.SecurityException)
-        {
+            logger.LogWarning(exception, "Could not read the USB storage settings.");
             return Result<bool>.Failure(
                 ErrorCode.AccessDenied,
                 "Administrator rights are required to read the USB storage settings.");
@@ -74,12 +69,9 @@ public sealed class UsbStorageSwitch(ILogger<UsbStorageSwitch> logger) : IUsbSto
 
             key.SetValue(StartValueName, start, RegistryValueKind.DWord);
         }
-        catch (UnauthorizedAccessException)
+        catch (Exception exception) when (exception is UnauthorizedAccessException or System.Security.SecurityException)
         {
-            return Result.Failure(ErrorCode.AccessDenied, $"Administrator rights are required to {action}.");
-        }
-        catch (System.Security.SecurityException)
-        {
+            logger.LogWarning(exception, "Could not {Action}.", action);
             return Result.Failure(ErrorCode.AccessDenied, $"Administrator rights are required to {action}.");
         }
 

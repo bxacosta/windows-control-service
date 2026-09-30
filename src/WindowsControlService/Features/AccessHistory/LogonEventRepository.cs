@@ -21,10 +21,11 @@ public interface ILogonEventRepository
     /// wrong durations at every page boundary.
     /// </para>
     /// <para>
-    /// <b>This is the line to revisit if the volume grows.</b> The measured rate is about three
-    /// events a day, roughly ninety rows in a thirty day window, which makes loading everything
-    /// irrelevant. At tens of thousands of rows it stops being true and the pairing would have
-    /// to move into ingestion, or into window functions.
+    /// <b>This is the line to revisit if the volume grows.</b> Nothing prunes the table, so this
+    /// reads every row ever ingested. At the measured rate of about three events a day that is
+    /// some 1,100 rows a year, which makes loading everything irrelevant. At tens of thousands it
+    /// stops being true and the pairing would have to move into ingestion, or into window
+    /// functions.
     /// </para>
     /// </remarks>
     Task<IReadOnlyList<StoredLogonEvent>> GetAllAscendingAsync(CancellationToken cancellationToken);

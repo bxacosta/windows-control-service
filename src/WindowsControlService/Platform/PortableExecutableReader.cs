@@ -28,15 +28,7 @@ public sealed class PortableExecutableReader(ILogger<PortableExecutableReader> l
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(executablePath);
 
-        try
-        {
-            return ReadNeutralVersionFields(executablePath);
-        }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
-        {
-            logger.LogWarning(exception, "Could not read version information from {Path}.", executablePath);
-            return PeVersionFields.None;
-        }
+        return ReadNeutralVersionFields(executablePath);
     }
 
     public (string? FileDescription, string? ProductName) ReadDisplayInfo(string executablePath)
@@ -56,13 +48,13 @@ public sealed class PortableExecutableReader(ILogger<PortableExecutableReader> l
         }
     }
 
-    private static PeVersionFields ReadNeutralVersionFields(string executablePath)
+    private PeVersionFields ReadNeutralVersionFields(string executablePath)
     {
         var size = GetFileVersionInfoSizeEx(FileVerGetNeutral, executablePath, out _);
         if (size == 0)
         {
-            // No version resource at all, or the file does not exist. Both mean there is nothing
-            // here to build a rule from, which is a refusal rather than a value to invent.
+            // Nothing here to build a rule from, which is a refusal rather than a value to invent.
+            LogUnreadable(executablePath, Marshal.GetLastPInvokeError());
             return PeVersionFields.None;
         }
 
@@ -71,6 +63,7 @@ public sealed class PortableExecutableReader(ILogger<PortableExecutableReader> l
         {
             if (!GetFileVersionInfoEx(FileVerGetNeutral, executablePath, 0, size, block))
             {
+                LogUnreadable(executablePath, Marshal.GetLastPInvokeError());
                 return PeVersionFields.None;
             }
 
@@ -122,6 +115,26 @@ public sealed class PortableExecutableReader(ILogger<PortableExecutableReader> l
     }
 
     private static string? NullIfBlank(string? value) => string.IsNullOrWhiteSpace(value) ? null : value;
+
+    /// <summary>
+    /// The caller sees None either way, so the reason is only ever in the log. A binary without a
+    /// version resource (1812, 1813) is ordinary; a missing file or a denied read is not, and is
+    /// the case where a block would otherwise be refused with no trace of why.
+    /// </summary>
+    private void LogUnreadable(string executablePath, int error)
+    {
+        const int ResourceDataNotFound = 1812;
+        const int ResourceTypeNotFound = 1813;
+
+        if (error is not (ResourceDataNotFound or ResourceTypeNotFound) && logger.IsEnabled(LogLevel.Warning))
+        {
+            logger.LogWarning(
+                "Could not read version information from {Path}: {Reason} ({Error}).",
+                executablePath,
+                new System.ComponentModel.Win32Exception(error).Message,
+                error);
+        }
+    }
 
     [DllImport("version.dll", EntryPoint = "GetFileVersionInfoSizeExW",
         CharSet = CharSet.Unicode, SetLastError = true, ExactSpelling = true)]

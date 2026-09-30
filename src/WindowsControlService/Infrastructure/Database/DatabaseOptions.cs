@@ -8,7 +8,6 @@ public sealed class DatabaseOptions
 
     /// <summary>File name inside the data directory. The directory itself is not configuration.</summary>
     [Required]
-    [MinLength(1)]
     public string FileName { get; set; } = "windows-control-service.db";
 
     /// <summary>

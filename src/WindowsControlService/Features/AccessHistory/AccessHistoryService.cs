@@ -1,60 +1,7 @@
-using System.ComponentModel.DataAnnotations;
 using Microsoft.Extensions.Options;
 using WindowsControlService.Platform;
 
 namespace WindowsControlService.Features.AccessHistory;
-
-public sealed class AccessHistoryOptions
-{
-    public const string Section = "AccessHistory";
-
-    public TimeSpan IngestionInterval { get; set; } = TimeSpan.FromMinutes(1);
-
-    /// <summary>How far back each cycle re-reads. There is no watermark; see the worker.</summary>
-    public TimeSpan IngestionWindow { get; set; } = TimeSpan.FromDays(30);
-
-    /// <summary>
-    /// Beyond this, a computed session length is treated as nonsense and reported as unknown.
-    /// An absurd interval almost always means the real start fell outside the window.
-    /// </summary>
-    public TimeSpan MaxPlausibleSessionLength { get; set; } = TimeSpan.FromDays(7);
-
-    [Range(1, 500)]
-    public int DefaultPageSize { get; set; } = 10;
-
-    [Range(1, 5000)]
-    public int MaxPageSize { get; set; } = 500;
-}
-
-/// <param name="StartsSession">
-/// Whether this event opens a session rather than closing one. Sent rather than left for the
-/// client to work out from <paramref name="Kind"/>, because which event ids begin a session is a
-/// fact about Windows and this service already owns it: <see cref="LogonEvent.IsSessionStart"/>
-/// is what pairs an end with its start to produce <paramref name="DurationSeconds"/>. A client
-/// deriving the same rule would be a second copy of it, and a copy that reads
-/// <c>Kind == Logon</c> is exactly the copy that got written -- mislabelling every Reconnect on
-/// a machine where Reconnect is half of all traffic.
-/// </param>
-/// <param name="DurationSeconds">
-/// Only ever set on an entry that ends a session, and null when the matching start fell outside
-/// the window or the interval was not plausible.
-/// </param>
-public sealed record AccessHistoryEntry(
-    long Id,
-    DateTime OccurredAt,
-    LogonEventKind Kind,
-    bool StartsSession,
-    LogonOrigin Origin,
-    string? Address,
-    string UserName,
-    int? SessionId,
-    int? DurationSeconds);
-
-/// <param name="Total">
-/// How many entries match the current filter, not how many were returned. It is what tells a
-/// client how many pages exist.
-/// </param>
-public sealed record AccessHistoryPage(IReadOnlyList<AccessHistoryEntry> Entries, int Total);
 
 public interface IAccessHistoryService
 {
@@ -65,6 +12,9 @@ public interface IAccessHistoryService
         int? offset,
         LogonOrigin? origin,
         CancellationToken cancellationToken);
+
+    /// <summary>How many events are recorded, across every origin.</summary>
+    Task<int> CountAsync(CancellationToken cancellationToken);
 }
 
 public sealed class AccessHistoryService(
@@ -74,6 +24,8 @@ public sealed class AccessHistoryService(
 {
     /// <summary>Agreed key for events that carry no session id, so they still pair with each other.</summary>
     private const int NoSession = -1;
+
+    public Task<int> CountAsync(CancellationToken cancellationToken) => repository.CountAsync(cancellationToken);
 
     public async Task<int> IngestAsync(CancellationToken cancellationToken)
     {

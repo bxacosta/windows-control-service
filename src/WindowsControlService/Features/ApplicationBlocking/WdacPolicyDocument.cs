@@ -131,14 +131,9 @@ public static class WdacPolicyDocument
             writer.WriteAttributeString("ID", DenyRuleId(application.Id));
             writer.WriteAttributeString("FriendlyName", application.Name);
 
-            // No MinimumFileVersion. Omitting it makes the rule cover every version of the file,
-            // which is what is wanted, and matches what New-CIPolicyRule -Deny produces.
-            // Whichever attribute the row recorded. FileName is the common case but not the only
-            // one: a binary with no OriginalFilename is matched by InternalName or ProductName.
-            //
-            // The name comes from an enum, not from a string in a column: an unexpected value
-            // would otherwise become an arbitrary attribute name, or an exception thrown while
-            // the policy is being built, which is the worst moment to find out.
+            // The attribute the row recorded, named by the enum (see ParseMatchAttribute). No
+            // MinimumFileVersion: without it the rule covers every version of the file, as
+            // New-CIPolicyRule -Deny produces.
             writer.WriteAttributeString(application.MatchAttribute.ToString(), application.MatchValue);
             writer.WriteEndElement();
         }

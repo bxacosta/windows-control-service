@@ -105,7 +105,7 @@ app.UseAuthorization();
 
 app.MapOpenApi();
 app.MapOpenApi("/openapi/{documentName}.yaml");
-app.MapHealthEndpoints();
+app.MapHealth();
 app.MapAuthenticationFeature();
 app.MapApplicationBlocking();
 app.MapDeviceControl();

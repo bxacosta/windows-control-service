@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Diagnostics.Eventing.Reader;
 using System.Globalization;
 using System.Xml.Linq;
@@ -129,12 +130,12 @@ public sealed class LogonEventSource : ILogonEventSource
         ReconnectEventId => LogonEventKind.Reconnect,
         DisconnectEventId => LogonEventKind.Disconnect,
         LogoffEventId => LogonEventKind.Logoff,
-        _ => LogonEventKind.Logoff,
+        // The query asks for these four ids only; anything else is a bug in the query, not data.
+        _ => throw new UnreachableException($"Event id {eventId} is not one the query asks for."),
     };
 
     internal static LogonOrigin ToOrigin(string? address) => address switch
     {
-        null or "" => LogonOrigin.Unknown,
         _ when string.IsNullOrWhiteSpace(address) => LogonOrigin.Unknown,
         _ when string.Equals(address.Trim(), "LOCAL", StringComparison.OrdinalIgnoreCase) => LogonOrigin.Local,
         _ => LogonOrigin.Remote,
