@@ -60,25 +60,23 @@ Out of scope, deliberately:
 ## Requirements
 
 - Windows 11 (tested on Pro 26200). `CiTool.exe` ships with it.
-- Elevated PowerShell to install and operate.
+- Administrator rights to install and operate.
 - .NET SDK 10.0.1xx to build. What is published is self-contained.
 
 ## Quick start
 
 ```powershell
-.\scripts\build.ps1                       # publishes to .\publish
-.\scripts\install.ps1 -From .\publish     # registers and starts the service
-
-curl.exe http://localhost:5150/api/health
+.\wcs deploy     # builds, registers and starts the service
+.\wcs status     # what is installed and whether it answers
 ```
 
 Then open `http://localhost:5150/` and set the password. **Before anything else:** until one exists, the endpoint that
 sets it is public.
 
-To remove everything:
+`.\wcs` alone lists every command. To remove everything:
 
 ```powershell
-.\scripts\uninstall.ps1 -RemoveData
+.\wcs uninstall -RemoveData
 ```
 
 It stops the service, removes the policy, restores `USBSTOR`, and deletes the registration, the binaries and the data.
@@ -99,11 +97,9 @@ by hand.
 ## Development
 
 ```powershell
-dotnet build                              # 0 warnings; TreatWarningsAsErrors is on
-dotnet test                               # everything; the ones that touch the machine need elevation
-dotnet test --filter "Requires!=Admin"
-
-dotnet run --project src\WindowsControlService -- --data-dir .\.localdata --urls http://localhost:5151
+.\wcs dev        # run from source with hot reload on http://localhost:5151, its own database
+.\wcs test       # everything; without elevation it skips the tests that touch the machine
+.\wcs build      # publish to .\publish
 ```
 
 ## License

@@ -29,25 +29,34 @@ Repository-wide files, all of them load-bearing:
 
 `TreatWarningsAsErrors` is on and is not turned off to make progress.
 
-## Build, test, run
+## Commands
+
+Everything goes through `.\wcs` at the repository root. `.\wcs` alone lists the commands.
+
+```powershell
+.\wcs dev                      # run from source with hot reload, http://localhost:5151
+.\wcs test                     # everything, including node --test
+.\wcs test -Fast               # without the tests that touch the machine
+.\wcs test -Filter PasswordServiceTests   # one class, or one test
+.\wcs build                    # publish to .\publish
+```
+
+Each command is one script in `scripts\`, and `.\wcs` only dispatches to it. Adding a command
+means a script there and a line in the table at the top of `wcs.ps1`.
+
+`.\wcs dev` runs the `dev` profile in `Properties\launchSettings.json`: port 5151 and the data in
+`src\WindowsControlService\.localdata`, so an installed instance keeps its port and its database.
+Rider, Visual Studio and `dotnet run` pick up the same profile. The address is read once, in
+`Program.cs`, from `builder.Configuration["urls"]`.
+
+The underlying tools, when a script is in the way:
 
 ```powershell
 dotnet build
-dotnet test                                  # everything, including node --test
-dotnet test --filter "Requires!=Admin"       # without the tests that touch the machine
-node --test "tests/interface/*.test.mjs"     # the interface rules alone
-node scripts/interface-dom.mjs --out=after.txt
+dotnet test --filter "Requires!=Admin"
+node --test "tests/interface/*.test.mjs"          # the interface rules alone
+node scripts/interface-dom.mjs --out=after.txt    # the DOM harness
 ```
-
-Running the service from the working tree, without installing it:
-
-```powershell
-dotnet run --project src/WindowsControlService -- --data-dir .\.localdata --urls http://localhost:5151
-```
-
-Both switches matter. `--data-dir` keeps the local database away from
-`C:\ProgramData\WindowsControlService`, and `--urls` keeps the port away from an installed
-instance. The address is read once, in `Program.cs`, from `builder.Configuration["urls"]`.
 
 ## Tests
 
@@ -142,20 +151,18 @@ dotnet list package --outdated
 
 ## Publishing
 
-```powershell
-dotnet publish -c Release -r win-x64 --self-contained -o .\publish
-```
+`.\wcs build` runs `dotnet publish -p:PublishProfile=win-x64`. The profile,
+`Properties\PublishProfiles\win-x64.pubxml`, holds the settings and the reasons for them:
+Release, `win-x64`, `SelfContained`, `PublishSingleFile`, output to `.\publish`. `SelfContained`
+lives there and not in the `.csproj` because a self-contained project cannot be referenced by
+the test projects (NETSDK1150).
 
-`PublishSingleFile` + `SelfContained` + `win-x64`, plus
-`<InvariantGlobalization>true</InvariantGlobalization>` — safe because all formatting uses
+`<InvariantGlobalization>true</InvariantGlobalization>` is safe because all formatting uses
 `CultureInfo.InvariantCulture`, and it removes ICU.
 
 `PublishTrimmed` is off: publishing with it on fails with IL2026 over `ValidateDataAnnotations`,
 `MaxLength` and `MinLength`. Native AOT is out of scope; the Windows service hosting model and
 the platform APIs used here are not comfortable candidates.
-
-`--self-contained` without `-r` does not error on SDK 10.0.111 — it infers the current RID —
-but `-r` stays for reproducibility.
 
 ## Things .NET 10 already does, so this project does not
 
@@ -185,16 +192,20 @@ var span = reader.HasValueSequence ? reader.ValueSequence.ToArray() : reader.Val
 
 ## Scripts
 
-| Script                       | Purpose                                                        |
-|------------------------------|----------------------------------------------------------------|
-| `build.ps1`                  | Publishes to `.\publish`. Does not install                     |
-| `install.ps1`                | Deploys and registers the service. Does not compile            |
-| `update.ps1`                 | Replaces the binaries, keeps the data                          |
-| `uninstall.ps1`              | Removes the policy, restores the registry, deletes the service |
-| `uninstall.ps1 -Force`       | The same with no questions and nothing kept. Idempotent        |
-| `status.ps1`                 | Service, port, health, policy, USB, database, logs             |
-| `validate-blocking.ps1`      | Proves that a block blocks, against a harmless test executable |
-| `interface-dom.mjs`          | The DOM harness (see `web-interface.md`)                       |
-| `WindowsControlService.psm1` | Shared module: elevation check, paths, service waits           |
+| File                         | Purpose                                                             |
+|------------------------------|---------------------------------------------------------------------|
+| `wcs.ps1` (repository root)  | The entry point: lists the commands, asks for elevation, dispatches |
+| `dev.ps1`                    | `.\wcs dev`                                                         |
+| `test.ps1`                   | `.\wcs test`                                                        |
+| `build.ps1`                  | `.\wcs build`. Does not install                                     |
+| `deploy.ps1`                 | `.\wcs deploy`. Installs or updates, never touches the data         |
+| `status.ps1`                 | `.\wcs status`                                                      |
+| `uninstall.ps1`              | `.\wcs uninstall`                                                   |
+| `restore-point.ps1`          | `.\wcs restore-point`                                               |
+| `validate.ps1`               | `.\wcs validate`                                                    |
+| `WindowsControlService.psm1` | Shared: paths, output, waits, policy and registry state             |
+| `interface-dom.mjs`          | The DOM harness (see `web-interface.md`)                            |
 
-All PowerShell scripts require elevation and check for it.
+`deploy`, `uninstall`, `restore-point` and `validate` need administrator rights. Run without
+them, `.\wcs` asks through Windows' `sudo` when it is enabled (Settings, System, For developers),
+and otherwise in a new elevated window.

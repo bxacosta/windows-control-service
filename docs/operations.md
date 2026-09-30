@@ -1,17 +1,20 @@
 # Operations
 
+Every operation is a `.\wcs` command, run from the repository root. `.\wcs` alone lists them.
+
 ## Requirements
 
 - Windows 11 with `CiTool.exe` in `%SystemRoot%\System32`, which ships with the system.
-- **Elevated** PowerShell. Every script checks for it and fails early without it.
+- PowerShell 7 or Windows PowerShell 5.1. `deploy`, `uninstall`, `restore-point` and `validate`
+  need administrator rights; `.\wcs` asks for them when they are missing, through Windows' `sudo`
+  when it is enabled and otherwise in a new elevated window.
 - .NET SDK 10.0.1xx to build only. What is published is self-contained and needs no installed
   runtime, but it is more than one file.
-- Node only for `dotnet test`, which runs the interface rules through it. It takes no part in
-  the build or the deployment, and the installed service does not need it.
+- Node only for the tests, which run the interface rules through it. It takes no part in the
+  build or the deployment, and the installed service does not need it.
 
 If PowerShell answers `running scripts is disabled on this system`, the session has a
-restricted policy. Bypass it per invocation:
-`powershell -ExecutionPolicy Bypass -File .\scripts\install.ps1 -From .\publish`.
+restricted policy. Bypass it per invocation: `powershell -ExecutionPolicy Bypass -File .\wcs.ps1 deploy`.
 
 ## What the service touches on the machine
 
@@ -37,14 +40,14 @@ running legitimate programs, and a policy left behind survives the uninstall.
 | Risk                   | Consequence                                                          | Mitigation                                                                                           |
 |------------------------|----------------------------------------------------------------------|------------------------------------------------------------------------------------------------------|
 | Malformed WDAC policy  | A deny-only policy behaves as an allowlist and blocks everything     | The XML is validated against the XSD before deployment, and every policy carries the two allow rules |
-| Orphaned policy        | Applications blocked with nothing explaining it, surviving uninstall | `uninstall.ps1` removes it first and verifies with `CiTool`; a failure exits with an error           |
+| Orphaned policy        | Applications blocked with nothing explaining it, surviving uninstall | `.\wcs uninstall` removes it first and verifies with `CiTool`; a failure exits with an error         |
 | `USBSTOR` left at `4`  | No USB storage mounts again                                          | Restore with `Start = 3`                                                                             |
-| Half-installed service | A registered name with no binary, or a binary in use                 | `uninstall.ps1 -Force`                                                                               |
+| Half-installed service | A registered name with no binary, or a binary in use                 | `.\wcs deploy` again, or `.\wcs uninstall -Force`                                                    |
 
 Create a restore point first:
 
 ```powershell
-.\scripts\restore-point.ps1          # -Force to get one within 24 hours of the last
+.\wcs restore-point          # -Force to get one within 24 hours of the last
 ```
 
 **The net is for WDAC, and only for WDAC.** A policy built wrong can leave this machine refusing
@@ -55,52 +58,72 @@ two DWORDs and put them back in a `finally`, and the recovery when that fails is
 policy; skip it for the registry tests.
 
 The point is created under one fixed description, `WindowsControlService checkpoint`, so
-`status.ps1` can tell one made for a validation apart from the ones Windows makes before its own
-updates:
+`.\wcs status` can tell one made for a validation apart from the ones Windows makes before its
+own updates:
 
 ```
-==> Restore point
-    WindowsControlService checkpoint: 2026-09-02 02:36 (0 h ago)
+  Restore point 2026-09-29 23:24 (0 h ago)
 ```
 
 Windows refuses to create a second point within 24 hours of the last, and **it refuses
-silently** — `Checkpoint-Computer` reports success for a call that was thrown away. The script
+silently**: `Checkpoint-Computer` reports success for a call that was thrown away. The command
 reads the newest point of ours before and after and says which actually happened. `-Force` lifts
 the throttle for that one call by setting `SystemRestorePointCreationFrequency` to 0 and putting
 the original back in a `finally`, rather than leaving the machine with the throttle off forever.
 
-If system protection is off, no point can exist and the script says so instead of failing
+If system protection is off, no point can exist and the command says so instead of failing
 obscurely; turn it on with `Enable-ComputerRestore -Drive $env:SystemDrive`.
 
 The policy deliberately enables `Enabled:Advanced Boot Options Menu`, so the advanced startup
 menu remains reachable and leads to the restore point.
 
-## Install
-
-Building and deploying are separate steps, so what is about to be installed can be inspected
-first.
+## Install and update
 
 ```powershell
-.\scripts\build.ps1                       # publishes to .\publish
-.\scripts\install.ps1 -From .\publish     # deploys and registers the service
+.\wcs deploy
 ```
 
-`install.ps1` does not compile. If `-From` does not exist or does not contain the executable it
-stops and says so.
+The same command installs and updates. It builds to `.\publish`, then registers the service if it
+is not installed, or replaces the binaries of the one that is. It does not report success until
+`GET /api/health` answers: the Service Control Manager reports Running as soon as the process is
+up, before Kestrel listens and before the migrations have run.
+
+To inspect a build before installing it, build and deploy separately:
+
+```powershell
+.\wcs build                    # publishes to .\publish, installs nothing
+.\wcs deploy -From .\publish   # deploys that folder without building
+```
+
+`deploy` refuses a folder without the executable or without `wwwroot\index.html`, which would
+install a service that answers the API and serves no interface.
 
 **Copying only the `.exe` does not work.** `PublishSingleFile` leaves the native libraries out:
 `e_sqlite3.dll` and `aspnetcorev2_inprocess.dll` sit beside the executable, and without the
-first the process does not start (`DllNotFoundException` while initialising SQLite).
-`install.ps1` copies the whole folder.
+first the process does not start (`DllNotFoundException` while initialising SQLite). `deploy`
+copies the whole folder.
 
-Set the password before anything else:
+On a first install, set the password before anything else, in the interface or with:
 
 ```powershell
 curl.exe -X POST http://localhost:5150/api/auth/password `
          -H "Content-Type: application/json" -d '{\"password\":\"<your password>\"}'
 ```
 
-The endpoint is public while no password exists and answers `409` once one does.
+The endpoint is public while no password exists and answers `409` once one does. `deploy` warns
+while none is set.
+
+### What an update keeps
+
+`C:\ProgramData\WindowsControlService`: the password, the blocked applications and the history.
+`deploy` waits for the service to actually stop before overwriting the executable. With
+`ShutdownTimeout` at 70 seconds, sleeping two is not enough and the symptom is `Copy-Item`
+failing on a file in use.
+
+**Re-running it is the recovery for a deploy that failed part way through.** It empties the
+install directory before copying, so a copy that dies half way leaves a registered service with
+no binary and `Start-Service` failing, and the fix is to run the same command again, not to
+uninstall. The data directory is never in the blast radius.
 
 ## The interface
 
@@ -121,10 +144,9 @@ interactive console       FullLanguage     ConstrainedLanguage
 [System.IO.File] in .ps1  allowed          allowed
 ```
 
-The scripts in this repository keep working in full: a `.ps1` on disk runs in `FullLanguage`,
-including the `[Security.Principal.WindowsPrincipal]::new()` in the shared module and the
-`Add-Type` in the validation script. What gets restricted is what is **typed or passed with
-`-Command`**.
+The `.\wcs` commands keep working in full: a `.ps1` on disk runs in `FullLanguage`, including
+the `[Security.Principal.WindowsPrincipal]::new()` in the shared module and the `Add-Type` in the
+validation. What gets restricted is what is **typed or passed with `-Command`**.
 
 To get the full mode back, remove the blocks and **open a new console**. The one already open
 stays restricted: the mode is fixed when the process starts.
@@ -132,73 +154,52 @@ stays restricted: the mode is fixed when the process starts.
 ## Verify that a block blocks
 
 ```powershell
-.\scripts\validate-blocking.ps1
+.\wcs restore-point
+.\wcs validate
 ```
 
-Starts a temporary instance on another port — it does not touch the installed service or its
-password — builds two variants of a harmless test executable, one with `OriginalFilename` and
-one with no version resource, and tries to block both. The first must end up blocked by Windows;
-the second must be **refused** by the service. Everything it applies, it removes.
-
-## Update
-
-```powershell
-.\scripts\build.ps1
-.\scripts\update.ps1 -From .\publish
-```
-
-Keeps `C:\ProgramData\WindowsControlService`: the password, the blocked applications and the
-history. The script waits for the service to actually stop before overwriting the executable.
-With `ShutdownTimeout` at 70 seconds, sleeping two is not enough and the symptom is `Copy-Item`
-failing on a file in use.
-
-It refuses a folder that is not a build of this service -- one without `wwwroot\index.html`
-included, which would install a service that answers the API and serves no interface -- and it
-does not report success until `GET /api/health` answers. Running is not serving: the Service
-Control Manager reports it as soon as the process is up, before Kestrel listens and before the
-migrations have run.
-
-**Re-running it is the recovery for an update that failed part way through.** It empties the
-install directory before copying, so a copy that dies half way leaves a registered service with
-no binary and `Start-Service` failing — and the fix is to run the same command again, not to
-uninstall. Verified by emptying `C:\Program Files\WindowsControlService` completely and running
-it: it stops nothing, replaces everything, starts, and answers. The data directory is never in
-the blast radius.
+It refuses to run without a restore point of ours from the last 24 hours. It starts a temporary
+instance on another port, so the installed service and its password are not touched, builds two
+variants of a harmless test executable, one with `OriginalFilename` and one with no version
+resource, and tries to block both. The first must end up blocked by Windows; the second must be
+**refused** by the service. Everything it applies, it removes, and it prints the final state.
 
 ## Uninstall
 
 ```powershell
-.\scripts\uninstall.ps1              # asks before deleting data
-.\scripts\uninstall.ps1 -RemoveData  # deletes the password and the history too
+.\wcs uninstall                # keeps the data
+.\wcs uninstall -RemoveData    # deletes the password and the history too
 ```
 
 The order is not negotiable: stop the service, **remove the WDAC policy**, restore the registry,
-delete the service, delete the binaries, and only then the data.
+delete the service, delete the binaries, and only then the data. It ends by reading the final
+state back rather than assuming it.
 
-If removing the policy fails the script says so, prints the manual command and exits with an
+If removing the policy fails the command says so, prints the manual command and exits with an
 error code. A machine with blocked applications and no service to explain them is the worst
 possible outcome.
 
 ## Diagnose
 
 ```powershell
-.\scripts\status.ps1            # service, port, health, policy, USB, database, logs
-.\scripts\status.ps1 -LogLines 50
+.\wcs status              # service, health, version, policy, USB, restore point, database
+.\wcs status -Logs 50     # plus the last 50 log lines and the Event Viewer entries
 ```
 
-Works the same with the service installed and without it.
+Works the same with the service installed and without it. When the installed version was built
+from an older commit than the working tree's HEAD, it says so.
 
-| Policy state it reports          | Meaning                                                           |
-|----------------------------------|-------------------------------------------------------------------|
-| `not installed`                  | No policy of ours                                                 |
-| `installed, enforced=True`       | Applied and in force                                              |
-| `could not be queried (Unknown)` | `CiTool` could not be asked. Not the same as "there is no policy" |
+| Policy state it reports                 | Meaning                                                           |
+|-----------------------------------------|-------------------------------------------------------------------|
+| `not installed`                         | No policy of ours                                                 |
+| `installed, enforced`                   | Applied and in force                                              |
+| `unknown (CiTool could not be queried)` | `CiTool` could not be asked. Not the same as "there is no policy" |
 
 Where to look when something fails:
 
-1. `.\scripts\status.ps1`.
-2. `C:\ProgramData\WindowsControlService\logs\wcs-*.log` — everything, stamped UTC.
-3. Event Viewer, `Application` log, source `WindowsControlService` — `Warning` and above only.
+1. `.\wcs status -Logs 50`.
+2. `C:\ProgramData\WindowsControlService\logs\wcs-*.log`: everything, stamped UTC.
+3. Event Viewer, `Application` log, source `WindowsControlService`: `Warning` and above only.
 
 Both destinations carry UTC in the text. The Event Viewer's `TimeCreated` is set by Windows in
 local time and no application can change it, which is why the message repeats the UTC stamp:
@@ -207,13 +208,12 @@ that is what allows the two to be correlated.
 ## Emergency
 
 ```powershell
-.\scripts\uninstall.ps1 -Force
+.\wcs uninstall -Force
 ```
 
-Total cleanup, idempotent, no questions and nothing kept: service, policy, registry, event
-source, binaries, data, and whatever a validation run left in `TEMP`. It ends by printing the
-real state rather than assuming it — service absent, policy absent, `USBSTOR Start` at `3`, both
-paths gone. On a machine that never had the service it does nothing.
+Total cleanup, idempotent, nothing kept: service, policy, registry, event source, binaries, data,
+and whatever a validation run left in `TEMP`. It ends by printing the real state rather than
+assuming it. On a machine that never had the service it does nothing.
 
 This is the mode for a machine where something stopped half way: an install that failed, a
 validation that crashed, a service deleted by hand with its policy still in force.
@@ -224,12 +224,12 @@ If a program stops running and an orphaned policy is suspected:
 & "$env:SystemRoot\System32\CiTool.exe" --list-policies -json | ConvertFrom-Json |
   Select-Object -ExpandProperty Policies | Where-Object { -not $_.IsSystemPolicy }
 
-& "$env:SystemRoot\System32\CiTool.exe" --remove-policy "{GUID}"
+& "$env:SystemRoot\System32\CiTool.exe" --remove-policy "{GUID}" -json
 ```
 
 From PowerShell, `--remove-policy` without `-json` waits on a "Press Enter to Continue" nobody
-sees and the script hangs. The scripts here avoid it by supplying EOF through `cmd`; by hand,
-always pass `-json`.
+sees and hangs. The commands here avoid it by supplying EOF through `cmd`; by hand, always pass
+`-json`.
 
 If USB drives do not mount:
 

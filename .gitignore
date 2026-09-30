@@ -23,3 +23,6 @@ windows-control-service.db-wal
 
 # The generator writes this next to the picture it screenshots.
 banner/banner.html
+
+# What .\wcs dev writes: the database and logs of the run from source.
+.localdata/

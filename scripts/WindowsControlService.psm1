@@ -1,56 +1,62 @@
 <#
 .SYNOPSIS
-    Shared helpers for every WindowsControlService script.
+    Shared helpers for the wcs commands: paths, output, waits, and the machine state they check.
 
 .DESCRIPTION
-    One place decides where the service lives, what it is called and how it is waited on.
-    Without this, each script redeclares the paths and the service name, and the day two of
-    them disagree is the day an uninstall leaves half the machine behind.
+    One place decides where the service lives and what it is called. The day two scripts disagree
+    on a path is the day an uninstall leaves half the machine behind.
 #>
 
 Set-StrictMode -Version Latest
 
 function Get-WcsPaths {
-    <#
-    .SYNOPSIS
-        Every path and identifier the scripts need, decided once.
-    #>
     [CmdletBinding()]
     param()
 
+    $root = Split-Path $PSScriptRoot -Parent
     $installPath = Join-Path $env:ProgramFiles 'WindowsControlService'
+    $dataPath = Join-Path $env:ProgramData 'WindowsControlService'
 
-    # The default in ServiceConstants.DefaultUrl. Written once here and derived from, so
-    # that a diagnostic cannot end up watching a different port from the one it curls.
+    # ServiceConstants.DefaultUrl. Derived from here, so a diagnostic cannot watch one port and
+    # curl another.
     $port = 5150
 
     [PSCustomObject]@{
-        ServiceName  = 'WindowsControlService'
-        DisplayName  = 'Windows Control Service'
-        Description  = 'Controls application execution and device access on this computer'
-        InstallPath  = $installPath
-        ExePath      = Join-Path $installPath 'WindowsControlService.exe'
-        DataPath     = Join-Path $env:ProgramData 'WindowsControlService'
-        LogPath      = Join-Path (Join-Path $env:ProgramData 'WindowsControlService') 'logs'
+        Root             = $root
+        Project          = Join-Path $root 'src\WindowsControlService'
+        PublishPath      = Join-Path $root 'publish'
+        ServiceName      = 'WindowsControlService'
+        DisplayName      = 'Windows Control Service'
+        Description      = 'Controls application execution and device access on this computer'
+        InstallPath      = $installPath
+        ExePath          = Join-Path $installPath 'WindowsControlService.exe'
+        DataPath         = $dataPath
+        DatabasePath     = Join-Path $dataPath 'windows-control-service.db'
+        LogPath          = Join-Path $dataPath 'logs'
 
-        # Must match WdacPolicyDocument.PolicyId. Deliberately different from the
-        # A1B2C3D4-... policy an earlier installation left on this machine, so a leftover is
-        # never mistaken for ours.
-        PolicyId     = '9E9BB70B-2BD8-4EE9-9031-30476FCF1FF3'
+        # Must match WdacPolicyDocument.PolicyId. Deliberately not the A1B2C3D4-... policy an
+        # earlier installation left on this machine, so a leftover is never taken for ours.
+        PolicyId         = '9E9BB70B-2BD8-4EE9-9031-30476FCF1FF3'
 
-        # The description every restore point this project creates carries, so that one made
-        # for a validation can be told apart from Windows' own scheduled checkpoints.
+        # Tells our restore points apart from the ones Windows makes before its own updates.
         RestorePointName = 'WindowsControlService checkpoint'
 
-        CiToolPath   = Join-Path $env:SystemRoot 'System32\CiTool.exe'
-        UsbStorKey   = 'HKLM:\SYSTEM\CurrentControlSet\Services\USBSTOR'
+        CiToolPath       = Join-Path $env:SystemRoot 'System32\CiTool.exe'
+        UsbStorKey       = 'HKLM:\SYSTEM\CurrentControlSet\Services\USBSTOR'
         StoragePolicyKey = 'HKLM:\SYSTEM\CurrentControlSet\Control\StorageDevicePolicies'
-        Port         = $port
-        HealthUrl    = "http://localhost:$port/api/health"
+        Port             = $port
+        Url              = "http://localhost:$port"
+        HealthUrl        = "http://localhost:$port/api/health"
     }
 }
 
+# --- Output -----------------------------------------------------------------------------------
+
 function Write-WcsStep {
+    <#
+    .SYNOPSIS
+        A heading ("==> Building") or, with -Level, one indented line under it.
+    #>
     [CmdletBinding()]
     param(
         [Parameter(Mandatory)][string] $Message,
@@ -66,22 +72,62 @@ function Write-WcsStep {
     }
 }
 
-function Assert-WcsAdministrator {
+function Write-WcsField {
     <#
     .SYNOPSIS
-        Fails early and clearly. The service runs as LocalSystem and touches the registry and
-        CiTool, so every one of these scripts needs elevation.
+        One "label  value" line of a report, the value coloured by its level.
     #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)][string] $Label,
+        [Parameter(Mandatory)][AllowEmptyString()][string] $Value,
+        [ValidateSet('Ok', 'Warn', 'Fail', 'Info')][string] $Level = 'Info'
+    )
+
+    $color = @{ Ok = 'Green'; Warn = 'Yellow'; Fail = 'Red'; Info = 'Gray' }[$Level]
+    Write-Host ('  {0,-14}' -f $Label) -NoNewline
+    Write-Host $Value -ForegroundColor $color
+}
+
+# --- Checks -----------------------------------------------------------------------------------
+
+function Test-WcsAdministrator {
     [CmdletBinding()]
     param()
 
-    $identity  = [Security.Principal.WindowsIdentity]::GetCurrent()
-    $principal = [Security.Principal.WindowsPrincipal]::new($identity)
+    $principal = [Security.Principal.WindowsPrincipal]::new([Security.Principal.WindowsIdentity]::GetCurrent())
+    $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+}
 
-    if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
-        throw 'This script needs an elevated PowerShell session. Right click, Run as administrator.'
+function Assert-WcsAdministrator {
+    [CmdletBinding()]
+    param()
+
+    if (-not (Test-WcsAdministrator)) {
+        throw 'This needs administrator rights. Run it from an elevated terminal, or through .\wcs, which asks for them.'
     }
 }
+
+function Assert-WcsArtifact {
+    <#
+    .SYNOPSIS
+        Refuses a folder that is not a complete build of this service.
+
+    .DESCRIPTION
+        The interface is part of the build. A folder with the .exe and no wwwroot installs a
+        service that answers the API and serves nothing.
+    #>
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][string] $Path)
+
+    foreach ($file in 'WindowsControlService.exe', 'wwwroot\index.html') {
+        if (-not (Test-Path (Join-Path $Path $file))) {
+            throw "'$Path' is not a complete build: $file is missing. Run .\wcs build."
+        }
+    }
+}
+
+# --- Waits ------------------------------------------------------------------------------------
 
 function Wait-WcsServiceStatus {
     <#
@@ -89,9 +135,8 @@ function Wait-WcsServiceStatus {
         Waits for a real status change instead of sleeping.
 
     .DESCRIPTION
-        ShutdownTimeout is 70 seconds because a WDAC operation can take that long, so
-        Start-Sleep -Seconds 2 is a race, not a wait. Its symptom is a Copy-Item failing on an
-        executable still in use, with an error that mentions none of this.
+        ShutdownTimeout is 70 seconds because a WDAC operation can take that long. A fixed sleep
+        is a race whose symptom is Copy-Item failing on an executable still in use.
     #>
     [CmdletBinding()]
     param(
@@ -112,31 +157,57 @@ function Wait-WcsServiceStatus {
     }
 }
 
+function Wait-WcsHealth {
+    <#
+    .SYNOPSIS
+        Waits until GET /api/health answers.
+
+    .DESCRIPTION
+        Running is not serving: the Service Control Manager reports Running as soon as the process
+        is up, before Kestrel listens and before the migrations have run.
+    #>
+    [CmdletBinding()]
+    param(
+        [string] $Url = (Get-WcsPaths).HealthUrl,
+        [int] $TimeoutSeconds = 30
+    )
+
+    $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
+    while ((Get-Date) -lt $deadline) {
+        try {
+            Invoke-WebRequest $Url -UseBasicParsing -TimeoutSec 2 | Out-Null
+            return $true
+        }
+        catch {
+            Start-Sleep -Milliseconds 500
+        }
+    }
+
+    return $false
+}
+
+# --- Machine state ----------------------------------------------------------------------------
+
 function Get-WcsPolicyState {
     <#
     .SYNOPSIS
-        Asks CiTool whether our policy is installed and enforced.
+        Whether our WDAC policy is installed and enforced, according to CiTool.
 
     .DESCRIPTION
-        Failure is reported as Queried = $false, never as "no policy". CiTool signals errors
-        with well formed JSON that simply has no Policies array, and reading that as "nothing
-        installed" is how a guard ends up reinstalling a policy forever.
+        A failed query is Queried = $false, never "no policy". CiTool reports errors as well
+        formed JSON with no Policies array, and reading that as "nothing installed" is how a guard
+        ends up reinstalling a policy forever.
     #>
     [CmdletBinding()]
     param()
 
     $paths = Get-WcsPaths
+    $unknown = [PSCustomObject]@{ Queried = $false; Present = $false; Enforced = $false }
 
-    if (-not (Test-Path $paths.CiToolPath)) {
-        return [PSCustomObject]@{ Queried = $false; Present = $false; Enforced = $false }
-    }
+    if (-not (Test-Path $paths.CiToolPath)) { return $unknown }
 
-    $raw = & $paths.CiToolPath --list-policies -json 2>$null
-    $parsed = $raw | ConvertFrom-Json -ErrorAction SilentlyContinue
-
-    if (-not $parsed -or -not ($parsed.PSObject.Properties.Name -contains 'Policies')) {
-        return [PSCustomObject]@{ Queried = $false; Present = $false; Enforced = $false }
-    }
+    $parsed = & $paths.CiToolPath --list-policies -json 2>$null | ConvertFrom-Json -ErrorAction SilentlyContinue
+    if (-not $parsed -or $parsed.PSObject.Properties.Name -notcontains 'Policies') { return $unknown }
 
     $ours = $parsed.Policies | Where-Object { ($_.PolicyID -replace '[{}]', '') -eq $paths.PolicyId }
 
@@ -147,17 +218,24 @@ function Get-WcsPolicyState {
     }
 }
 
+function Format-WcsPolicyState {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)] $State)
+
+    if (-not $State.Queried) { return 'unknown (CiTool could not be queried)' }
+    if (-not $State.Present) { return 'not installed' }
+    if ($State.Enforced) { 'installed, enforced' } else { 'installed, not enforced' }
+}
+
 function Remove-WcsPolicy {
     <#
     .SYNOPSIS
-        Removes our WDAC policy if it is installed. Returns $true when nothing is left.
+        Removes our WDAC policy if it is installed. Returns $true when none is left.
 
     .DESCRIPTION
-        Asks first, because --remove-policy errors when the policy is absent, and because
-        without -json CiTool prints "Press Enter to Continue" and waits on a stdin nobody is
-        watching. Routing through cmd with <nul is the only reliable way to give it EOF from
-        PowerShell. A hung uninstall is worse than a failed one: it leaves the machine half
-        done without saying so.
+        Checks first, because --remove-policy errors when the policy is absent. Without -json
+        CiTool prints "Press Enter to Continue" and waits on a stdin nobody watches; routing
+        through cmd with <nul is the reliable way to give it EOF from PowerShell.
     #>
     [CmdletBinding()]
     param()
@@ -170,146 +248,8 @@ function Remove-WcsPolicy {
 
     cmd.exe /c "`"$($paths.CiToolPath)`" --remove-policy `"{$($paths.PolicyId)}`" -json <nul" | Out-Null
 
-    return -not (Get-WcsPolicyState).Present
-}
-
-function Assert-WcsArtifact {
-    <#
-    .SYNOPSIS
-        Refuses a folder that is not a build of this service.
-
-    .DESCRIPTION
-        The interface is part of the artefact, not an extra. Checking only for the .exe is how a
-        publish that silently dropped wwwroot becomes an installed service that answers the API
-        and serves nothing -- build.ps1 already refuses to produce one, and this is what stops a
-        folder that never came from build.ps1 being deployed instead.
-    #>
-    [CmdletBinding()]
-    param([Parameter(Mandatory)][string] $Path)
-
-    if (-not (Test-Path $Path)) {
-        throw "'$Path' does not exist. Run .\scripts\build.ps1 first; the deploy scripts do not compile."
-    }
-
-    if (-not (Test-Path (Join-Path $Path 'WindowsControlService.exe'))) {
-        throw "'$Path' contains no WindowsControlService.exe. Run .\scripts\build.ps1 first."
-    }
-
-    if (-not (Test-Path (Join-Path $Path 'wwwroot\index.html'))) {
-        throw "'$Path' contains no wwwroot\index.html. That build would answer the API and serve no interface."
-    }
-}
-
-function Wait-WcsHealth {
-    <#
-    .SYNOPSIS
-        Waits for the installed service to actually answer, not merely to report Running.
-
-    .DESCRIPTION
-        The Service Control Manager says Running as soon as the process is up, which is before
-        Kestrel is listening and before the migrations have finished. A deploy that stops at
-        Running reports success for a service that cannot serve a request.
-    #>
-    [CmdletBinding()]
-    param([int] $TimeoutSeconds = 30)
-
-    $url = (Get-WcsPaths).HealthUrl
-    $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
-
-    while ((Get-Date) -lt $deadline) {
-        try {
-            Invoke-WebRequest $url -UseBasicParsing -TimeoutSec 2 | Out-Null
-            return $true
-        }
-        catch {
-            Start-Sleep -Milliseconds 500
-        }
-    }
-
-    return $false
-}
-
-function Test-WcsSystemProtection {
-    <#
-    .SYNOPSIS
-        Whether System Protection is on, which decides whether a restore point can exist at all.
-
-    .DESCRIPTION
-        RPSessionInterval is 0 when protection is off. Asked rather than assumed: on a machine
-        with it disabled, Checkpoint-Computer fails with a message about the service, and the
-        useful thing to say is that protection is off and how to turn it on.
-    #>
-    [CmdletBinding()]
-    param()
-
-    $configuration = Get-ItemProperty `
-        'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\SystemRestore' `
-        -ErrorAction SilentlyContinue
-
-    if (-not $configuration) { return $false }
-
-    $has = { param($name) $configuration.PSObject.Properties.Name -contains $name }
-
-    if ((& $has 'DisableSR') -and $configuration.DisableSR -eq 1) { return $false }
-
-    # Guarded like DisableSR above, and for the same reason. Without it, a SystemRestore key that
-    # carries no RPSessionInterval -- one where only DisableSR was ever written by policy -- either
-    # throws under Set-StrictMode or, worse, answers $null -ne 0 as $true. Both end with the caller
-    # believing protection is on: restore-point.ps1 skips its "protection is off, here is how to
-    # turn it on" message and Checkpoint-Computer fails with the obscure one instead, and
-    # status.ps1 reads "none of ours" as "you simply have not made one yet".
-    if (-not (& $has 'RPSessionInterval')) { return $false }
-
-    return $configuration.RPSessionInterval -ne 0
-}
-
-function Get-WcsRestorePoint {
-    <#
-    .SYNOPSIS
-        The newest restore point this project created, or $null.
-
-    .DESCRIPTION
-        Matched on the description rather than on being the newest point of any kind: Windows
-        makes its own before updates, and one of those is not evidence that anybody prepared for
-        a validation.
-
-        CreationTime comes back in WMI's own format, yyyyMMddHHmmss.ffffffsUUU, and is parsed by
-        its fixed prefix. The alternative is ManagementDateTimeConverter, which drags in an
-        assembly that is not loaded in PowerShell 7 by default.
-
-        That trailing sUUU is the offset from UTC in minutes, and on restore points it is -000:
-        the stamp is UTC, not local. Parsing it as local time and subtracting it from Get-Date
-        gave "-5 h ago" on a machine five hours behind UTC -- an age in the future for a point
-        created one second earlier. Both sides of the subtraction are UTC here, and only the
-        value handed back for display is converted.
-    #>
-    [CmdletBinding()]
-    param()
-
-    $name = (Get-WcsPaths).RestorePointName
-
-    $points = @(Get-CimInstance -Namespace root/default -ClassName SystemRestore -ErrorAction SilentlyContinue |
-        Where-Object { $_.Description -eq $name })
-
-    if (-not $points) { return $null }
-
-    $asUtc = {
-        [datetime]::SpecifyKind(
-            [datetime]::ParseExact($args[0].Substring(0, 14), 'yyyyMMddHHmmss', $null),
-            [DateTimeKind]::Utc)
-    }
-
-    $newest = $points |
-        Sort-Object { & $asUtc $_.CreationTime } |
-        Select-Object -Last 1
-
-    $createdAtUtc = & $asUtc $newest.CreationTime
-
-    [PSCustomObject]@{
-        SequenceNumber = $newest.SequenceNumber
-        CreatedAt      = $createdAtUtc.ToLocalTime()
-        Age            = [datetime]::UtcNow - $createdAtUtc
-    }
+    $after = Get-WcsPolicyState
+    return $after.Queried -and -not $after.Present
 }
 
 function Get-WcsUsbStart {
@@ -319,6 +259,72 @@ function Get-WcsUsbStart {
     (Get-ItemProperty (Get-WcsPaths).UsbStorKey -ErrorAction SilentlyContinue).Start
 }
 
-Export-ModuleMember -Function Get-WcsPaths, Write-WcsStep, Assert-WcsAdministrator,
-    Assert-WcsArtifact, Wait-WcsServiceStatus, Wait-WcsHealth, Get-WcsPolicyState,
-    Remove-WcsPolicy, Get-WcsUsbStart, Test-WcsSystemProtection, Get-WcsRestorePoint
+function Test-WcsSystemProtection {
+    <#
+    .SYNOPSIS
+        Whether System Protection is on, which decides whether a restore point can exist at all.
+
+    .DESCRIPTION
+        Both values are read through the property list: either can be absent, and under
+        Set-StrictMode reading a missing property throws, while a $null RPSessionInterval would
+        compare as "on".
+    #>
+    [CmdletBinding()]
+    param()
+
+    $settings = Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\SystemRestore' -ErrorAction SilentlyContinue
+    if (-not $settings) { return $false }
+
+    $names = $settings.PSObject.Properties.Name
+    if ($names -contains 'DisableSR' -and $settings.DisableSR -eq 1) { return $false }
+    if ($names -notcontains 'RPSessionInterval') { return $false }
+
+    return $settings.RPSessionInterval -ne 0
+}
+
+function Get-WcsRestorePoint {
+    <#
+    .SYNOPSIS
+        The newest restore point this project created, or $null.
+
+    .DESCRIPTION
+        CreationTime is WMI's yyyyMMddHHmmss.ffffffsUUU and, on restore points, UTC (offset
+        -000). Parsed as local time it gave "-5 h ago" on a machine five hours behind UTC, so the
+        age is computed in UTC and only the displayed time is converted.
+    #>
+    [CmdletBinding()]
+    param()
+
+    $name = (Get-WcsPaths).RestorePointName
+
+    $points = @(Get-CimInstance -Namespace root/default -ClassName SystemRestore -ErrorAction SilentlyContinue |
+        Where-Object { $_.Description -eq $name })
+    if (-not $points) { return $null }
+
+    $asUtc = {
+        [datetime]::SpecifyKind(
+            [datetime]::ParseExact($args[0].Substring(0, 14), 'yyyyMMddHHmmss', $null),
+            [DateTimeKind]::Utc)
+    }
+
+    $newest = $points | Sort-Object { & $asUtc $_.CreationTime } | Select-Object -Last 1
+    $createdAtUtc = & $asUtc $newest.CreationTime
+
+    [PSCustomObject]@{
+        SequenceNumber = $newest.SequenceNumber
+        CreatedAt      = $createdAtUtc.ToLocalTime()
+        Age            = [datetime]::UtcNow - $createdAtUtc
+    }
+}
+
+function Format-WcsAge {
+    [CmdletBinding()]
+    param([Parameter(Mandatory)][TimeSpan] $Age)
+
+    if ($Age.TotalHours -lt 48) { "$([int]$Age.TotalHours) h ago" } else { "$([int]$Age.TotalDays) days ago" }
+}
+
+Export-ModuleMember -Function Get-WcsPaths, Write-WcsStep, Write-WcsField, Test-WcsAdministrator,
+    Assert-WcsAdministrator, Assert-WcsArtifact, Wait-WcsServiceStatus, Wait-WcsHealth,
+    Get-WcsPolicyState, Format-WcsPolicyState, Remove-WcsPolicy, Get-WcsUsbStart,
+    Test-WcsSystemProtection, Get-WcsRestorePoint, Format-WcsAge

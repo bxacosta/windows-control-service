@@ -76,7 +76,7 @@ app.UseRateLimiter();
 // behind it still demands a session.
 //
 // no-cache rather than a version marker in the URLs. It does not mean "do not cache", it means
-// "revalidate every time", and the middleware already sends an ETag: after update.ps1 replaces
+// "revalidate every time", and the middleware already sends an ETag: after a deploy replaces
 // a file the browser gets it on the next request. A version marker would have to be kept in
 // sync by hand and would go stale in exactly the update where it mattered.
 if (Directory.Exists(app.Environment.WebRootPath))

@@ -1,23 +1,20 @@
 #Requires -RunAsAdministrator
 <#
 .SYNOPSIS
-    Removes the service and everything it changed on this machine.
+    Removes the service and everything it changed on this machine. Keeps the data unless asked.
 
 .DESCRIPTION
-    The most important script in the repository, because a WDAC policy outlives the service
-    that deployed it. If the policy is not removed, the machine is left refusing to run
-    applications with nothing installed to explain why. The order below is not negotiable.
+    A WDAC policy outlives the service that deployed it: left behind, the machine keeps refusing
+    applications with nothing installed to explain why. So the policy goes right after the service
+    stops, and the order below does not change.
 
 .PARAMETER RemoveData
-    Also delete the data directory, which holds the password and the access history. Without
-    this flag the script asks before touching it.
+    Also delete the data directory: the password and the whole history.
 
 .PARAMETER Force
-    Emergency cleanup: ask nothing, keep nothing, and sweep what a validation run may have left
-    behind. Implies -RemoveData. This is the mode for a machine where something stopped half way
-    -- an install that failed, a validation that crashed, a service deleted by hand with its
-    policy still in force -- and it is idempotent: on a machine that never had the service it
-    does nothing and says so.
+    Emergency cleanup for a machine left half way (a failed install, a crashed validation, a service
+    deleted by hand with its policy in force). Implies -RemoveData and also clears what a validation
+    run leaves in TEMP. Idempotent.
 #>
 [CmdletBinding()]
 param(
@@ -26,110 +23,77 @@ param(
 )
 
 Set-StrictMode -Version Latest
+# Continue, not Stop: one step failing must not skip the ones after it.
 $ErrorActionPreference = 'Continue'
 
 Import-Module (Join-Path $PSScriptRoot 'WindowsControlService.psm1') -Force
-Assert-WcsAdministrator
-
 $paths = Get-WcsPaths
-$policyRemoved = $true
 
-if ($Force) {
-    $RemoveData = $true
-}
+if ($Force) { $RemoveData = $true }
 
-# 1. Stop the service and really wait for it.
 $service = Get-Service $paths.ServiceName -ErrorAction SilentlyContinue
 if ($service) {
     Write-WcsStep 'Stopping the service'
     Stop-Service $paths.ServiceName -Force -ErrorAction SilentlyContinue
-
     if (Wait-WcsServiceStatus -Name $paths.ServiceName -Status Stopped) {
         Write-WcsStep 'stopped' -Level Ok
     }
     else {
-        Write-WcsStep 'did not stop within 90 seconds; continuing' -Level Warn
+        Write-WcsStep 'did not stop within 90 seconds, continuing' -Level Warn
     }
 }
 
-# 2. The WDAC policy, before anything else is removed. This is the step that matters.
 Write-WcsStep 'Removing the WDAC policy'
 $policyRemoved = Remove-WcsPolicy
-
 if ($policyRemoved) {
-    Write-WcsStep 'no policy of ours remains' -Level Ok
+    Write-WcsStep 'none of ours remains' -Level Ok
 }
 else {
-    Write-WcsStep 'THE WDAC POLICY COULD NOT BE REMOVED.' -Level Fail
-    Write-WcsStep 'Applications may stay blocked with nothing installed to explain it.' -Level Fail
-    Write-WcsStep "Remove it by hand: CiTool.exe --remove-policy `"{$($paths.PolicyId)}`"" -Level Fail
+    Write-WcsStep 'FAILED. Applications may stay blocked. Remove it by hand:' -Level Fail
+    Write-WcsStep "CiTool.exe --remove-policy `"{$($paths.PolicyId)}`" -json" -Level Fail
 }
 
-# 3. Registry back to normal. 3 is Manual: USB drives mount again.
-Write-WcsStep 'Restoring the USB storage settings'
+Write-WcsStep 'Restoring USB storage'
 Set-ItemProperty $paths.UsbStorKey -Name Start -Value 3 -ErrorAction SilentlyContinue
 Remove-ItemProperty $paths.StoragePolicyKey -Name WriteProtect -ErrorAction SilentlyContinue
-Write-WcsStep "USBSTOR Start = $(Get-WcsUsbStart)" -Level Ok
+Write-WcsStep 'drives mount and are writable' -Level Ok
 
-# 4. The service registration and its event source.
-if ($service) {
-    Write-WcsStep 'Deleting the service'
-    sc.exe delete $paths.ServiceName | Out-Null
-    Write-WcsStep 'deleted' -Level Ok
-}
-
+Write-WcsStep 'Removing the service'
+if ($service) { sc.exe delete $paths.ServiceName | Out-Null }
 if ([System.Diagnostics.EventLog]::SourceExists($paths.ServiceName)) {
     [System.Diagnostics.EventLog]::DeleteEventSource($paths.ServiceName)
-    Write-WcsStep 'event log source removed' -Level Ok
 }
+Remove-Item $paths.InstallPath -Recurse -Force -ErrorAction SilentlyContinue
+Write-WcsStep 'registration, event log source and binaries' -Level Ok
 
-# 5. Binaries, and under -Force whatever a validation run left in TEMP. validate-blocking.ps1
-#    clears its own working directories in a finally block; this covers the run that died before
-#    reaching it.
-if (Test-Path $paths.InstallPath) {
-    Write-WcsStep 'Deleting the binaries'
-    Remove-Item $paths.InstallPath -Recurse -Force -ErrorAction SilentlyContinue
-    Write-WcsStep $paths.InstallPath -Level Ok
-}
-
+# validate.ps1 clears these in its own finally; this covers a run that died before reaching it.
 if ($Force) {
-    Remove-Item (Join-Path $env:TEMP 'wcs-blocking-validation') -Recurse -Force -ErrorAction SilentlyContinue
-    Remove-Item (Join-Path $env:TEMP 'wcs-blocking-validation-data') -Recurse -Force -ErrorAction SilentlyContinue
+    Remove-Item (Join-Path $env:TEMP 'wcs-blocking-validation*') -Recurse -Force -ErrorAction SilentlyContinue
 }
 
-# 6. Data, only when asked. The password and the whole access history live there.
 if (Test-Path $paths.DataPath) {
-    $shouldRemove = $RemoveData
-
-    if (-not $RemoveData) {
-        Write-WcsStep "The data directory holds the password and the access history: $($paths.DataPath)" -Level Warn
-        $answer = Read-Host 'Delete it? (y/N)'
-        $shouldRemove = $answer -eq 'y'
-    }
-
-    if ($shouldRemove) {
+    if ($RemoveData) {
         Remove-Item $paths.DataPath -Recurse -Force -ErrorAction SilentlyContinue
-        Write-WcsStep 'data directory deleted' -Level Ok
+        Write-WcsStep 'Data deleted' -Level Ok
     }
     else {
-        Write-WcsStep "data kept at $($paths.DataPath)" -Level Info
+        Write-WcsStep "Data kept in $($paths.DataPath) (-RemoveData deletes it)" -Level Info
     }
 }
 
-# 7. The real final state, printed rather than assumed.
-$finalPolicy = Get-WcsPolicyState
+# The real final state, read back rather than assumed.
+$serviceLeft = [bool](Get-Service $paths.ServiceName -ErrorAction SilentlyContinue)
+$policy = Get-WcsPolicyState
+$policyGone = $policy.Queried -and -not $policy.Present
+$usbStart = Get-WcsUsbStart
+$binariesLeft = Test-Path $paths.InstallPath
 
-Write-WcsStep 'Final state'
-[PSCustomObject]@{
-    Service        = if (Get-Service $paths.ServiceName -ErrorAction SilentlyContinue) { 'PRESENT' } else { 'absent' }
-    WdacPolicy     = if (-not $finalPolicy.Queried) { 'UNKNOWN' } elseif ($finalPolicy.Present) { 'PRESENT' } else { 'absent' }
-    UsbStorStart   = Get-WcsUsbStart
-    EventLogSource = if ([System.Diagnostics.EventLog]::SourceExists($paths.ServiceName)) { 'PRESENT' } else { 'absent' }
-    InstallPath    = Test-Path $paths.InstallPath
-    DataPath       = Test-Path $paths.DataPath
-} | Format-List
+Write-Host ''
+Write-WcsField 'Service' $(if ($serviceLeft) { 'still registered' } else { 'removed' }) $(if ($serviceLeft) { 'Fail' } else { 'Ok' })
+Write-WcsField 'WDAC policy' (Format-WcsPolicyState $policy) $(if ($policyGone) { 'Ok' } else { 'Fail' })
+Write-WcsField 'USBSTOR Start' "$usbStart" $(if ($usbStart -eq 3) { 'Ok' } else { 'Fail' })
+Write-WcsField 'Binaries' $(if ($binariesLeft) { 'still present' } else { 'removed' }) $(if ($binariesLeft) { 'Warn' } else { 'Ok' })
+Write-WcsField 'Data' $(if (Test-Path $paths.DataPath) { 'kept' } else { 'removed' })
+Write-Host ''
 
-if (-not $policyRemoved) {
-    Write-Error 'Uninstall finished with the WDAC policy still installed. See the message above.'
-    exit 1
-}
+if (-not $policyRemoved) { exit 1 }

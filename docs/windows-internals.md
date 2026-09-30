@@ -82,7 +82,7 @@ Everyone using the machine shares one administrator account, so that difference 
 whole design.
 
 The consequence: an uninstall that does not remove the policy leaves a machine with blocked
-applications and nothing on it that explains why. `uninstall.ps1` removes the policy and
+applications and nothing on it that explains why. `.wcs uninstall` removes the policy and
 verifies the removal.
 
 ### The deployment chain

@@ -215,7 +215,7 @@ the migrations, the file sink may never get to write.
 
 **The event source is not created at run time.** Registering it requires administrator rights
 and is the installer's job. When it does not exist the service still starts, without the Event
-Log sink, rather than refusing to start because of logging. `uninstall.ps1` deletes it.
+Log sink, rather than refusing to start because of logging. `.wcs uninstall` deletes it.
 
 File timestamps are UTC. In the Event Viewer `TimeCreated` is set by Windows in local time and
 no application can change it, so the message also carries the UTC stamp, which is what allows

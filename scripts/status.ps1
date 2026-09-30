@@ -1,120 +1,100 @@
 <#
 .SYNOPSIS
-    Diagnostics at a glance. Works whether or not the service is installed.
+    The state of the service and of everything it touches. Works installed or not.
+
+.PARAMETER Logs
+    Also show this many of the latest log lines, and the latest Event Viewer entries.
 #>
 [CmdletBinding()]
 param(
-    [int] $LogLines = 10
+    [int] $Logs = 0
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Continue'
 
 Import-Module (Join-Path $PSScriptRoot 'WindowsControlService.psm1') -Force
-
 $paths = Get-WcsPaths
+
+Write-Host ''
+
 $service = Get-Service $paths.ServiceName -ErrorAction SilentlyContinue
-
-Write-WcsStep 'Service'
 if ($service) {
-    $service | Select-Object Name, Status, StartType | Format-Table -AutoSize | Out-String | Write-Host
+    $level = if ($service.Status -eq 'Running') { 'Ok' } else { 'Warn' }
+    Write-WcsField 'Service' "$($service.Status), $($service.StartType.ToString().ToLower()) start" $level
 }
 else {
-    Write-WcsStep 'not installed' -Level Info
+    Write-WcsField 'Service' 'not installed'
 }
 
-Write-WcsStep 'Listening port'
-$listening = Get-NetTCPConnection -LocalPort $paths.Port -State Listen -ErrorAction SilentlyContinue
-if ($listening) {
-    Write-WcsStep "$($paths.Port) is listening" -Level Ok
-}
-else {
-    Write-WcsStep "$($paths.Port) is not listening" -Level Info
-}
-
-Write-WcsStep 'Health endpoint'
 try {
     $health = Invoke-RestMethod $paths.HealthUrl -TimeoutSec 3
-    Write-WcsStep "status=$($health.status) version=$($health.version) time=$($health.timestamp)" -Level Ok
-}
-catch {
-    Write-WcsStep 'no answer' -Level Info
-}
+    Write-WcsField 'Health' "$($paths.Url) answers" 'Ok'
 
-Write-WcsStep 'WDAC policy'
-$policy = Get-WcsPolicyState
-if (-not $policy.Queried) {
-    # Not the same as "there is no policy": CiTool could not be asked. Distinguishing the two
-    # is the whole reason the third state exists.
-    Write-WcsStep 'could not be queried (Unknown)' -Level Warn
-}
-elseif ($policy.Present) {
-    Write-WcsStep "installed, enforced=$($policy.Enforced)" -Level Ok
-}
-else {
-    Write-WcsStep 'not installed' -Level Info
-}
-
-Write-WcsStep 'USB storage'
-$start = Get-WcsUsbStart
-switch ($start) {
-    3       { Write-WcsStep 'USBSTOR Start = 3 (Manual, drives mount)' -Level Ok }
-    4       { Write-WcsStep 'USBSTOR Start = 4 (Disabled, nothing mounts)' -Level Warn }
-    default { Write-WcsStep "USBSTOR Start = $start (unexpected)" -Level Warn }
-}
-
-# Shown here because the question it answers is asked before a validation, not after: is there
-# a net if the next WDAC policy goes wrong. Ours only, matched by description -- Windows makes
-# its own before updates, and one of those is not evidence that anybody prepared.
-Write-WcsStep 'Restore point'
-if (-not (Test-WcsSystemProtection)) {
-    Write-WcsStep 'system protection is OFF, so none can be created' -Level Warn
-}
-else {
-    $point = Get-WcsRestorePoint
-    if ($point) {
-        $age = if ($point.Age.TotalHours -lt 48) { "$([int]$point.Age.TotalHours) h ago" } else { "$([int]$point.Age.TotalDays) d ago" }
-        Write-WcsStep "$($paths.RestorePointName): $($point.CreatedAt.ToString('yyyy-MM-dd HH:mm')) ($age)" -Level Ok
+    # The version carries the commit it was built from, so an out of date install is visible here.
+    $built = ($health.version -split '\+')[-1]
+    $head = git -C $paths.Root rev-parse HEAD 2>$null
+    if ($head -and $built -ne $head) {
+        Write-WcsField 'Version' "$($built.Substring(0, 7)), behind HEAD $($head.Substring(0, 7)): .\wcs deploy" 'Warn'
     }
     else {
-        Write-WcsStep 'none of ours. Create one with .\scripts\restore-point.ps1 before applying a policy.' -Level Info
+        Write-WcsField 'Version' $health.version 'Ok'
     }
 }
+catch {
+    $level = if ($service) { 'Fail' } else { 'Info' }
+    Write-WcsField 'Health' "$($paths.Url) does not answer" $level
+}
 
-Write-WcsStep 'Database'
-$database = Join-Path $paths.DataPath 'windows-control-service.db'
-if (Test-Path $database) {
-    $kb = [Math]::Round((Get-Item $database).Length / 1KB, 1)
-    Write-WcsStep "$database ($kb KB)" -Level Ok
+$policy = Get-WcsPolicyState
+$level = if (-not $policy.Queried) { 'Warn' } elseif ($policy.Present) { 'Ok' } else { 'Info' }
+Write-WcsField 'WDAC policy' (Format-WcsPolicyState $policy) $level
+
+switch (Get-WcsUsbStart) {
+    3       { Write-WcsField 'USB storage' 'allowed (USBSTOR Start = 3)' 'Ok' }
+    4       { Write-WcsField 'USB storage' 'blocked (USBSTOR Start = 4)' 'Warn' }
+    default { Write-WcsField 'USB storage' "unexpected USBSTOR Start = $_" 'Warn' }
+}
+
+# Only ours count: a Windows Update checkpoint is not evidence that anybody prepared.
+if (-not (Test-WcsSystemProtection)) {
+    Write-WcsField 'Restore point' 'impossible, system protection is off' 'Warn'
+}
+elseif ($point = Get-WcsRestorePoint) {
+    Write-WcsField 'Restore point' "$($point.CreatedAt.ToString('yyyy-MM-dd HH:mm')) ($(Format-WcsAge $point.Age))" 'Ok'
 }
 else {
-    Write-WcsStep 'no database yet' -Level Info
+    Write-WcsField 'Restore point' 'none, create one before applying a policy: .\wcs restore-point'
 }
 
-Write-WcsStep "Last $LogLines log lines"
+if (Test-Path $paths.DatabasePath) {
+    $kb = [Math]::Round((Get-Item $paths.DatabasePath).Length / 1KB)
+    Write-WcsField 'Database' "$($paths.DatabasePath) ($kb KB)"
+}
+else {
+    Write-WcsField 'Database' 'none yet'
+}
+
 $log = Get-ChildItem (Join-Path $paths.LogPath '*.log') -ErrorAction SilentlyContinue |
     Sort-Object LastWriteTime -Descending | Select-Object -First 1
-if ($log) {
-    Get-Content $log.FullName -Tail $LogLines | ForEach-Object { Write-WcsStep $_ -Level Info }
-}
-else {
-    Write-WcsStep 'no log files' -Level Info
-}
+Write-WcsField 'Log' $(if ($log) { $log.FullName } else { 'none yet' })
 
-Write-WcsStep 'Last event log entries'
-# try/catch, not -ErrorAction: when the provider has never been registered Get-WinEvent
-# reports "The parameter is incorrect" through a channel SilentlyContinue does not suppress.
-$events = $null
-try {
-    $events = Get-WinEvent -FilterHashtable @{ LogName = 'Application'; ProviderName = $paths.ServiceName } -MaxEvents 5 -ErrorAction Stop
-}
-catch {
-    $events = $null
-}
-if ($events) {
-    $events | Select-Object TimeCreated, LevelDisplayName, @{ n = 'Message'; e = { ($_.Message -split "`r?`n")[0] } } |
-        Format-Table -AutoSize | Out-String | Write-Host
-}
-else {
-    Write-WcsStep 'none' -Level Info
+Write-Host ''
+
+if ($Logs -gt 0) {
+    if ($log) {
+        Write-WcsStep "Last $Logs log lines"
+        Get-Content $log.FullName -Tail $Logs | ForEach-Object { Write-Host "    $_" }
+    }
+
+    # try/catch because, when the source has never been registered, Get-WinEvent reports "The
+    # parameter is incorrect" through a channel -ErrorAction SilentlyContinue does not suppress.
+    Write-WcsStep 'Last Event Viewer entries'
+    try {
+        Get-WinEvent -FilterHashtable @{ LogName = 'Application'; ProviderName = $paths.ServiceName } -MaxEvents 5 -ErrorAction Stop |
+            ForEach-Object { Write-Host "    $($_.TimeCreated.ToString('yyyy-MM-dd HH:mm'))  $($_.LevelDisplayName)  $(($_.Message -split "`r?`n")[0])" }
+    }
+    catch {
+        Write-WcsStep 'none' -Level Info
+    }
 }

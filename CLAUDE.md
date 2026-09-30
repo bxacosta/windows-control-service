@@ -11,16 +11,16 @@ sign-ins, serves a password-protected API and interface on `http://localhost:515
 **Read `docs/windows-internals.md` before touching any Windows API**: the behaviour it records is mostly absent from
 Microsoft's.
 
-Rules below about the installed service apply only when `.\scripts\status.ps1` shows one.
+Rules below about the installed service apply only when `.\wcs status` shows one.
 
 ## Safety rules: this agent runs elevated
 
 Administrator rights on a real machine; a bad WDAC policy stops real programs from running.
 
-1. **Restore point before anything that applies a WDAC policy:** `.\scripts\restore-point.ps1`. Not created, not
+1. **Restore point before anything that applies a WDAC policy:** `.\wcs restore-point`. Not created, not
    applied. WDAC only: the registry tests put two DWORDs back in a `finally`.
 2. **Never deploy a policy that denies a real application.** Real-WDAC tests use the executable
-   `validate-blocking.ps1` compiles, never a browser, a game or a system tool.
+   `.\wcs validate` compiles, never a browser, a game or a system tool.
 3. **Every destructive validation is torn down in the same turn.** No policy left applied, no registry value left
    changed, no service left installed "for the next phase". Verify the final state.
 4. **Read a registry value before writing it**, and restore it in a `finally`.
@@ -32,21 +32,23 @@ Anything else that can affect the machine: ask first.
 
 ## Build, test, run
 
+`.\wcs` is the entry point; `.\wcs` alone lists the commands. Each is one script in `scripts\`.
+
 ```powershell
+.\wcs dev                               # from source, hot reload, :5151, data in src\WindowsControlService\.localdata
+.\wcs test                              # everything, node --test suites included
+.\wcs test -Fast                        # skips the tests that touch the machine
+.\wcs test -Filter PasswordServiceTests # one class, or one test
+.\wcs build                             # publishes to .\publish (Properties\PublishProfiles\win-x64.pubxml)
+.\wcs deploy                            # builds, then installs or updates; never touches the data
+.\wcs status                            # service, health, version vs HEAD, policy, USB, restore point, database
+.\wcs uninstall                         # policy first, then registry, service, binaries; keeps the data
+
 dotnet build                                    # TreatWarningsAsErrors is on; never turned off
-dotnet test                                     # everything, node --test suites included
-dotnet test --filter "Requires!=Admin"          # skips the tests that touch the machine
-dotnet test --filter "FullyQualifiedName~PasswordServiceTests"   # one class, or one test
 node --test "tests/interface/*.test.mjs"        # the interface rules alone
 node scripts/interface-dom.mjs --out=after.txt  # the DOM harness
 node banner/generate.mjs                        # redraws the README image
-
-# --data-dir and --urls keep a working-tree run off the installed instance's database and port
-dotnet run --project src/WindowsControlService -- --data-dir .\.localdata --urls http://localhost:5151
 ```
-
-`build.ps1` publishes to `.\publish` · `install.ps1 -From .\publish` registers and starts ·
-`update.ps1` replaces binaries, keeps data · `status.ps1` reports service, port, health, policy, USB, database.
 
 ## How the work is done
 
